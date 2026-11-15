@@ -507,10 +507,27 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .pin-ok { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; padding: 10px 14px; border-radius: 18px; border: 1.5px solid #86d9a8; background: #f0fbf4; color: #0b6a33; font-weight: 700; }
 .pin-ok b { font-size: 1.7rem; letter-spacing: 0.25em; font-weight: 800; color: var(--fg); }
 
-/* Tiêu đề trang chủ viết hoa: mỗi ý không bị ngắt giữa chừng, cỡ chữ co theo màn hình */
-.hero-title { font-size: clamp(1.7rem, 4.2vw, 3rem); line-height: 1.2; letter-spacing: 0.01em; }
-.hero-title span { white-space: nowrap; }
-@media (max-width: 400px) { .hero-title { font-size: 1.5rem; } }
+/* Tiêu đề trang chủ: luôn gọn trong HAI dòng ở mọi màn hình.
+   Dòng 1 chữ lớn màu chữ chính; dòng 2 nhỏ hơn, tô dải màu xanh thương hiệu để nổi bật mà vẫn đồng bộ với các nút. */
+.hero-title { margin: 12px 0 0; display: flex; flex-direction: column; gap: 4px; line-height: 1.12; font-weight: 800; letter-spacing: -0.005em; }
+.hero-title span { display: block; white-space: nowrap; }
+.hero-title .ht-main { font-size: clamp(1.4rem, 6.3vw, 2.7rem); color: var(--fg); }
+.hero-title .ht-sub { font-size: clamp(0.98rem, 4.35vw, 1.85rem); color: var(--primary-ink);
+  background: linear-gradient(90deg, #1668f2 0%, #0b4fd0 55%, #129a4b 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.hero-title .ht-sub i { font-style: normal; opacity: 0.55; margin: 0 0.15em; }
+/* gạch nhấn mảnh dưới tiêu đề */
+.hero-title::after { content: ''; width: 72px; height: 5px; border-radius: 999px; margin-top: 10px; background: linear-gradient(90deg, #1668f2, #129a4b); }
+/* Máy tính: cột chữ chỉ rộng hơn nửa trang nên cỡ chữ tính theo chiều rộng cột */
+@media (min-width: 861px) {
+  .hero-title .ht-main { font-size: clamp(1.9rem, 3.5vw, 2.7rem); }
+  .hero-title .ht-sub { font-size: clamp(1.25rem, 2.4vw, 1.85rem); }
+}
+@media (forced-colors: active) { .hero-title .ht-sub { -webkit-text-fill-color: currentColor; background: none; } }
+/* Bản thu nhỏ trong khung giới thiệu của cửa sổ đăng nhập */
+.hero-title.side { margin: 0; }
+.hero-title.side .ht-main { font-size: 1.55rem; }
+.hero-title.side .ht-sub { font-size: 1.08rem; }
+
 
 /* Trang chủ: dải nhỏ gửi lối vào cho học sinh (mã QR, chép link, tải mã QR) */
 .join-share { display: flex; align-items: center; gap: 10px; padding-top: 12px; margin-top: 2px; border-top: 1px solid rgba(255, 255, 255, 0.28); }

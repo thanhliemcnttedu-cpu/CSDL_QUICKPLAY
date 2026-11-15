@@ -31,7 +31,10 @@ export function Home() {
         <section className="hero">
           <div>
             <span className="badge blue">Miễn phí · Không quảng cáo</span>
-            <h1 className="hero-title" style={{ marginTop: 12 }}><span>TRẮC NGHIỆM TƯƠNG TÁC</span> <span>- AI BỨT PHÁ</span> <span>- QUẢN LÝ TRONG TAY</span></h1>
+            <h1 className="hero-title" aria-label="Trắc nghiệm tương tác – AI bứt phá – Quản lý trong tay">
+              <span className="ht-main" aria-hidden>TRẮC NGHIỆM TƯƠNG TÁC</span>
+              <span className="ht-sub" aria-hidden>AI BỨT PHÁ <i>•</i> QUẢN LÝ TRONG TAY</span>
+            </h1>
             <p className="muted" style={{ fontSize: '1.15rem', maxWidth: 560 }}>
               Soạn đề trong vài phút, tổ chức thi trực tiếp trên lớp hoặc giao bài về nhà. Mọi dữ liệu lưu trên Google Drive của thầy cô.
             </p>
