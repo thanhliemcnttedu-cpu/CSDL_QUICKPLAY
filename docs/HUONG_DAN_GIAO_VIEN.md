@@ -7,7 +7,7 @@
    (dán link thư mục → Sao chép mã → dán vào Apps Script mới → Triển khai → dán link `/exec` và bấm Kiểm tra).
 3. Vào **Cài đặt → Tài khoản → Email khôi phục**, điền email cá nhân để sau này tự lấy lại mật khẩu khi quên.
 
-Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối lại Google Drive của thầy cô. Muốn cất dự phòng: **Cài đặt → Sao lưu và khôi phục**.
+Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối lại Google Drive của thầy cô. Muốn cất dự phòng: **Cài đặt → Sao lưu và khôi phục** (tải một tệp `.json`, hoặc chọn một thư mục ở ổ D / E để phần mềm tự ghi thêm một bản mỗi lần lưu; tự ghi vào thư mục chỉ có trên Chrome, Edge, Cốc Cốc cho máy tính).
 
 Chưa cài Apps Script vẫn dùng thử được ở chế độ **"Chỉ máy này"** (dữ liệu nằm trong trình duyệt của máy đang dùng,
 học sinh chỉ vào được từ cùng máy).

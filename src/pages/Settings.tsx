@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup } from 'lucide-react';
+import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, FolderCog, HardDriveDownload } from 'lucide-react';
 import { loadSettings, saveSettings, isDesktop, type AppSettings } from '../lib/settings';
 import { changePassword, currentAccount, saveVault, setRecoveryEmail } from '../lib/account';
 import { testConnection } from '../lib/api';
@@ -12,6 +12,7 @@ import { SCRIPT_VERSION, compareVersion, pingScript } from '../lib/installer';
 import { exportAll, importAll, parseBackup } from '../lib/backup';
 import { pickFile } from '../components/MediaTools';
 import { downloadBlob } from '../lib/xlsx';
+import { FULL_FILE, allowFolder, chooseFolder, folderMeta, folderState, forgetFolder, saveEverything, type FolderState } from '../lib/localFolder';
 import '../installer.css';
 
 export default function Settings() {
@@ -49,6 +50,40 @@ export default function Settings() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const outdated = !!server && 'version' in server && compareVersion(server.version, SCRIPT_VERSION) < 0;
   const [progress, setProgress] = useState('');
+
+  // Thư mục trên máy tính để tự lưu thêm một bản
+  const [folder, setFolder] = useState<{ state: FolderState; name: string; last?: number; error?: string }>({ state: 'none', name: '' });
+  const refreshFolder = async () => {
+    const m = folderMeta();
+    setFolder({ state: await folderState(), name: m?.name ?? '', last: m?.last, error: m?.error });
+  };
+  useEffect(() => {
+    refreshFolder();
+    window.addEventListener('quickplay-folder', refreshFolder);
+    return () => window.removeEventListener('quickplay-folder', refreshFolder);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const pickFolder = async () => {
+    try {
+      const m = await chooseFolder();
+      if (m) toast(`Đã chọn thư mục “${m.name}”. Từ giờ mỗi lần lưu, phần mềm ghi thêm một bản vào đây.`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
+  const saveAllToFolder = async () => {
+    setBusy(true);
+    try {
+      const data = await exportAll((d, t) => setProgress(`Đang đọc ${d}/${t} bộ câu hỏi…`));
+      setProgress('Đang ghi vào thư mục…');
+      await saveEverything(data);
+      toast(`Đã lưu ${data.quizzes.length} bộ câu hỏi, ${data.classes.length} lớp vào thư mục “${folder.name}”.`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setProgress('');
+      setBusy(false);
+    }
+  };
 
   // Trình cài đặt đã kiểm tra xong link /exec: lưu kết nối, gắn thư mục, cất vào tài khoản để máy khác tự nhớ
   const installed = async (r: InstallResult) => {
@@ -274,6 +309,49 @@ export default function Settings() {
           </div>
         </div>
         {progress && <div className="alert ok" role="status">{progress}</div>}
+
+        <div className="folder-box">
+          <div className="row between">
+            <b className="row" style={{ gap: 8 }}><FolderCog size={20} color="var(--primary)" /> Tự lưu vào thư mục trên máy tính này</b>
+            {folder.state !== 'unsupported' && folder.state !== 'none' && (
+              <div className="row">
+                <button className="btn sm" onClick={pickFolder}>Đổi thư mục</button>
+                <button className="btn sm ghost" onClick={async () => { if (await askConfirm('Ngừng tự lưu vào thư mục này? Các tệp đã ghi vẫn nằm nguyên trong thư mục.')) await forgetFolder(); }}>Ngừng tự lưu</button>
+              </div>
+            )}
+          </div>
+          {folder.state === 'unsupported' && (
+            <p className="muted" style={{ margin: 0 }}>Trình duyệt này không cho trang web ghi vào thư mục trên máy. Hãy dùng <b>Chrome, Edge hoặc Cốc Cốc trên máy tính</b>; trên điện thoại, máy tính bảng, Safari và Firefox hãy dùng nút <b>Tải về tệp sao lưu</b> ở trên.</p>
+          )}
+          {folder.state === 'none' && (
+            <>
+              <div className="conn-off" style={{ fontWeight: 600 }}>Chưa chọn thư mục: phần mềm chưa ghi tệp nào ra ổ đĩa của máy.</div>
+              <button className="btn accent" onClick={pickFolder}><FolderOpen size={18} /> Chọn thư mục trên máy tính</button>
+            </>
+          )}
+          {(folder.state === 'granted' || folder.state === 'prompt' || folder.state === 'denied') && (
+            <>
+              {folder.state === 'granted' && !folder.error ? (
+                <div className="conn-ok"><CheckCircle2 size={20} /> Đang tự lưu vào thư mục “{folder.name}”{folder.last ? ` · lần ghi gần nhất ${new Date(folder.last).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` : ''}</div>
+              ) : folder.state === 'granted' ? (
+                <div className="alert error" role="alert"><div>Lần ghi gần nhất vào “{folder.name}” bị lỗi: {folder.error}</div></div>
+              ) : (
+                <div className="conn-off"><TriangleAlert size={20} /> Trình duyệt cần thầy cô cho phép ghi lại vào thư mục “{folder.name}” (hỏi lại mỗi lần mở trình duyệt).
+                  <button className="btn sm primary" onClick={async () => { if (!(await allowFolder())) toast('Trình duyệt chưa cho phép. Hãy bấm lại và chọn "Cho phép".', 'error'); }}>Cho phép ghi lại</button>
+                </div>
+              )}
+              <div className="row">
+                <button className="btn primary" onClick={saveAllToFolder} disabled={busy || folder.state !== 'granted'}><HardDriveDownload size={18} /> Lưu toàn bộ vào thư mục này</button>
+                <span className="muted small">Ghi tệp tổng <code>{FULL_FILE}</code> (dùng được để khôi phục) và từng tệp riêng.</span>
+              </div>
+            </>
+          )}
+          <ul className="help" style={{ margin: 0, paddingLeft: 18 }}>
+            <li>Nên chọn thư mục ở <b>ổ D hoặc E</b> (không chọn ổ C chứa Windows): khi cài lại Windows, ổ C thường bị xóa còn ổ D / E vẫn giữ dữ liệu.</li>
+            <li>Sau khi chọn, mỗi lần lưu bộ câu hỏi, lớp hay danh mục, phần mềm ghi đè tệp tương ứng trong thư mục (chỉ trên máy và trình duyệt này). Bấm <b>Lưu toàn bộ</b> một lần để chép hết những gì đã có.</li>
+            <li>Đây là bản dự phòng trên máy. Nơi lưu chính vẫn là {connected ? 'Google Drive của thầy cô' : 'trình duyệt của máy này'}.</li>
+          </ul>
+        </div>
       </section>
 
       <section className="card stack">

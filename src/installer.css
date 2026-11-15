@@ -31,3 +31,8 @@
 .backup-grid p { margin: 0; }
 
 .ins-code { height: 120px; font-family: ui-monospace, Consolas, monospace; font-size: 0.75rem; white-space: pre; resize: vertical; }
+
+/* Tự lưu vào thư mục trên máy */
+.folder-box { border: 1.5px solid var(--border); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; background: #f7faff; }
+.folder-box > .row.between, .folder-box > .conn-ok, .folder-box > .conn-off, .folder-box > .alert { width: 100%; }
+.folder-box .conn-off { flex-wrap: wrap; }

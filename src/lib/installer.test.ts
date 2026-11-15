@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { SCRIPT_VERSION, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, randomKey } from './installer';
 import { parseBackup } from './backup';
+import { fileSlug } from './localFolder';
 
 const teacherCode = readFileSync('apps-script/Code.gs', 'utf8');
 const adminCode = readFileSync('apps-script-admin/Code.gs', 'utf8');
@@ -51,5 +52,14 @@ describe('tệp sao lưu', () => {
     expect(parseBackup(JSON.stringify(quiz)).quizzes).toHaveLength(1);
     expect(() => parseBackup('{"a":1}')).toThrow(/không phải tệp sao lưu/);
     expect(() => parseBackup('không phải json')).toThrow(/không phải tệp .json/);
+  });
+});
+
+describe('tên tệp trong thư mục trên máy', () => {
+  it('bỏ dấu tiếng Việt và ký tự không dùng được trong tên tệp', () => {
+    expect(fileSlug('Tiếng Việt 1 – Đề số 2: "ôn tập"?')).toBe('Tieng-Viet-1-De-so-2-on-tap');
+    expect(fileSlug('quiz_mwh0bwc84422kr')).toBe('quiz-mwh0bwc84422kr');
+    expect(fileSlug('///')).toBe('khong-ten');
+    expect(fileSlug('a'.repeat(200))).toHaveLength(60);
   });
 });
