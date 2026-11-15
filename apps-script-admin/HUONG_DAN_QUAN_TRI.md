@@ -77,6 +77,10 @@ nên nếu mật khẩu đó dễ đoán thì người khác có thể dò ra; �
 Trang hiện mục **Thiết lập tài khoản quản trị**: nhập `ADMIN_KEY`, tên tài khoản (mặc định `adminquantri`) và mật khẩu do quản trị tự đặt
 (8–72 ký tự) → **Lưu tài khoản quản trị**.
 
+**Sao lưu và chuyển máy chủ (từ bản 1.6.0):** trang quản trị có khối **Sao lưu và khôi phục tài khoản**: **Tải file sao lưu tài khoản** (mọi tài khoản giáo viên, email,
+mật khẩu đang cấp, cấu hình kết nối đã mã hóa) và **Khôi phục từ file** trên máy chủ mới (thêm tài khoản chưa có; tài khoản đã có chỉ thay khi đồng ý).
+Trang báo dung lượng Google Drive của máy chủ và cảnh báo khi thư mục lưu trữ đã đầy. Tệp có mật khẩu giáo viên: cất ở nơi an toàn.
+
 **Từ lần sau:** mở `/adminquantri`, nhập tên tài khoản và mật khẩu → **Đăng nhập**. Trình duyệt giữ phiên đăng nhập (ra trang chủ, đóng trình duyệt rồi mở lại vẫn vào thẳng) cho tới khi bấm **Đăng xuất**. Máy chủ tài khoản bản 1.5.0 trở lên giữ phiên tối đa 30 ngày; bản cũ hơn chỉ 12 giờ, hết hạn thì trang hỏi lại mật khẩu.
 
 > Mật khẩu quản trị **không nằm trong mã nguồn** (mã của trang web ai cũng đọc được). Máy chủ chỉ lưu bản băm có muối.

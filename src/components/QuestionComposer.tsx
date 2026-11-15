@@ -10,7 +10,7 @@ import { BLANK, countBlanks, emptyDraft, fromQuestion, switchType, toQuestion, t
 import { gradeRatio, validateQuestion, type Answer } from '../lib/grading';
 import { uploadFile, embedUrl } from '../lib/media';
 import { useSpeech } from '../lib/speech';
-import { OPTION_LABELS, hashString } from '../lib/util';
+import { OPTION_LABELS, formatBytes, hashString } from '../lib/util';
 import { checkAudio, IMAGE_ACCEPT, imageFromPaste, pickFile, readClipboardImage, useImageUpload, useRecorder, VideoUrlDialog } from './MediaTools';
 import { useToast } from './ui';
 import { PlayQuestion } from './PlayQuestion';
@@ -96,9 +96,16 @@ export function QuestionComposer({ initial, defaultType = 'single_choice', lesso
   };
 
   // ---------- Âm thanh ----------
+  // Nén âm thanh (Opus 24 kbit/s, 1 kênh) trước khi tải lên để tiết kiệm dung lượng Google Drive
+  const shrinkAudio = async (blob: Blob) => {
+    const { compressAudio } = await import('../lib/audioCompress');
+    const r = await compressAudio(blob);
+    if (r.compressed) toast(`Đã nén âm thanh: ${formatBytes(r.before)} → ${formatBytes(r.after)}.`, 'info');
+    return r.blob;
+  };
   const recorder = useRecorder(async (blob) => {
     try {
-      set({ audio: await uploadFile(blob, `ghi-am-${Date.now()}.webm`) });
+      set({ audio: await uploadFile(await shrinkAudio(blob), `ghi-am-${Date.now()}.webm`) });
       toast('Đã lưu bản ghi âm.', 'ok');
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -110,7 +117,8 @@ export function QuestionComposer({ initial, defaultType = 'single_choice', lesso
     const err = checkAudio(f);
     if (err) return toast(err, 'error');
     try {
-      set({ audio: await uploadFile(f, f.name) });
+      const small = await shrinkAudio(f);
+      set({ audio: await uploadFile(small, small === f ? f.name : f.name.replace(/\.\w+$/, '') + '.webm') });
     } catch (e) {
       toast((e as Error).message, 'error');
     }

@@ -27,6 +27,10 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 Apps Script ghi một tệp `.json` duy nhất vào thư mục lưu trữ, tên theo tên đăng nhập và thời điểm lưu, ví dụ `035091005725_15_11_2026_12h45.json`.
 Tệp gộp cũ của cùng tài khoản được chuyển vào Thùng rác. Nếu đã chọn thư mục trên máy tính (Cài đặt → Sao lưu và khôi phục), tệp này cũng được ghi vào đó.
 
+**Sao lưu toàn bộ và chuyển Drive (từ bản 1.3.0):** Apps Script đọc hàng loạt bộ câu hỏi, kết quả buổi học, ảnh và âm thanh để phần mềm đóng gói
+một tệp sao lưu toàn bộ (đọc được cả khi Drive đã đầy), báo dung lượng Drive để cảnh báo khi sắp đầy, nhận khôi phục hàng loạt lên Drive mới,
+và nén lại ảnh/âm thanh cũ để tiết kiệm dung lượng. Khi Drive đầy, mọi lỗi ghi được báo rõ "Google Drive đã đầy".
+
 Khi phần mềm báo "Apps Script đang chạy mã cũ": chọn thẻ **Cập nhật bản mới** trong Trình cài đặt và làm lại 5 bước; link và dữ liệu giữ nguyên.
 
 Phần dưới đây là cách cài **thủ công**, chỉ cần khi không dùng được Trình cài đặt.
@@ -185,7 +189,7 @@ Muốn tắt: chạy hàm `removeCleanupTriggers` hoặc xóa trình kích hoạ
 
 ## Sao lưu & bảo mật
 
-- Sao lưu: tải cả thư mục **QUICKPLAY_DATA** từ Google Drive về máy (chuột phải → Tải xuống).
+- Sao lưu: trong phần mềm, **Cài đặt → Sao lưu và khôi phục → Tải file sao lưu toàn bộ** (một tệp gồm cả ảnh, âm thanh và kết quả). Cách thủ công: tải cả thư mục **QUICKPLAY_DATA** từ Google Drive về máy (chuột phải → Tải xuống).
 - Không chia sẻ `TEACHER_KEY` và `GEMINI_API_KEY` cho người khác. Nếu nghi bị lộ, đổi giá trị trong
   **Thuộc tính tập lệnh** (có hiệu lực ngay) và nhập lại khóa mới trong ứng dụng.
 - Không sửa tay các tệp trong `QUICKPLAY_DATA` khi đang có phòng thi diễn ra.

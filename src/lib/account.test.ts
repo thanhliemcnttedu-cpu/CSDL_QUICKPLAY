@@ -303,3 +303,34 @@ describe('máy chủ tài khoản', () => {
     expect(file).toContain('gv.a@example.com');
   });
 });
+
+describe('chuyển máy chủ tài khoản sang Google Drive mới bằng tệp sao lưu', () => {
+  it('tải tệp ở máy chủ cũ, nạp vào máy chủ mới: giáo viên đăng nhập được bằng mật khẩu cũ', () => {
+    const cu = createAdmin();
+    const k = cu.adminKey;
+    cu.post({ action: 'adminCreate', admin_key: k, username: '035091005725', name: 'Cô Lan', password: '123456' });
+    cu.post({ action: 'adminCreate', admin_key: k, username: 'gv02', name: 'Thầy Minh', password: 'abcdef' });
+    const s1 = cu.post({ action: 'login', username: '035091005725', password: '123456' }).data;
+    expect(cu.post({ action: 'changePassword', username: '035091005725', token: s1.token, password: '123456', new_password: 'ABCD123456', vault: '', email: 'lan@truong.vn' }).ok).toBe(true);
+    expect(cu.post({ action: 'adminExport', admin_key: 'sai' }).ok).toBe(false);
+    const file = cu.post({ action: 'adminExport', admin_key: k }).data;
+    expect(file.kind).toBe('accounts-backup');
+    expect(file.accounts.map((a: { username: string }) => a.username)).toEqual(['035091005725', 'gv02']);
+    expect(file.accounts[0].pw).toBe('ABCD123456');
+    expect(JSON.stringify(file)).not.toMatch(/token_hash/);
+
+    const moi = createAdmin();
+    const k2 = moi.adminKey;
+    moi.post({ action: 'adminCreate', admin_key: k2, username: 'gv02', name: 'Thầy Minh (mới)', password: 'khac123' });
+    expect(moi.post({ action: 'adminImport', admin_key: k2, data: { app: 'khac', accounts: [] } }).ok).toBe(false);
+    const r = moi.post({ action: 'adminImport', admin_key: k2, data: JSON.parse(JSON.stringify(file)) }).data;
+    expect(r).toEqual({ added: 1, updated: 0, kept: 1, invalid: 0 });
+    expect(moi.post({ action: 'login', username: '035091005725', password: 'ABCD123456' }).ok).toBe(true);
+    expect(moi.post({ action: 'login', username: 'gv02', password: 'khac123' }).ok).toBe(true); // không ghi đè thì giữ nguyên
+    const r2 = moi.post({ action: 'adminImport', admin_key: k2, data: file, overwrite: true }).data;
+    expect(r2.updated).toBe(2);
+    expect(moi.post({ action: 'login', username: 'gv02', password: 'abcdef' }).ok).toBe(true);
+    const list = moi.post({ action: 'adminList', admin_key: k2 }).data;
+    expect(list.find((a: { username: string }) => a.username === '035091005725').email).toBe('lan@truong.vn');
+  });
+});

@@ -3,6 +3,7 @@ import { HashRouter, NavLink, Link, Navigate, Route, Routes, useLocation, useNav
 import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLine, LogOut, UserRound, Monitor, Tablet, Smartphone } from 'lucide-react';
 import { LightboxProvider, Spinner, ToastProvider, askConfirm } from './components/ui';
 import { loadSettings } from './lib/settings';
+import { DriveFullBanner } from './components/BackupTools';
 import { accountRequired, checkSession, currentAccount, logout } from './lib/account';
 import { Wordmark } from './components/Logo';
 import './devices.css';
@@ -102,7 +103,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
         </nav>
         <AccountChip />
       </header>
-      <main className="page">{children}</main>
+      <main className="page"><DriveFullBanner />{children}</main>
       <AppFooter />
     </>
   );

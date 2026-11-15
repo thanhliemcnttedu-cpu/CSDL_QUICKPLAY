@@ -129,12 +129,6 @@ export async function runSnapshot(): Promise<SnapshotStatus | null> {
 /** Dựng tệp gộp ngay trên máy (khi lưu "Chỉ máy này", hoặc Apps Script bản cũ). */
 async function buildLocally(owner: string) {
   const { exportAll } = await import('./backup');
-  const data = await exportAll();
-  const sessions: unknown[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i) ?? '';
-    if (!k.startsWith('quizzi.session.')) continue;
-    try { sessions.push(JSON.parse(localStorage.getItem(k) || 'null')); } catch { /* bỏ qua */ }
-  }
-  return { ...data, owner, sessions: sessions.filter(Boolean) };
+  // tệp gộp tự lưu không kèm ảnh/âm thanh để ghi nhanh; tệp "Sao lưu toàn bộ" mới đóng gói cả ảnh/âm thanh
+  return { ...(await exportAll({ media: false, sessions: true })), owner };
 }

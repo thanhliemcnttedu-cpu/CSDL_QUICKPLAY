@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.2.0';
+var APP_VERSION = '1.3.0';
 
 // Trình cài đặt trong phần mềm Quickplay điền sẵn hai giá trị này khi thầy cô bấm "Sao chép mã",
 // nhờ đó không phải chạy hàm setup() hay tìm khóa trong nhật ký. Để trống nếu cài thủ công theo hướng dẫn.
@@ -146,6 +146,12 @@ function getRoutes_() {
 
     setRootFolder: { teacher: true, fn: actSetRootFolder_ },
     saveSnapshot: { teacher: true, fn: actSaveSnapshot_ },
+    driveQuota: { teacher: true, fn: actDriveQuota_ },
+    exportMedia: { teacher: true, fn: actExportMedia_ },
+    exportSessions: { teacher: true, fn: actExportSessions_ },
+    exportQuizzes: { teacher: true, fn: actExportQuizzes_ },
+    restoreData: { teacher: true, fn: actRestoreData_ },
+    swapMedia: { teacher: true, fn: actSwapMedia_ },
     getCatalog: { teacher: true, fn: actGetCatalog_ },
     saveCatalog: { teacher: true, fn: actSaveCatalog_ },
     listClasses: { teacher: true, fn: actListClasses_ },
@@ -2047,7 +2053,7 @@ function actSaveSnapshot_(req) {
     quizzes: readFolderJson_(folder_('quizzes'), QUIZ_INDEX_FILE),
     catalog: readJson_(root, CATALOG_FILE),
     classes: readClasses_(),
-    sessions: readFolderJson_(folder_('sessions'), SESSION_INDEX_FILE),
+    sessions: readFolderJson_(folder_('sessions'), SESSION_INDEX_FILE).filter(function (s) { return s && s.session_id; }),
   };
   var text = JSON.stringify(data);
   if (text.length > SNAPSHOT_MAX_CHARS) {
@@ -2079,6 +2085,190 @@ function actSaveSnapshot_(req) {
 }
 
 // ============================================================================
+// DUNG LƯỢNG DRIVE, SAO LƯU TOÀN BỘ VÀ KHÔI PHỤC (chuyển sang Google Drive mới)
+// ============================================================================
+// Lỗi bắt đầu bằng DRIVE_FULL: → phần mềm hiện cảnh báo "Drive đã đầy" kèm nút tải tệp sao lưu.
+var DRIVE_FULL_MSG = 'DRIVE_FULL: Google Drive của thầy cô đã đầy, không còn chỗ để lưu dữ liệu. Hãy tải tệp sao lưu toàn bộ về máy tính (Cài đặt → Sao lưu và khôi phục), rồi chuyển sang một Google Drive còn trống.';
+var MEDIA_EXPORT_BUDGET = 12 * 1024 * 1024; // mỗi lần gửi về tối đa ~12 MB tệp gốc (base64 ~16 MB)
+var MEDIA_EXPORT_MAX_FILE = 30 * 1024 * 1024;
+var SESSION_EXPORT_PAGE = 40;
+
+function isDriveFull_(msg) {
+  return /storage ?quota|storageQuotaExceeded|quota (has been )?exceeded for (this )?user|out of (storage|space)|insufficient storage|không đủ dung lượng|hết dung lượng|dung lượng lưu trữ (đã )?(đầy|hết)/i.test(String(msg));
+}
+
+/** Dung lượng Google Drive của tài khoản đang chạy Apps Script (byte). limit = 0 nghĩa là không giới hạn. */
+function actDriveQuota_() {
+  return { used: DriveApp.getStorageUsed(), limit: DriveApp.getStorageLimit() };
+}
+
+/** Gửi về nội dung các tệp ảnh/âm thanh (theo mã tệp Drive) để đóng gói vào tệp sao lưu. */
+function actExportMedia_(req) {
+  var ids = Array.isArray(req.ids) ? req.ids.slice(0, 60) : [];
+  var out = [];
+  var budget = 0;
+  ids.forEach(function (raw) {
+    var id = String(raw || '');
+    if (!/^[\w-]{10,}$/.test(id)) return;
+    if (budget >= MEDIA_EXPORT_BUDGET) { out.push({ id: id, later: true }); return; }
+    try {
+      var f = DriveApp.getFileById(id);
+      var size = f.getSize();
+      if (size > MEDIA_EXPORT_MAX_FILE) { out.push({ id: id, skipped: 'too_big', size: size }); return; }
+      if (budget > 0 && budget + size > MEDIA_EXPORT_BUDGET) { out.push({ id: id, later: true }); return; }
+      var blob = f.getBlob();
+      budget += size;
+      out.push({ id: id, mime: blob.getContentType(), name: f.getName(), size: size, base64: Utilities.base64Encode(blob.getBytes()) });
+    } catch (e) {
+      out.push({ id: id, missing: true });
+    }
+  });
+  return out;
+}
+
+/** Gửi về đầy đủ các bộ câu hỏi, từng trang 40 bộ (chỉ đọc: vẫn chạy khi Drive đã đầy). */
+function actExportQuizzes_(req) {
+  var page = Math.max(0, Math.floor(Number(req.page) || 0));
+  var files = [];
+  var it = folder_('quizzes').getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    var n = f.getName();
+    if (f.isTrashed() || n === QUIZ_INDEX_FILE || !/\.json$/i.test(n)) continue;
+    files.push(f);
+  }
+  files.sort(function (a, b) { return a.getName() < b.getName() ? -1 : 1; });
+  var items = [];
+  files.slice(page * SESSION_EXPORT_PAGE, (page + 1) * SESSION_EXPORT_PAGE).forEach(function (f) {
+    try {
+      var q = JSON.parse(f.getBlob().getDataAsString('UTF-8'));
+      if (q && q.id && Array.isArray(q.questions)) items.push(q);
+    } catch (e) { /* bỏ qua tệp hỏng */ }
+  });
+  return { total: files.length, page: page, page_size: SESSION_EXPORT_PAGE, items: items };
+}
+
+/** Gửi về các tệp kết quả buổi học (thư mục sessions), từng trang 40 tệp. */
+function actExportSessions_(req) {
+  var page = Math.max(0, Math.floor(Number(req.page) || 0));
+  var files = [];
+  var it = folder_('sessions').getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    var n = f.getName();
+    if (f.isTrashed() || n === SESSION_INDEX_FILE || !/\.json$/i.test(n)) continue;
+    files.push(f);
+  }
+  files.sort(function (a, b) { return a.getName() < b.getName() ? -1 : 1; });
+  var items = [];
+  files.slice(page * SESSION_EXPORT_PAGE, (page + 1) * SESSION_EXPORT_PAGE).forEach(function (f) {
+    try { items.push({ name: f.getName(), data: JSON.parse(f.getBlob().getDataAsString('UTF-8')) }); } catch (e) { /* bỏ qua tệp hỏng */ }
+  });
+  return { total: files.length, page: page, page_size: SESSION_EXPORT_PAGE, items: items };
+}
+
+/** Mục chỉ mục của một phiên (dùng chung với upsertSessionIndex_). */
+function sessionIndexEntry_(s, fileName) {
+  var entry = {
+    pin: s.pin, session_id: s.session_id, quiz_id: s.quiz_id, quiz_title: s.quiz_title, state: s.state,
+    mode: s.settings && s.settings.mode, created_at: s.created_at, player_count: Array.isArray(s.players) ? countActivePlayers_(s) : 0
+  };
+  if (s.ended_at) entry.ended_at = s.ended_at;
+  if (fileName && fileName !== s.pin + '.json') entry.archived_file = fileName;
+  return entry;
+}
+
+/**
+ * Khôi phục từ tệp sao lưu (gửi lên từng phần): bộ câu hỏi và tệp kết quả buổi học.
+ * Bộ câu hỏi trùng mã được ghi đè. Tệp phiên trùng tên nhưng là buổi KHÁC thì bỏ qua (không xóa kết quả đang có).
+ */
+function actRestoreData_(req) {
+  return withLock_(function () {
+    var r = { quizzes: 0, sessions: 0, files: 0, skipped: 0 };
+    var qs = Array.isArray(req.quizzes) ? req.quizzes : [];
+    if (qs.length) {
+      var qf = folder_('quizzes');
+      qs.forEach(function (q) {
+        if (!q || typeof q !== 'object' || !Array.isArray(q.questions) || !/^[\w-]{1,80}$/.test(String(q.id || ''))) { r.skipped++; return; }
+        q.visibility = q.visibility === 'public' ? 'public' : 'private';
+        if (!q.updated_at) q.updated_at = new Date().toISOString(); // giữ ngày cập nhật trong tệp sao lưu nếu có
+        if (!q.created_at) q.created_at = q.updated_at;
+        writeJson_(qf, q.id + '.json', q);
+        r.quizzes++;
+      });
+    }
+    if (req.rebuild_index) rebuildQuizIndex_();
+    var files = Array.isArray(req.session_files) ? req.session_files : [];
+    if (files.length) {
+      var sf = folder_('sessions');
+      var index = readSessionIndex_();
+      var changed = false;
+      files.forEach(function (it) {
+        var name = String(it && it.name || '');
+        var d = it && it.data;
+        if (!/^[\w.-]{1,100}\.json$/i.test(name) || name === SESSION_INDEX_FILE || !d || typeof d !== 'object') { r.skipped++; return; }
+        var old = findFile_(sf, name);
+        if (old && d.session_id) {
+          try {
+            var cur = JSON.parse(old.getBlob().getDataAsString('UTF-8'));
+            if (cur && cur.session_id && cur.session_id !== d.session_id) { r.skipped++; return; }
+          } catch (e) { /* tệp cũ hỏng: ghi đè */ }
+        }
+        writeText_(sf, name, JSON.stringify(d));
+        r.files++;
+        if (d.session_id && d.pin) {
+          var entry = sessionIndexEntry_(d, name);
+          var found = false;
+          for (var i = 0; i < index.length; i++) {
+            if (index[i].session_id === d.session_id) { index[i] = entry; found = true; break; }
+          }
+          if (!found) index.push(entry);
+          changed = true;
+          r.sessions++;
+        }
+      });
+      if (changed) writeJson_(sf, SESSION_INDEX_FILE, index);
+    }
+    return r;
+  });
+}
+
+/**
+ * Sau khi nén lại ảnh/âm thanh: thay link cũ bằng link mới trong các tệp kết quả buổi học (đề thẻ giấy, ảnh chụp đề),
+ * rồi chuyển tệp gốc vào Thùng rác (khôi phục được trong 30 ngày).
+ * map: { "<mã tệp cũ>": "<link mới>" }
+ */
+function actSwapMedia_(req) {
+  var map = req.map && typeof req.map === 'object' ? req.map : {};
+  var ids = Object.keys(map).filter(function (id) { return /^[\w-]{10,}$/.test(id) && typeof map[id] === 'string'; });
+  var r = { rewritten: 0, trashed: 0 };
+  if (!ids.length) return r;
+  withLock_(function () {
+    var it = folder_('sessions').getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      if (f.isTrashed() || !/\.json$/i.test(f.getName())) continue;
+      var text = f.getBlob().getDataAsString('UTF-8');
+      var next = text;
+      ids.forEach(function (id) {
+        if (next.indexOf(id) < 0) return;
+        next = next.split('https://lh3.googleusercontent.com/d/' + id).join(map[id])
+          .split('https://drive.google.com/uc?export=download&id=' + id).join(map[id])
+          .split('https://drive.google.com/uc?export=download\\u0026id=' + id).join(map[id]);
+      });
+      if (next !== text) { f.setContent(next); r.rewritten++; }
+    }
+    return null;
+  });
+  if (req.trash) {
+    ids.forEach(function (id) {
+      try { DriveApp.getFileById(id).setTrashed(true); r.trashed++; } catch (e) { /* tệp không còn hoặc không phải của mình */ }
+    });
+  }
+  return r;
+}
+
+// ============================================================================
 // TIỆN ÍCH CHUNG
 // ============================================================================
 
@@ -2096,6 +2286,7 @@ function userError_(msg) {
 function toMessage_(err) {
   if (err && err.userFacing) return err.message;
   var msg = err && err.message ? String(err.message) : String(err);
+  if (isDriveFull_(msg)) return DRIVE_FULL_MSG;
   if (/Service invoked too many times|quota|Quá nhiều/i.test(msg)) {
     return 'Đã vượt hạn mức dịch vụ của Google trong ngày. Vui lòng thử lại sau.';
   }

@@ -247,7 +247,10 @@ export const adminAuth = {
 export const adminApi = {
   list: () => adminCall<AccountRow[]>('adminList'),
   /** Nơi lưu trữ của máy chủ tài khoản trên Google Drive */
-  storage: () => adminCall<{ folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>('adminStorage'),
+  storage: () => adminCall<{ folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string; used?: number; limit?: number; full?: boolean }>('adminStorage'),
+  /** Tệp sao lưu toàn bộ tài khoản (để chuyển máy chủ sang Google Drive mới) */
+  exportAccounts: () => adminCall<{ app: string; kind: string; version: string; saved_at: string; admin: unknown; accounts: { username: string; name?: string }[] }>('adminExport'),
+  importAccounts: (data: unknown, overwrite: boolean) => adminCall<{ added: number; updated: number; kept: number; invalid: number }>('adminImport', { data, overwrite }),
   /** Kiểm tra khóa quản trị và thư mục lưu trữ ngay sau khi cài (chưa đăng nhập) */
   storageByKey: (adminKey: string) => call<{ folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>('adminStorage', { admin_key: adminKey }),
   create: (username: string, name: string, password: string) => adminCall<AccountRow>('adminCreate', { username, name, password }),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, FolderCog, HardDriveDownload } from 'lucide-react';
+import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, FolderCog, HardDriveDownload, Minimize2, ArrowRightLeft } from 'lucide-react';
 import { loadSettings, saveSettings, isDesktop, type AppSettings } from '../lib/settings';
 import { changePassword, currentAccount, saveVault, setRecoveryEmail } from '../lib/account';
 import { testConnection } from '../lib/api';
@@ -9,9 +9,9 @@ import type { Quiz } from '../lib/types';
 import { useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller, type InstallResult } from '../components/ScriptInstaller';
 import { SCRIPT_VERSION, compareVersion, pingScript } from '../lib/installer';
-import { exportAll, importAll, parseBackup } from '../lib/backup';
-import { pickFile } from '../components/MediaTools';
-import { downloadBlob } from '../lib/xlsx';
+import { ProgressLine, lastFullBackup, useFullBackup, useRestore } from '../components/BackupTools';
+import { checkDriveSpace, driveSpace, fmtGB, type DriveSpace } from '../lib/driveFull';
+import { formatBytes } from '../lib/util';
 import { allowFolder, chooseFolder, folderMeta, folderState, forgetFolder, type FolderState } from '../lib/localFolder';
 import { runSnapshot, snapshotName, snapshotOwner, snapshotStamp, snapshotStatus, type SnapshotStatus } from '../lib/autoSnapshot';
 import '../installer.css';
@@ -50,7 +50,6 @@ export default function Settings() {
     pingScript(saved.scriptUrl).then((r) => setServer({ version: r.version })).catch((e) => setServer({ error: (e as Error).message }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const outdated = !!server && 'version' in server && compareVersion(server.version, SCRIPT_VERSION) < 0;
-  const [progress, setProgress] = useState('');
 
   // Thư mục trên máy tính để tự lưu thêm một bản
   const [folder, setFolder] = useState<{ state: FolderState; name: string; last?: number; error?: string }>({ state: 'none', name: '' });
@@ -83,7 +82,6 @@ export default function Settings() {
   }, []);
   const saveNow = async () => {
     setBusy(true);
-    setProgress('Đang ghi tệp gộp…');
     try {
       const r = await runSnapshot();
       if (!r) return toast('Chưa có nơi nào để lưu: hãy kết nối Google Drive hoặc chọn thư mục trên máy tính.', 'info');
@@ -92,7 +90,6 @@ export default function Settings() {
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
-      setProgress('');
       setBusy(false);
     }
   };
@@ -120,37 +117,35 @@ export default function Settings() {
     return { folderName, folderUrl: next.folderUrl };
   };
 
-  const backup = async () => {
-    setBusy(true);
+  const full = useFullBackup();
+  const restoreTool = useRestore();
+  const [space, setSpace] = useState<DriveSpace | null>(driveSpace());
+  useEffect(() => {
+    if (connected) checkDriveSpace(true).then(setSpace).catch(() => {});
+    const on = () => setSpace(driveSpace());
+    window.addEventListener('quickplay-drive-space', on);
+    return () => window.removeEventListener('quickplay-drive-space', on);
+  }, [connected]);
+  // nhảy tới mục hướng dẫn khi mở từ cảnh báo "Drive đã đầy"
+  useEffect(() => {
+    if (location.hash.includes('chuyen-kho')) setTimeout(() => document.getElementById('chuyen-kho')?.scrollIntoView({ behavior: 'smooth' }), 300);
+  }, []);
+  const [opt, setOpt] = useState<{ text: string; pct: number } | null>(null);
+  const optimize = async () => {
+    if (!(await askConfirm('Nén lại toàn bộ ảnh và âm thanh đã tải lên Google Drive?\n\nẢnh được đổi sang WebP, âm thanh sang Opus. Chỉ tệp nào nhẹ đi rõ rệt mới được thay; tệp gốc chuyển vào Thùng rác của Drive (khôi phục được trong 30 ngày, sau đó Drive mới thật sự trống ra). Việc này có thể mất vài phút, hãy giữ trang này mở.', { okLabel: 'Bắt đầu nén' }))) return;
+    setOpt({ text: 'Đang bắt đầu…', pct: 0 });
     try {
-      const data = await exportAll((d, t) => setProgress(`Đang đọc ${d}/${t} bộ câu hỏi…`));
-      const day = new Date().toISOString().slice(0, 10);
-      downloadBlob(`quickplay-sao-luu-${day}.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
-      toast(`Đã tải về ${data.quizzes.length} bộ câu hỏi, ${data.classes.length} lớp.`, 'ok');
+      const { optimizeDriveMedia } = await import('../lib/mediaOptimize');
+      const r = await optimizeDriveMedia((text, pct) => setOpt({ text, pct: pct ?? 0 }));
+      toast(r.shrunk ? `Đã nén ${r.shrunk}/${r.checked} tệp: ${formatBytes(r.before)} → ${formatBytes(r.after)} (tiết kiệm ${formatBytes(r.before - r.after)}). Dọn Thùng rác của Drive để lấy lại dung lượng ngay.` : `Đã xem ${r.checked} tệp: tất cả đều đã gọn, không cần nén thêm.`, 'ok');
+      checkDriveSpace(true).then(setSpace).catch(() => {});
     } catch (e) {
-      toast((e as Error).message, 'error');
+      toast(/không hợp lệ|Hành động/.test((e as Error).message) ? 'Apps Script của thầy cô đang chạy bản cũ. Hãy cập nhật (Trình cài đặt → Cập nhật bản mới) rồi chạy lại.' : (e as Error).message, 'error');
     } finally {
-      setProgress('');
-      setBusy(false);
+      setOpt(null);
     }
   };
-  const restore = async () => {
-    const f = await pickFile('.json,application/json');
-    if (!f) return;
-    try {
-      const data = parseBackup(await f.text());
-      const where = connected ? 'Google Drive của thầy cô' : 'trình duyệt của máy này';
-      if (!(await askConfirm(`Tệp có ${data.quizzes.length} bộ câu hỏi, ${data.classes.length} lớp${data.catalog ? ' và danh mục môn học' : ''}.\nKhôi phục vào ${where}? Bộ câu hỏi trùng mã sẽ được ghi đè bằng bản trong tệp${data.catalog ? '; danh mục môn học hiện tại được thay bằng danh mục trong tệp' : ''}.`, { okLabel: 'Khôi phục' }))) return;
-      setBusy(true);
-      const r = await importAll(data, (d, t) => setProgress(`Đang ghi ${d}/${t}…`));
-      toast(`Đã khôi phục ${r.quizzes} bộ câu hỏi, ${r.classes} lớp.`, 'ok');
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setProgress('');
-      setBusy(false);
-    }
-  };
+  const last = lastFullBackup();
 
   const test = async () => {
     setStatus(null);
@@ -312,22 +307,56 @@ export default function Settings() {
         )}
       </section>
 
-      <section className="card stack">
+      <section className="card stack" id="sao-luu">
         <h2 className="row" style={{ margin: 0, gap: 8 }}><DatabaseBackup size={22} color="var(--primary)" /> Sao lưu và khôi phục</h2>
-        <p className="muted" style={{ margin: 0 }}>Một tệp .json chứa toàn bộ bộ câu hỏi, danh mục môn học và danh sách lớp đang lưu ở <b>{connected ? 'Google Drive của thầy cô' : 'trình duyệt của máy này'}</b>. Kết quả các buổi đã tổ chức xuất riêng bằng Excel hoặc PDF ở mục Báo cáo.</p>
+        {connected && space?.used !== undefined && space.limit ? (
+          <div className="space-meter">
+            <div className="row between"><b>Dung lượng Google Drive</b><small>{fmtGB(space.used)} / {fmtGB(space.limit)} ({Math.round((space.used / space.limit) * 100)}%)</small></div>
+            <div className={`progress ${space.level}`} aria-hidden><i style={{ width: `${Math.min(100, (space.used / space.limit) * 100)}%` }} /></div>
+            <small className="muted">Tài khoản Gmail miễn phí có 15 GB dùng chung cho Drive, Gmail và Ảnh. Khi dùng từ 90% trở lên, phần mềm sẽ nhắc tải tệp sao lưu.</small>
+          </div>
+        ) : null}
         <div className="backup-grid">
           <div>
-            <b>Tải tệp dữ liệu về máy</b>
-            <p className="muted small">Dùng để cất dự phòng, chép sang USB hoặc gửi cho đồng nghiệp.</p>
-            <button className="btn primary" onClick={backup} disabled={busy}><Download size={18} /> Tải về tệp sao lưu (.json)</button>
+            <b>Tải file sao lưu toàn bộ về máy tính</b>
+            <p className="muted small">Một tệp <code>.json</code> duy nhất chứa: thông tin tài khoản (tên đăng nhập, họ tên, email), môn học – chương – bài, lớp và danh sách học sinh,
+              tất cả bộ câu hỏi (ngân hàng câu hỏi), kết quả các buổi đã tổ chức, và <b>ảnh, âm thanh trong câu hỏi</b> (đóng gói ngay trong tệp nên không phụ thuộc Drive cũ).</p>
+            <button className="btn primary" onClick={full.run} disabled={!!full.prog || busy}><Download size={18} /> Tải file sao lưu toàn bộ</button>
+            {last && <small className="muted" style={{ display: 'block', marginTop: 6 }}>Lần tải gần nhất trên máy này: {last.name} ({formatBytes(last.size)}), {new Date(last.at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</small>}
           </div>
           <div>
-            <b>Khôi phục từ tệp</b>
-            <p className="muted small">Chọn tệp sao lưu đã tải trước đó, hoặc tệp một bộ câu hỏi lẻ. Phần mềm cho xem số lượng trước khi ghi.</p>
-            <button className="btn" onClick={restore} disabled={busy}><Upload size={18} /> Chọn tệp .json để khôi phục</button>
+            <b>Khôi phục từ file sao lưu</b>
+            <p className="muted small">Chọn file sao lưu toàn bộ, file gộp tự lưu, hoặc file một bộ câu hỏi lẻ. Phần mềm cho xem số lượng và cho chọn nơi khôi phục: Google Drive đang kết nối, hoặc <b>chạy độc lập trên máy này</b>.</p>
+            <button className="btn" onClick={restoreTool.open} disabled={!!full.prog || busy}><Upload size={18} /> Chọn file .json để khôi phục</button>
           </div>
         </div>
-        {progress && <div className="alert ok" role="status">{progress}</div>}
+        <ProgressLine prog={full.prog} />
+        {restoreTool.dialog}
+
+        {connected && (
+          <div className="folder-box">
+            <b className="row" style={{ gap: 8 }}><Minimize2 size={20} color="var(--primary)" /> Nén ảnh, âm thanh để tiết kiệm dung lượng</b>
+            <p className="muted" style={{ margin: 0 }}>
+              Từ nay ảnh và âm thanh <b>tự được nén trước khi tải lên</b>: ảnh đổi sang WebP (cạnh dài tối đa 1280 điểm ảnh), âm thanh đổi sang Opus 24 kbit/s một kênh
+              (1 phút chỉ còn khoảng 180 KB, nhỏ hơn MP3 khoảng 5 lần). Ảnh trùng nhau chỉ lưu một lần. Video nên nhúng từ YouTube (không tốn dung lượng Drive, phát mượt hơn trên điện thoại).
+              Ảnh và âm thanh tải lên từ trước có thể nén lại bằng nút dưới đây.
+            </p>
+            <ProgressLine prog={opt} />
+            <div className="row"><button className="btn" onClick={optimize} disabled={!!opt || busy}><Minimize2 size={18} /> Nén lại ảnh, âm thanh đã tải lên</button></div>
+          </div>
+        )}
+
+        <div className="folder-box" id="chuyen-kho">
+          <b className="row" style={{ gap: 8 }}><ArrowRightLeft size={20} color="var(--primary)" /> Khi Google Drive đã đầy: chuyển sang kho lưu trữ mới</b>
+          <ol className="move-steps">
+            <li><b>Tải file sao lưu toàn bộ</b> bằng nút ở trên (vẫn tải được khi Drive đã đầy). Cất tệp vào ổ D, USB hoặc gửi vào email của mình.</li>
+            <li><b>Tạo thư mục trong Google Drive mới</b> (một Gmail khác còn trống, hoặc tài khoản Google One có dung lượng lớn hơn) và chép link thư mục.</li>
+            <li><b>Chạy lại Trình cài đặt</b> ở mục <b>Nơi lưu dữ liệu</b> phía trên, đăng nhập Apps Script bằng Gmail mới và dán link thư mục mới. Tài khoản Quickplay tự nhớ kết nối mới trên mọi máy.</li>
+            <li><b>Khôi phục từ file sao lưu</b> → chọn tệp vừa tải → <b>Google Drive đang kết nối</b>. Toàn bộ lớp học, học sinh, môn học, bộ câu hỏi, kết quả và ảnh/âm thanh được đưa lên Drive mới, link tự đổi theo.</li>
+            <li>Kiểm tra Thư viện, Lớp và Báo cáo. Drive cũ có thể giữ lại làm bản lưu trữ hoặc dọn đi.</li>
+          </ol>
+          <small className="muted">Không có Internet hoặc chưa kịp có Drive mới? Chọn <b>Chỉ máy này (chạy độc lập)</b> khi khôi phục: dữ liệu mở và dùng ngay trên máy tính, sau này khôi phục lại lên Drive mới cũng được.</small>
+        </div>
 
         <div className="folder-box">
           <b className="row" style={{ gap: 8 }}><FolderCog size={20} color="var(--primary)" /> Tự lưu một tệp gộp mỗi khi dữ liệu thay đổi</b>

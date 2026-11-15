@@ -64,9 +64,15 @@ export const fileToDataUrl = (f: Blob) =>
     r.readAsDataURL(f);
   });
 
-/** Thu nhỏ ảnh lớn (giữ tỉ lệ) để tệp JSON nhẹ, tải nhanh trên điện thoại học sinh. */
-export async function compressImage(f: Blob, maxSide = 1280, quality = 0.8): Promise<Blob> {
-  if (f.type === 'image/gif' || f.type === 'image/svg+xml' || f.size < 120 * 1024) return f;
+/** Chất lượng WebP khi nén ảnh: 0.72 gần như không thấy khác bằng mắt trên màn hình lớp học, nhẹ hơn JPG cùng cỡ 30–60%. */
+export const IMAGE_QUALITY = 0.72;
+/** Ảnh dưới mức này đã đủ nhẹ, không nén lại (tránh làm mờ hình vẽ nhỏ). */
+const IMAGE_SKIP_BYTES = 40 * 1024;
+
+/** Thu nhỏ ảnh lớn (cạnh dài tối đa maxSide, giữ tỉ lệ) và đổi sang WebP để tốn ít dung lượng Drive, tải nhanh trên điện thoại học sinh.
+ *  Chỉ dùng bản nén khi nhỏ hơn bản gốc. Ảnh GIF (có thể là ảnh động) giữ nguyên. */
+export async function compressImage(f: Blob, maxSide = 1280, quality = IMAGE_QUALITY): Promise<Blob> {
+  if (f.type === 'image/gif' || f.type === 'image/svg+xml' || f.size < IMAGE_SKIP_BYTES) return f;
   try {
     const bmp = await createImageBitmap(f);
     const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
@@ -79,6 +85,16 @@ export async function compressImage(f: Blob, maxSide = 1280, quality = 0.8): Pro
   } catch {
     return f;
   }
+}
+
+/** Nén một tệp đa phương tiện theo loại: ảnh → WebP, âm thanh → Opus/WebM. Loại khác giữ nguyên. */
+export async function shrinkMedia(f: Blob, onProgress?: (pct: number) => void): Promise<Blob> {
+  if (f.type.startsWith('image/')) return compressImage(f);
+  if (f.type.startsWith('audio/') && f.type !== 'audio/webm;codecs=opus') {
+    const { compressAudio } = await import('./audioCompress');
+    return (await compressAudio(f, onProgress)).blob;
+  }
+  return f;
 }
 
 /** Mã băm SHA-256 (dạng hex) của nội dung tệp: hai tệp giống hệt nhau có cùng mã → nhận ra ảnh trùng. */

@@ -39,6 +39,11 @@ async function callDrive<T>(action: string, params: Record<string, unknown> = {}
   } catch {
     throw retryable('Apps Script trả về dữ liệu không hợp lệ. Hãy kiểm tra đã triển khai Web App với quyền "Bất kỳ ai".');
   }
+  if (!json.ok && /^DRIVE_FULL:/.test(json.error ?? '')) {
+    // Google Drive của giáo viên đã đầy: bật cảnh báo kèm nút tải tệp sao lưu toàn bộ
+    import('./driveFull').then((m) => m.markDriveFull()).catch(() => {});
+    throw new ApiError(json.error!.replace(/^DRIVE_FULL:\s*/, ''));
+  }
   if (!json.ok) throw /Máy chủ đang bận/.test(json.error ?? '') ? retryable(json.error!) : new ApiError(json.error || 'Lỗi không xác định từ Apps Script.');
   return json.data as T;
 }
@@ -80,7 +85,7 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
         return all
           .filter((q) => action === 'listQuizzes' || q.visibility === 'public')
           .map(summary)
-          .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+          .sort((a, b) => String(b.updated_at ?? '').localeCompare(String(a.updated_at ?? '')));
       }
       case 'getQuiz': {
         const q = await kvGet<Quiz>('quiz:' + p.id);

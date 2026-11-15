@@ -11,7 +11,7 @@
  */
 
 var ADMIN_APP = 'QUICKPLAY-ACCOUNTS';
-var ADMIN_VERSION = '1.5.0';
+var ADMIN_VERSION = '1.6.0';
 
 // Trình cài đặt trong phần mềm điền sẵn khóa quản trị vào đây khi bấm "Sao chép mã" (không phải chạy setup()).
 var PRESET_ADMIN_KEY = '';
@@ -21,7 +21,7 @@ var PRESET_FOLDER_ID = '';
 var SNAPSHOT_FILE = 'quickplay-tai-khoan.json';
 // Các hành động làm thay đổi tài khoản → ghi lại tệp sao lưu (đăng nhập, kiểm tra phiên thì không ghi để không chậm)
 var MIRRORED = { adminInit: 1, adminChangePassword: 1, adminSetEmail: 1, adminForgotFinish: 1, adminCreate: 1, adminSetLocked: 1,
-  adminResetPassword: 1, adminDelete: 1, saveVault: 1, changePassword: 1, setRecoveryEmail: 1, forgotFinish: 1 };
+  adminResetPassword: 1, adminDelete: 1, adminImport: 1, saveVault: 1, changePassword: 1, setRecoveryEmail: 1, forgotFinish: 1 };
 var HASH_ROUNDS = 1500;
 var MAX_VAULT = 6000;          // ký tự – một thuộc tính Script Properties chứa tối đa ~9 KB
 var MAX_FAILS = 8;             // sai mật khẩu quá số lần này thì tạm khóa đăng nhập
@@ -63,7 +63,9 @@ function doPost(e) {
       adminSetLocked: admin_(actAdminSetLocked_),
       adminResetPassword: admin_(actAdminResetPassword_),
       adminDelete: admin_(actAdminDelete_),
-      adminViewPassword: admin_(actAdminViewPassword_)
+      adminViewPassword: admin_(actAdminViewPassword_),
+      adminExport: admin_(actAdminExport_),
+      adminImport: admin_(actAdminImport_)
     };
     var fn = Object.prototype.hasOwnProperty.call(routes, req.action) ? routes[req.action] : null;
     if (!fn) throw err_('Hành động không hợp lệ.');
@@ -373,7 +375,9 @@ function restoreIfEmpty_() {
 /** Quản trị xem nơi lưu trữ: tên và link thư mục, link tệp sao lưu, lỗi ghi gần nhất (nếu có). */
 function actAdminStorage_() {
   var id = folderId_();
-  var out = { folder_id: id, folder_name: '', folder_url: '', file_url: '', saved_at: '', error: PropertiesService.getScriptProperties().getProperty('MIRROR_ERR') || '' };
+  var out = { folder_id: id, folder_name: '', folder_url: '', file_url: '', saved_at: '', error: PropertiesService.getScriptProperties().getProperty('MIRROR_ERR') || '', used: 0, limit: 0, full: false };
+  try { out.used = DriveApp.getStorageUsed(); out.limit = DriveApp.getStorageLimit(); } catch (e) { /* bỏ qua */ }
+  out.full = /storage ?quota|quota (has been )?exceeded for (this )?user|out of (storage|space)|không đủ dung lượng|hết dung lượng/i.test(out.error) || (out.limit > 0 && out.used / out.limit >= 0.98);
   if (!id) return out;
   try {
     var folder = DriveApp.getFolderById(id);
@@ -385,6 +389,54 @@ function actAdminStorage_() {
     out.error = 'Máy chủ không mở được thư mục này. Thư mục phải nằm trong Google Drive của chính tài khoản đã cài máy chủ.';
   }
   return out;
+}
+
+/** Tải tệp sao lưu tài khoản về máy: mọi tài khoản giáo viên (kể cả mật khẩu quản trị đang xem được), email, két cấu hình đã mã hóa. */
+function actAdminExport_() {
+  var all = PropertiesService.getScriptProperties().getProperties();
+  var out = { app: ADMIN_APP, kind: 'accounts-backup', version: ADMIN_VERSION, saved_at: new Date().toISOString(), admin: null, accounts: [] };
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf('U_') !== 0) return;
+    try {
+      var acc = JSON.parse(all[k]);
+      var o = forSnapshot_(acc);
+      if (acc.pw) o.pw = acc.pw;
+      out.accounts.push(o);
+    } catch (e) { /* bỏ qua bản ghi hỏng */ }
+  });
+  out.accounts.sort(function (a, b) { return a.username < b.username ? -1 : 1; });
+  var admin = adminAcc_();
+  if (admin) out.admin = forSnapshot_(admin);
+  return out;
+}
+
+/**
+ * Nạp tệp sao lưu tài khoản (khi chuyển máy chủ sang Google Drive mới).
+ * Tài khoản chưa có thì thêm; tài khoản đã có chỉ được thay khi overwrite = true.
+ * Tài khoản quản trị đang đăng nhập giữ nguyên.
+ */
+function actAdminImport_(req) {
+  var d = req.data;
+  if (!d || typeof d !== 'object' || d.app !== ADMIN_APP || !Array.isArray(d.accounts)) throw err_('Tệp này không phải tệp sao lưu tài khoản của Quickplay.');
+  var overwrite = !!req.overwrite;
+  return lock_(function () {
+    var props = PropertiesService.getScriptProperties();
+    var all = props.getProperties();
+    var count = Object.keys(all).filter(function (k) { return k.indexOf('U_') === 0; }).length;
+    var r = { added: 0, updated: 0, kept: 0, invalid: 0 };
+    d.accounts.forEach(function (a) {
+      if (!a || !USER_RE.test(String(a.username || '')) || !a.salt || !a.hash) { r.invalid++; return; }
+      var key = 'U_' + a.username;
+      var exists = !!all[key];
+      if (exists && !overwrite) { r.kept++; return; }
+      if (!exists && count >= MAX_ACCOUNTS) { r.invalid++; return; }
+      var o = {};
+      Object.keys(a).forEach(function (k) { if (k !== 'token_hash' && k !== 'token_at' && k !== 'reset' && k !== 'fails' && k !== 'fail_at') o[k] = a[k]; });
+      props.setProperty(key, JSON.stringify(o));
+      if (exists) r.updated++; else { r.added++; count++; }
+    });
+    return r;
+  });
 }
 
 /** Thiết lập (hoặc đặt lại) tài khoản quản trị. Bắt buộc có ADMIN_KEY. */

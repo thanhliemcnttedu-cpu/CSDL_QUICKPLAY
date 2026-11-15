@@ -12,6 +12,21 @@ Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối 
 Chưa cài Apps Script vẫn dùng thử được ở chế độ **"Chỉ máy này"** (dữ liệu nằm trong trình duyệt của máy đang dùng,
 học sinh chỉ vào được từ cùng máy).
 
+## Sao lưu, khôi phục và chuyển sang Google Drive mới
+
+**Cài đặt → Sao lưu và khôi phục → Tải file sao lưu toàn bộ** tạo MỘT tệp `quickplay-saoluu_<tên đăng nhập>_<ngày>_<tháng>_<năm>_<giờ>h<phút>.json` gồm:
+thông tin tài khoản (tên đăng nhập, họ tên, email), môn học – chương – bài, lớp và học sinh, tất cả bộ câu hỏi, kết quả các buổi đã tổ chức,
+và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên tệp dùng được kể cả khi Drive cũ không còn).
+
+- **Khi Google Drive đầy**, phần mềm hiện cảnh báo đỏ ở mọi trang kèm nút **Tải file sao lưu toàn bộ** (vẫn tải được khi Drive đã đầy). Từ 90% dung lượng trở lên, phần mềm nhắc trước.
+- **Chuyển sang Drive mới:** tải file sao lưu → tạo thư mục ở Google Drive mới → chạy lại Trình cài đặt (Cài đặt → Nơi lưu dữ liệu) bằng Gmail mới →
+  **Khôi phục từ file sao lưu** → chọn **Google Drive đang kết nối**. Ảnh, âm thanh được tải lên Drive mới, link trong câu hỏi tự đổi theo.
+- **Chạy độc lập trên máy:** khi khôi phục chọn **Chỉ máy này (chạy độc lập)**: toàn bộ dữ liệu mở ngay trên máy tính, không cần Google Drive.
+
+**Tiết kiệm dung lượng (Gmail miễn phí chỉ có 15 GB):** ảnh tự đổi sang WebP (cạnh dài tối đa 1280 điểm ảnh), âm thanh tự đổi sang Opus 24 kbit/s một kênh
+(1 phút khoảng 180 KB) trước khi tải lên; ảnh trùng chỉ lưu một lần. Ảnh, âm thanh tải lên từ trước: bấm **Nén lại ảnh, âm thanh đã tải lên**
+(tệp gốc vào Thùng rác của Drive; dọn Thùng rác để lấy lại dung lượng ngay). Video nên nhúng link YouTube: không tốn dung lượng Drive, phát mượt trên điện thoại.
+
 ## Soạn bộ câu hỏi
 
 - **Thư viện → Tạo bộ đề**, hoặc **Nhập từ tệp** (Word, PDF, Excel, Google Form), hoặc **AI sinh đề**.

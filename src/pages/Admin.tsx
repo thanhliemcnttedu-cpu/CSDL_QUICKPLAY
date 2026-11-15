@@ -1,7 +1,7 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Check, ChevronRight, Download, Eye, EyeOff, FileSpreadsheet, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Check, ChevronRight, Download, Eye, EyeOff, DatabaseBackup, FileSpreadsheet, FolderOpen, TriangleAlert, Upload, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminBootOk, adminEmail, adminSignedIn, adminUrl, adminUser, bootAdminPassword, markDefaultAdminPassword, setAdminUrl, usingDefaultAdminPassword, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
@@ -9,6 +9,7 @@ import { Field, Modal, useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller } from '../components/ScriptInstaller';
 import { ADMIN_SCRIPT_VERSION, buildLinkFile, compareVersion, linkFileName, loadLink, pingScript, saveLink } from '../lib/installer';
 import { downloadBlob } from '../lib/xlsx';
+import { pickFile } from '../components/MediaTools';
 import { AdminGuide } from '../components/AdminGuide';
 import '../installer.css';
 import '../admin.css';
@@ -64,7 +65,7 @@ export default function Admin() {
   const [serverVer, setServerVer] = useState('');
   const outdated = !!serverVer && compareVersion(serverVer, ADMIN_SCRIPT_VERSION) < 0;
   const [afterLink, setAfterLink] = useState<null | { label: string; go: () => void }>(null);
-  const [store, setStore] = useState<null | { folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>(null); // đang dùng mật khẩu mặc định: nhắc đổi ngay
+  const [store, setStore] = useState<null | { folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string; used?: number; limit?: number; full?: boolean }>(null); // đang dùng mật khẩu mặc định: nhắc đổi ngay
   const [fg, setFg] = useState<null | { sentTo: string; code: string; next: string; again: string; err: string; busy: boolean }>(null);
   const envUrl = ((import.meta.env?.VITE_ADMIN_URL as string | undefined) || '').trim(); // đã đặt trên Vercel chưa
   const saveMail = async () => {
@@ -275,6 +276,45 @@ export default function Admin() {
     run(() => adminApi.resetPassword(r.username, password).then(() => { setIssued({ username: r.username, password }); setShown((m) => ({ ...m, [r.username]: password })); }), 'Đã đặt lại mật khẩu.');
   };
 
+  // ---------- sao lưu / khôi phục tài khoản (khi chuyển máy chủ sang Google Drive mới) ----------
+  const [accBusy, setAccBusy] = useState(false);
+  const exportAccounts = async () => {
+    setAccBusy(true);
+    try {
+      const d = await adminApi.exportAccounts();
+      const t = new Date();
+      const p = (n: number) => String(n).padStart(2, '0');
+      const name = `quickplay-taikhoan_${p(t.getDate())}_${p(t.getMonth() + 1)}_${t.getFullYear()}_${p(t.getHours())}h${p(t.getMinutes())}.json`;
+      downloadBlob(name, new Blob([JSON.stringify(d, null, 1)], { type: 'application/json' }));
+      toast(`Đã tải về ${name}: ${d.accounts.length} tài khoản giáo viên. Tệp có mật khẩu của giáo viên, hãy cất ở nơi an toàn.`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setAccBusy(false);
+    }
+  };
+  const importAccounts = async () => {
+    const f = await pickFile('.json,application/json');
+    if (!f) return;
+    let d: { app?: string; accounts?: { username: string }[]; saved_at?: string };
+    try { d = JSON.parse(await f.text()); } catch { return toast('Tệp này không phải tệp .json hợp lệ.', 'error'); }
+    if (d?.app !== 'QUICKPLAY-ACCOUNTS' || !Array.isArray(d.accounts)) return toast('Tệp này không phải tệp sao lưu tài khoản của Quickplay.', 'error');
+    const have = new Set((rows ?? []).map((r) => r.username));
+    const dup = d.accounts.filter((a) => have.has(a.username)).length;
+    if (!(await askConfirm(`Tệp có ${d.accounts.length} tài khoản giáo viên${d.saved_at ? ` (lưu lúc ${new Date(d.saved_at).toLocaleString('vi-VN')})` : ''}.\n${d.accounts.length - dup} tài khoản sẽ được thêm mới${dup ? `, ${dup} tài khoản đã có trên máy chủ này` : ''}.\nTài khoản quản trị đang đăng nhập giữ nguyên.`, { okLabel: 'Khôi phục' }))) return;
+    const overwrite = dup > 0 && (await askConfirm(`Thay ${dup} tài khoản đã có bằng bản trong tệp (mật khẩu, email, cấu hình của giáo viên theo tệp)?\nBấm Hủy để giữ nguyên các tài khoản đó.`, { okLabel: 'Thay bằng bản trong tệp' }));
+    setAccBusy(true);
+    try {
+      const r = await adminApi.importAccounts(d, overwrite);
+      toast(`Đã khôi phục: thêm ${r.added}, cập nhật ${r.updated}, giữ nguyên ${r.kept}${r.invalid ? `, bỏ qua ${r.invalid} bản ghi lỗi` : ''}.`, 'ok');
+      await load();
+    } catch (e) {
+      toast(/không hợp lệ/i.test((e as Error).message) ? `Máy chủ tài khoản đang chạy bản cũ. Hãy cập nhật lên ${ADMIN_SCRIPT_VERSION} (Trình cài đặt → Cập nhật bản mới) rồi làm lại.` : (e as Error).message, 'error');
+    } finally {
+      setAccBusy(false);
+    }
+  };
+
   if (step === 'server' && !adminBootOk()) return <Navigate to="/login?role=admin" replace />;
 
   return (
@@ -374,6 +414,43 @@ export default function Admin() {
         ) : (
           <div className="conn-off" role="status"><FolderOpen size={20} /> Máy chủ tài khoản này chưa có thư mục Google Drive lưu trữ. Muốn có tệp sao lưu, hãy cài lại bằng Trình cài đặt (bước 1: dán link thư mục và bấm Lưu link).</div>
         )
+      )}
+      {step === 'in' && (
+        <section className="card stack">
+          <h2 className="row" style={{ margin: 0, gap: 8 }}><DatabaseBackup size={22} color="var(--primary)" /> Sao lưu và khôi phục tài khoản</h2>
+          {store?.full && (
+            <div className="drive-full full" role="alert">
+              <TriangleAlert size={26} className="df-ic" />
+              <div className="stack" style={{ gap: 6 }}>
+                <b className="df-title">Thư mục Google Drive của máy chủ tài khoản đã đầy và không còn khoảng trống để lưu trữ dữ liệu.</b>
+                <span>Bạn cần tải file sao lưu tài khoản về máy tính để lưu trữ, và dùng chính file đó để khôi phục khi chuyển máy chủ sang kho lưu trữ mới.</span>
+              </div>
+            </div>
+          )}
+          {store?.limit ? (
+            <div className="space-meter">
+              <div className="row between"><b>Dung lượng Google Drive của máy chủ</b><small>{((store.used ?? 0) / 1024 ** 3).toFixed(2).replace('.', ',')} GB / {(store.limit / 1024 ** 3).toFixed(1).replace('.', ',')} GB</small></div>
+              <div className={`progress ${store.full ? 'full' : (store.used ?? 0) / store.limit >= 0.9 ? 'near' : ''}`} aria-hidden><i style={{ width: `${Math.min(100, ((store.used ?? 0) / store.limit) * 100)}%` }} /></div>
+            </div>
+          ) : null}
+          <p className="muted" style={{ margin: 0 }}>
+            File sao lưu tài khoản chứa mọi tài khoản giáo viên: tên đăng nhập, họ tên, trạng thái khóa, email khôi phục, mật khẩu đang cấp, và cấu hình kết nối Drive của từng giáo viên (đã mã hóa).
+            Dữ liệu dạy học (lớp, học sinh, bộ câu hỏi, kết quả) nằm trong Google Drive riêng của từng giáo viên, mỗi giáo viên tự sao lưu ở trang Cài đặt của mình.
+          </p>
+          <div className="row">
+            <button className="btn primary" onClick={exportAccounts} disabled={accBusy}><Download size={18} /> Tải file sao lưu tài khoản</button>
+            <button className="btn" onClick={importAccounts} disabled={accBusy}><Upload size={18} /> Khôi phục từ file</button>
+          </div>
+          <details>
+            <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Chuyển máy chủ tài khoản sang Google Drive mới</summary>
+            <ol className="move-steps" style={{ marginTop: 10 }}>
+              <li>Bấm <b>Tải file sao lưu tài khoản</b> và cất tệp ở nơi an toàn (tệp có mật khẩu của giáo viên).</li>
+              <li>Ở Google Drive mới, tạo thư mục lưu trữ, rồi làm lại Trình cài đặt máy chủ (bên dưới) bằng Gmail mới.</li>
+              <li>Đăng nhập trang quản trị trên máy chủ mới, bấm <b>Khôi phục từ file</b> và chọn tệp vừa tải: mọi giáo viên đăng nhập lại được bằng mật khẩu cũ.</li>
+              <li>Đổi biến <code>VITE_ADMIN_URL</code> trên Vercel sang link máy chủ mới (Hướng dẫn cho quản trị, bước 4).</li>
+            </ol>
+          </details>
+        </section>
       )}
       {step === 'in' && defaultPw && (
         <div className="alert ok" role="status">
