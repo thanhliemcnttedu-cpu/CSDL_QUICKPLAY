@@ -62,6 +62,58 @@ export async function generate(key: string, model: string, body: unknown): Promi
   return (r.body?.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('');
 }
 
+/**
+ * Gọi sinh nội dung và nhận câu trả lời DẦN DẦN (server-sent events). `onText` nhận toàn bộ phần chữ đã có tới lúc đó.
+ * Ném lỗi kèm `check` và `httpStatus` như `generate`; `signal` để dừng giữa chừng (ném AbortError).
+ */
+export async function generateStream(key: string, model: string, body: unknown, onText: (acc: string) => void, signal?: AbortSignal): Promise<string> {
+  const res = await fetch(`${BASE}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body), signal,
+  });
+  if (!res.ok) throw fail({ ok: false, status: res.status, body: await res.json().catch(() => null) });
+  if (!res.body) {
+    // Trình duyệt không cho đọc dần: đọc một lần
+    const text = parseSse(await res.text());
+    onText(text);
+    return text;
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', acc = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const cut = buf.lastIndexOf('\n');
+    if (cut < 0) continue;
+    const piece = parseSse(buf.slice(0, cut));
+    buf = buf.slice(cut + 1);
+    if (piece) {
+      acc += piece;
+      onText(acc);
+    }
+  }
+  const rest = parseSse(buf + dec.decode());
+  if (rest) {
+    acc += rest;
+    onText(acc);
+  }
+  return acc;
+}
+
+/** Ghép phần chữ trong các dòng "data: {...}" của một đoạn SSE. */
+export function parseSse(chunk: string): string {
+  let out = '';
+  for (const line of chunk.split(/\r?\n/)) {
+    if (!line.startsWith('data:')) continue;
+    try {
+      const j = JSON.parse(line.slice(5).trim()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+      out += (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('');
+    } catch { /* dòng chưa trọn vẹn hoặc "[DONE]" */ }
+  }
+  return out;
+}
+
 /** Kiểm tra khóa: hợp lệ không, còn hạn mức không; trả về mô hình nên dùng. */
 export async function verifyKey(rawKey: string): Promise<KeyCheck> {
   const key = rawKey.trim();

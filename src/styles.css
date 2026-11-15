@@ -638,6 +638,14 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .script-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 14px; margin-bottom: 14px; background: var(--warn-bg); color: var(--warn-fg); border: 1px solid #fcd34d; }
 .script-notice > span { flex: 1; min-width: 200px; }
 
+/* Tiến độ AI soạn câu hỏi */
+.ai-prog { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 16px; background: var(--primary-soft); border: 1.5px solid #9cc3ff; color: var(--fg); text-align: left; }
+.ai-prog .ai-pct { font-size: 1.25rem; color: var(--primary-ink); }
+.ai-prog .progress { background: #fff; height: 12px; }
+.ai-prog .progress.wait > i { background: repeating-linear-gradient(90deg, #9cc3ff 0 16px, #c9defe 16px 32px); background-size: 64px 100%; animation: ai-wait 1.2s linear infinite; }
+@keyframes ai-wait { to { background-position: 64px 0; } }
+@media (prefers-reduced-motion: reduce) { .ai-prog .progress.wait > i { animation: none; } }
+
 /* Báo cáo các phiên: bảng trên máy tính, thẻ trên điện thoại */
 .rep-cards { display: none; }
 @media (max-width: 720px) {

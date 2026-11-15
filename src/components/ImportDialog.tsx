@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileUp, Sparkles, Wand2, AlertTriangle, Trash2, ClipboardPaste, FileCheck2, CircleDot, ListChecks, Eye, TextCursorInput, ListOrdered, Link2, MessageSquareText, FileDown, ClipboardList } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { FileUp, Sparkles, Wand2, AlertTriangle, Trash2, ClipboardPaste, FileCheck2, CircleDot, ListChecks, Eye, TextCursorInput, ListOrdered, Link2, MessageSquareText, FileDown, ClipboardList, Square } from 'lucide-react';
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { extractText, hasImportedImages, parseQuestions, resolveImportedImages } from '../lib/importer';
 import { buildWordTemplate } from '../lib/wordTemplate';
@@ -7,7 +7,8 @@ import { formToQuestions, isGoogleFormUrl } from '../lib/googleForm';
 import { compressImage, uploadFile } from '../lib/media';
 import { loadSettings, scriptUrlFromLink } from '../lib/settings';
 import { downloadBlob } from '../lib/xlsx';
-import { aiItemsToQuestions, buildPrompt, extractJsonArray, LEVEL_LABELS, runAi, type Level } from '../lib/ai';
+import { LEVEL_LABELS, type Level } from '../lib/ai';
+import { runAiWithProgress, type AiProgress } from '../lib/aiProgress';
 import { api } from '../lib/api';
 import { COMPOSER_TYPES, newQuiz, SUBJECTS, TYPE_LABELS } from '../lib/factory';
 import { htmlToText } from '../lib/util';
@@ -56,6 +57,8 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
   const [lesson, setLesson] = useState(defaults?.lesson ?? '');
   const [types, setTypes] = useState<QuestionType[]>([...COMPOSER_TYPES]);
   const [formUrl, setFormUrl] = useState('');
+  const [prog, setProg] = useState<AiProgress | null>(null); // tiến độ AI đang chạy
+  const abort = useRef<AbortController | null>(null);
   const canReadForm = loadSettings().backend === 'drive' || !!scriptUrlFromLink();
 
   const downloadTemplate = async () => {
@@ -115,17 +118,29 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
       return setResult({ ...r, questions: withMeta(r.questions) });
     }
     if (way === 'generate' && !types.length) return toast('Chọn ít nhất một dạng câu hỏi.', 'error');
-    setBusy(way === 'generate' ? 'AI đang soạn câu hỏi… (10–40 giây)' : 'AI đang bóc tách đề…');
+    setBusy(way === 'generate' ? 'AI đang soạn câu hỏi…' : 'AI đang bóc tách đề…');
+    abort.current = new AbortController();
+    setProg(null);
     try {
-      const p = buildPrompt(way === 'generate' ? 'generate' : 'extract', source, { count, types, level, grade });
-      const text = await runAi(p.prompt, p.system);
-      const qs = aiItemsToQuestions(extractJsonArray(text), { subject: subject || undefined, lesson: lesson.trim() || undefined });
-      if (!qs.length) throw new Error('AI không tạo được câu hỏi nào từ nội dung này.');
-      setResult({ questions: qs, warnings: qs.flatMap((q, i) => (q.needs_review ? [`Câu ${i + 1}: chưa xác định được đáp án đúng.`] : [])) });
+      const r = await runAiWithProgress({
+        mode: way === 'generate' ? 'generate' : 'extract', source, count, types, level, grade,
+        meta: { subject: subject || undefined, lesson: lesson.trim() || undefined },
+        onProgress: setProg, signal: abort.current.signal,
+      });
+      const qs = r.questions;
+      if (!qs.length) throw new Error(r.stopped ? 'Đã dừng khi AI chưa soạn xong câu nào.' : 'AI không tạo được câu hỏi nào từ nội dung này.');
+      const notes = [
+        ...(r.stopped ? [`Thầy cô đã bấm Dừng: giữ ${qs.length}${way === 'generate' ? `/${count}` : ''} câu đã soạn xong.`] : []),
+        ...(r.warning ? [r.warning] : []),
+        ...qs.flatMap((q, i) => (q.needs_review ? [`Câu ${i + 1}: chưa xác định được đáp án đúng.`] : [])),
+      ];
+      setResult({ questions: qs, warnings: notes });
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
       setBusy('');
+      setProg(null);
+      abort.current = null;
     }
   };
 
@@ -152,6 +167,10 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
     }
   };
 
+  // Đóng hộp thoại giữa chừng thì dừng luôn lượt gọi AI
+  useEffect(() => () => abort.current?.abort(), []);
+  const aiRunning = !!busy && !!abort.current;
+
   const review = result?.questions.filter((q) => q.needs_review).length ?? 0;
   const byType = result ? COMPOSER_TYPES.map((t) => [t, result.questions.filter((q) => q.type === t).length] as const).filter(([, n]) => n) : [];
 
@@ -170,7 +189,10 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
           </>
         ) : (
           <>
-            <button className="btn ghost" onClick={onClose}>Hủy</button>
+            {aiRunning && <AiProgressPanel prog={prog} generate={way === 'generate'} />}
+            {aiRunning
+              ? <button className="btn danger" onClick={() => abort.current?.abort()}><Square size={16} /> Dừng{prog?.done ? `, giữ ${prog.done} câu đã xong` : ''}</button>
+              : <button className="btn ghost" onClick={onClose}>Hủy</button>}
             <button className="btn accent lg" onClick={run} disabled={!!busy || (way === 'gform' ? !formUrl.trim() || !canReadForm : !source.trim())}>
               {way === 'exact' ? <Wand2 size={20} /> : way === 'gform' ? <ClipboardList size={20} /> : <Sparkles size={20} />} {busy || (way === 'exact' ? 'Bóc tách đề' : way === 'gform' ? 'Tải câu hỏi' : 'Chạy AI')}
             </button>
@@ -310,5 +332,53 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
         </div>
       )}
     </Modal>
+  );
+}
+
+const mmss = (ms: number) => {
+  const sec = Math.max(0, Math.round(ms / 1000));
+  return sec < 60 ? `${sec} giây` : `${Math.floor(sec / 60)} phút ${String(sec % 60).padStart(2, '0')} giây`;
+};
+
+/** Tiến độ AI: %, đang soạn câu thứ mấy, dạng nào, đã xong bao nhiêu theo từng dạng, thời gian đã chạy và còn lại. */
+function AiProgressPanel({ prog, generate }: { prog: AiProgress | null; generate: boolean }) {
+  // Đồng hồ chạy mỗi giây để thời gian vẫn nhảy khi AI đang nghĩ (chưa gửi thêm chữ nào)
+  const start = useRef(Date.now());
+  const box = useRef<HTMLDivElement>(null);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    box.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); // hộp thoại dài: cuộn tới bảng tiến độ để thấy ngay
+    const id = window.setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = Date.now() - start.current;
+  const p = prog;
+  const known = !!p?.total;
+  const types = COMPOSER_TYPES.filter((t) => p?.byType[t]);
+  // Thời gian còn lại: lấy ước lượng lúc có tiến độ gần nhất, trừ dần theo đồng hồ
+  const eta = p?.etaMs !== undefined ? Math.max(0, p.etaMs - (elapsed - p.elapsedMs)) : undefined;
+  return (
+    <div className="ai-prog" role="status" aria-live="polite" ref={box}>
+      <div className="row between" style={{ gap: 8 }}>
+        <b>
+          {!p || (!p.done && !p.currentType) ? 'AI đang đọc tài liệu và bắt đầu soạn…'
+            : known ? (p.done >= p.total ? `Đã soạn xong ${p.total} câu, đang hoàn tất…` : `Đang soạn câu ${p.current}/${p.total}${p.currentType ? ` · dạng ${TYPE_LABELS[p.currentType]}` : ''}`)
+            : `Đang tách câu ${p.current}${p.currentType ? ` · dạng ${TYPE_LABELS[p.currentType]}` : ''}`}
+        </b>
+        {known && <b className="ai-pct">{p!.pct}%</b>}
+      </div>
+      <div className={`progress ${known ? '' : 'wait'}`} aria-hidden><i style={{ width: known ? `${Math.max(3, p!.pct)}%` : '100%' }} /></div>
+      <div className="small">
+        {p ? <>Đã xong <b>{p.done}{known ? `/${p.total}` : ''}</b> câu</> : 'Chưa xong câu nào'}
+        {' · '}đã chạy {mmss(elapsed)}
+        {eta !== undefined && p!.done < p!.total && <> · còn khoảng <b>{mmss(eta)}</b></>}
+        {generate && p && p.batches > 1 && <> · đợt {p.batch}/{p.batches}</>}
+      </div>
+      {types.length > 0 && (
+        <div className="row small" style={{ gap: 6 }}>
+          {types.map((t) => <span key={t} className={`badge ${p?.currentType === t ? 'blue' : ''}`}>{TYPE_LABELS[t]}: {p!.byType[t]}</span>)}
+        </div>
+      )}
+    </div>
   );
 }
