@@ -88,6 +88,21 @@
 .ps-scan { padding-bottom: 0; }
 .ps-cam { position: relative; flex: 1 1 auto; min-height: 58dvh; border-radius: 20px; overflow: hidden; background: #0a1730; }
 .ps-cam video, .ps-cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+/* iPhone vẽ video ở lớp riêng nằm trên các phần tử sau nó: đặt lớp nhãn lên trên hẳn */
+.ps-cam video { z-index: 1; }
+.ps-cam canvas { z-index: 2; pointer-events: none; transform: translateZ(0); }
+.ps-corner, .ps-zoom, .ps-start { z-index: 3; }
+.ps-recent { display: flex; gap: 6px; flex-wrap: wrap; min-height: 40px; align-items: center; }
+.ps-recent > span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; font-weight: 700; font-size: 0.95rem; background: #0f172a; color: #fff; }
+.ps-recent > span b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; }
+.ps-recent > span.ok b { background: #16a34a; }
+.ps-recent > span.bad b { background: #dc2626; }
+.ps-recent .ps-hint { color: var(--muted-fg); font-weight: 600; }
+.ps-intro { width: min(100%, 460px); text-align: left; }
+.ps-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ps-facts > div { display: flex; flex-direction: column; align-items: center; padding: 12px; border-radius: 16px; background: var(--muted); }
+.ps-facts b { font-size: 1.8rem; color: var(--primary-ink); }
+.ps-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 .ps-corner { position: absolute; width: 44px; height: 44px; border: 4px solid rgba(255, 255, 255, 0.85); pointer-events: none; }
 .ps-corner.tl { top: 14%; left: 8%; border-right: 0; border-bottom: 0; }
 .ps-corner.tr { top: 14%; right: 8%; border-left: 0; border-bottom: 0; }

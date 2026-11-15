@@ -31,7 +31,21 @@ export default function Reports() {
       ) : rows.length === 0 ? (
         <div className="card empty"><BarChart3 size={48} color="var(--primary)" /><h2>Chưa có phiên nào</h2><p className="muted">Tổ chức một bộ đề để xem báo cáo ở đây.</p></div>
       ) : (
-        <div className="card table-wrap">
+        <>
+        {/* Điện thoại: mỗi buổi một thẻ, nút xem báo cáo luôn nhìn thấy (bảng nhiều cột thì nút bị đẩy ra ngoài màn hình) */}
+        <div className="rep-cards">
+          {rows.map((r) => {
+            const [label, tone] = STATE_LABEL[r.state] ?? [r.state, ''];
+            return (
+              <Link key={r.pin + r.created_at} className="card rep-card" to={r.mode === 'paper' ? `/teacher/paper/${r.pin}` : `/teacher/host/${r.pin}`}>
+                <div className="row between"><b>{r.quiz_title}</b><span className={`badge ${tone}`}>{label}</span></div>
+                <span className="muted small">{MODE_LABEL[r.mode] ?? r.mode} · {r.player_count} học sinh · PIN {r.pin} · {formatDate(r.created_at)}</span>
+                <span className="btn sm primary"><ExternalLink size={16} /> {r.state === 'COMPLETED' ? 'Xem báo cáo chi tiết' : 'Mở bảng điều khiển'}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <div className="card table-wrap rep-table">
           <table className="table">
             <thead><tr><th>Mã PIN</th><th>Bộ đề</th><th>Chế độ</th><th>Trạng thái</th><th>Học sinh</th><th>Ngày tạo</th><th /></tr></thead>
             <tbody>
@@ -52,6 +66,7 @@ export default function Reports() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

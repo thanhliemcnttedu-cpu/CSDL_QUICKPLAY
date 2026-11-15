@@ -4,7 +4,7 @@
 // Bảng mã thẻ là của riêng Quickplay (paperCard.ts); chỉ tham khảo cách bố trí màn hình của các phần mềm khác.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChartColumn, ChevronDown, ChevronUp, FastForward, LogIn, LogOut, ScanLine, Send, Users, ZoomIn, ZoomOut, ArrowRight, X } from 'lucide-react';
+import { ChartColumn, ChevronDown, ChevronUp, FastForward, LogIn, LogOut, ScanLine, Send, Users, ZoomIn, ZoomOut, ArrowRight, X, Play } from 'lucide-react';
 import type { PaperView, Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperHit, type PaperOp } from '../lib/paper';
@@ -38,6 +38,9 @@ export default function PaperScan() {
   const [camErr, setCamErr] = useState('');
   const [listOpen, setListOpen] = useState(false);
   const [zoom, setZoom] = useState<{ min: number; max: number; v: number } | null>(null);
+  const [started, setStarted] = useState(false); // đã bấm Bắt đầu (màn chiếu mới chuyển từ mã QR sang câu 1)
+  const [klass, setKlass] = useState('');
+  const [recent, setRecent] = useState<{ card: number; choice: number; right: boolean }[]>([]); // vừa ghi nhận (hiện dưới ống kính)
   const video = useRef<HTMLVideoElement>(null);
   const overlay = useRef<HTMLCanvasElement>(null);
   const work = useRef<HTMLCanvasElement | null>(null);
@@ -61,6 +64,7 @@ export default function PaperScan() {
       sent.current.clear();
       shown.current.clear();
       queue.current = [];
+      setRecent([]);
       setStage('question');
     }
     for (const [card, choice] of Object.entries(v.answers)) sent.current.set(Number(card), choice);
@@ -78,7 +82,10 @@ export default function PaperScan() {
         });
         if (host.settings.mode !== 'paper') throw new Error('Phòng này không dùng thẻ giấy.');
         setNames(host.players.map((p) => p.name));
-        const [r, v] = await Promise.all([api.getSessionQuiz(pin), api.paperAction(pin, key, 'hello')]);
+        setKlass(host.paper?.class_name ?? '');
+        // Buổi học đã chạy (mở lại trang, đổi điện thoại) thì vào thẳng; buổi mới thì chờ thầy cô bấm Bắt đầu
+        setStarted(!!host.paper?.connected || host.current_index > 0 || host.answers.length > 0 || host.state === 'COMPLETED');
+        const [r, v] = await Promise.all([api.getSessionQuiz(pin), api.paperAction(pin, key, 'state')]);
         setQuiz(r.quiz);
         apply(v);
       } catch (e) {
@@ -194,6 +201,8 @@ export default function PaperScan() {
           sent.current.set(hit.card, hit.side);
           queue.current = queue.current.filter((x) => x.card !== hit.card).concat({ card: hit.card, choice: hit.side });
           sfx.pop();
+          const item = { card: hit.card, choice: hit.side, right: !!qq?.options[hit.side]?.is_correct };
+          setRecent((r) => [item, ...r.filter((x) => x.card !== hit.card)].slice(0, 6));
         }
         // Tọa độ nhãn tính theo khung hình gốc để không lệch khi đổi độ phân giải xử lý
         shown.current.set(hit.card, { hit: { ...hit, corners: hit.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })) as CardHit['corners'] }, t: now });
@@ -205,7 +214,10 @@ export default function PaperScan() {
       if (ov.width !== W || ov.height !== H) { ov.width = W; ov.height = H; }
       const g = ov.getContext('2d')!;
       g.clearRect(0, 0, W, H);
-      const fs = Math.max(20, W / 40);
+      // Cỡ chữ, nét khung tính theo kích thước ĐANG HIỂN THỊ trên màn hình (camera 1080 điểm ảnh thu vào khung ~350 điểm ảnh
+      // thì chữ phải to gấp 3 mới đọc được): chữ cao ~15 điểm ảnh, khung dày ~3 điểm ảnh trên màn hình điện thoại
+      const disp = Math.min((ov.clientWidth || W) / W, (ov.clientHeight || H) / H) || 1;
+      const fs = 15 / disp;
       g.font = `800 ${fs}px 'Be Vietnam Pro', system-ui, sans-serif`;
       g.textBaseline = 'middle';
       for (const [card, s] of shown.current) {
@@ -216,7 +228,7 @@ export default function PaperScan() {
         const right = valid && !!qq?.options[hit.side]?.is_correct;
         const color = !valid || !recorded ? '#64748b' : right ? '#16a34a' : '#dc2626';
         // Khung quanh thẻ
-        g.lineWidth = Math.max(4, W / 240);
+        g.lineWidth = 3.5 / disp;
         g.strokeStyle = color;
         g.beginPath();
         hit.corners.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
@@ -225,7 +237,7 @@ export default function PaperScan() {
         // Nhãn phía trên thẻ
         const cx = hit.corners.reduce((a, p) => a + p.x, 0) / 4;
         const top = Math.min(...hit.corners.map((p) => p.y));
-        const name = (namesRef.current[card - 1] || `Thẻ ${card}`).slice(0, 22);
+        const name = (namesRef.current[card - 1] || `Thẻ ${card}`).slice(0, 18);
         const letter = valid ? OPTION_LABELS[hit.side] : '?';
         const pad = fs * 0.35, box = fs * 1.35;
         const nw = g.measureText(name).width;
@@ -290,6 +302,29 @@ export default function PaperScan() {
   if (!quiz || !view) return <div className="ps-wrap ps-center"><Spinner label="Đang kết nối máy quét…" /></div>;
 
   const ended = view.state === 'COMPLETED';
+
+  // Bước đầu: thầy cô kiểm tra lớp, bộ đề rồi bấm Bắt đầu (màn chiếu chuyển từ mã QR sang câu 1)
+  if (!started && !ended) {
+    return (
+      <div className="ps-wrap ps-center">
+        <Wordmark size={30} />
+        <div className="card stack ps-intro">
+          <span className="badge green" style={{ alignSelf: 'center' }}>Điện thoại đã kết nối</span>
+          <h2 className="center" style={{ margin: 0 }}>{quiz.title}</h2>
+          <div className="ps-facts">
+            <div><b>{view.question_count}</b><span>câu hỏi</span></div>
+            <div><b>{view.total}</b><span>học sinh{klass ? ` lớp ${klass}` : ''}</span></div>
+          </div>
+          <ol className="ps-steps">
+            <li>Phát thẻ đúng số cho từng em.</li>
+            <li>Bấm <b>Bắt đầu</b>: màn chiếu hiện câu hỏi đầu tiên.</li>
+            <li>Học sinh xoay thẻ cho chữ đáp án lên trên rồi giơ cao, thầy cô bấm <b>Quét phản hồi</b>.</li>
+          </ol>
+          <button className="btn primary lg ps-wide" onClick={async () => { await control('hello'); setStarted(true); }}><Play size={22} /> Bắt đầu</button>
+        </div>
+      </div>
+    );
+  }
   const last = view.current_index >= view.question_count - 1;
 
   // Danh sách tên đã quét: xanh = đúng, đỏ = sai, xám = chưa quét
@@ -330,7 +365,7 @@ export default function PaperScan() {
               ))}
             </div>
           )}
-          <Link className="btn primary lg" to="/teacher/reports"><ChartColumn size={20} /> Xem báo cáo</Link>
+          <Link className="btn primary lg" to={`/teacher/paper/${pin}`}><ChartColumn size={20} /> Xem báo cáo chi tiết</Link>
         </div>
       </div>
     );
@@ -367,6 +402,15 @@ export default function PaperScan() {
             </div>
           )}
           {camErr && <div className="ps-start"><div className="alert error"><div>{camErr}</div></div></div>}
+        </div>
+        {/* Vừa quét: tên + chữ đáp án, xanh = đúng, đỏ = sai (giáo viên biết chắc đã nhận thẻ của em nào) */}
+        <div className="ps-recent" aria-live="polite">
+          {recent.length === 0 ? <span className="ps-hint">Đưa ống kính về phía các thẻ đang giơ…</span>
+            : recent.map((r) => (
+              <span key={r.card} className={r.right ? 'ok' : 'bad'}>
+                <b>{OPTION_LABELS[r.choice]}</b> {names[r.card - 1] || `Thẻ ${r.card}`}
+              </span>
+            ))}
         </div>
         <div className="ps-sheet">
           {respToggle}

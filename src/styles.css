@@ -637,3 +637,12 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 @media (max-width: 600px) { .drive-full { flex-direction: column; } }
 .script-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 14px; margin-bottom: 14px; background: var(--warn-bg); color: var(--warn-fg); border: 1px solid #fcd34d; }
 .script-notice > span { flex: 1; min-width: 200px; }
+
+/* Báo cáo các phiên: bảng trên máy tính, thẻ trên điện thoại */
+.rep-cards { display: none; }
+@media (max-width: 720px) {
+  .rep-table { display: none; }
+  .rep-cards { display: flex; flex-direction: column; gap: 10px; }
+  .rep-card { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; text-decoration: none; color: var(--fg); }
+  .rep-card .btn { align-self: flex-start; }
+}
