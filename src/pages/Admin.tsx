@@ -1,12 +1,13 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { KeyRound, Lock, LockOpen, LogIn, LogOut, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
-import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminSignedIn, adminUrl, adminUser, setAdminUrl, type AccountRow } from '../lib/account';
+import { BookOpenCheck, Check, Copy, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminEmail, adminSignedIn, adminUrl, adminUser, setAdminUrl, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Field, Modal, useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller } from '../components/ScriptInstaller';
+import '../installer.css';
 
 const randomPassword = () => {
   const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
@@ -26,6 +27,51 @@ export default function Admin() {
   const [step, setStep] = useState<'server' | 'checking' | 'init' | 'login' | 'in'>(adminUrl() ? 'checking' : 'server');
   const [form, setForm] = useState({ key: '', username: DEFAULT_ADMIN_USER, password: '', again: '' });
   const [pw, setPw] = useState<null | { password: string; next: string; again: string }>(null);
+  // Email khôi phục của quản trị và hộp "quên mật khẩu"
+  const [mail, setMail] = useState<null | { email: string; password: string }>(null);
+  const [myEmail, setMyEmail] = useState(adminEmail());
+  const [fg, setFg] = useState<null | { sentTo: string; code: string; next: string; again: string; err: string; busy: boolean }>(null);
+  const envUrl = ((import.meta.env?.VITE_ADMIN_URL as string | undefined) || '').trim(); // đã đặt trên Vercel chưa
+  const saveMail = async () => {
+    if (!mail) return;
+    try {
+      const e = await adminAuth.setEmail(mail.email, mail.password);
+      setMyEmail(e);
+      setMail(null);
+      toast(e ? 'Đã lưu email khôi phục của quản trị.' : 'Đã xóa email khôi phục.', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
+  const fgSend = async () => {
+    if (!fg) return;
+    setFg({ ...fg, busy: true, err: '' });
+    try {
+      const r = await adminAuth.forgotStart(form.username);
+      setFg((f) => f && { ...f, busy: false, sentTo: r.email, code: '' });
+    } catch (e) {
+      setFg((f) => f && { ...f, busy: false, err: (e as Error).message });
+    }
+  };
+  const fgFinish = async () => {
+    if (!fg) return;
+    if (fg.code.length !== 6) return setFg({ ...fg, err: 'Mã xác nhận gồm 6 chữ số.' });
+    if (fg.next !== fg.again) return setFg({ ...fg, err: 'Hai lần nhập mật khẩu mới chưa giống nhau.' });
+    setFg({ ...fg, busy: true, err: '' });
+    try {
+      await adminAuth.forgotFinish(form.username, fg.code, fg.next);
+      setFg(null);
+      setMyEmail(adminEmail());
+      toast('Đã đặt lại mật khẩu quản trị.', 'ok');
+      await load();
+    } catch (e) {
+      setFg((f) => f && { ...f, busy: false, err: (e as Error).message });
+    }
+  };
+  const copy = (text: string, ok: string) => navigator.clipboard.writeText(text).then(() => toast(ok, 'ok')).catch(() => toast('Trình duyệt không cho sao chép. Hãy bôi đen rồi nhấn Ctrl + C.', 'error'));
+  const site = location.origin;
+  // Bước đang làm trong bảng hướng dẫn
+  const guideAt = step === 'server' || step === 'checking' ? 1 : step === 'init' ? 2 : step === 'login' ? 2 : !myEmail ? 3 : !envUrl ? 4 : rows && rows.length ? 6 : 5;
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -69,6 +115,7 @@ export default function Admin() {
       if (kind === 'init') await adminAuth.init(form.key, form.username, form.password);
       else await adminAuth.login(form.username, form.password);
       setForm({ key: '', username: form.username, password: '', again: '' });
+      setMyEmail(adminEmail());
       toast(kind === 'init' ? 'Đã thiết lập tài khoản quản trị.' : 'Đăng nhập quản trị thành công.', 'ok');
       await load();
     } catch (e) {
@@ -126,6 +173,49 @@ export default function Admin() {
         <span className="badge blue">Quản trị toàn hệ thống</span>
       </div>
 
+      <details className="card stack guide" open={step !== 'in' || guideAt < 6}>
+        <summary><BookOpenCheck size={20} color="var(--primary)" /> <b>Hướng dẫn từng bước cho quản trị</b> <span className="badge blue">Đang ở bước {guideAt}/6</span></summary>
+        <ol className="guide-list">
+          <li className={guideAt > 1 ? 'done' : guideAt === 1 ? 'now' : ''}>
+            <b>Cài máy chủ tài khoản (một lần, khoảng 5 phút).</b> Làm 5 bước của <b>Trình cài đặt Apps Script</b> bên dưới bằng tài khoản Google của quản trị:
+            Sao chép mã → mở Apps Script mới và dán → Triển khai thành Ứng dụng web (Tôi / Bất kỳ ai) → dán link <code>/exec</code> → Kiểm tra.
+            Danh sách tài khoản giáo viên được cất ngay trong dự án Apps Script đó; không lưu trên GitHub hay Vercel.
+          </li>
+          <li className={guideAt > 2 ? 'done' : guideAt === 2 ? 'now' : ''}>
+            <b>Đặt mật khẩu quản trị.</b> Giữ tên tài khoản <code>adminquantri</code>, gõ mật khẩu hai lần rồi bấm <b>Lưu tài khoản quản trị</b>.
+            Từ lần sau vào <code>{site}/adminquantri</code> và đăng nhập bằng tên tài khoản với mật khẩu này.
+          </li>
+          <li className={guideAt > 3 ? 'done' : guideAt === 3 ? 'now' : ''}>
+            <b>Khai báo email khôi phục của quản trị.</b> Bấm <b>Email khôi phục</b> ở thanh phía trên danh sách, điền email cá nhân. Khi quên mật khẩu,
+            bấm <b>Quên mật khẩu?</b> để nhận mã 6 số qua email.
+          </li>
+          <li className={guideAt > 4 ? 'done' : guideAt === 4 ? 'now' : ''}>
+            <b>Bật đăng nhập cho giáo viên trên trang web (bắt buộc, làm một lần).</b> {envUrl
+              ? <>Trang web này <b>đã được gắn</b> với máy chủ tài khoản, giáo viên ở máy nào cũng đăng nhập được.</>
+              : <>Hiện trang web <b>chưa biết</b> máy chủ tài khoản, nên giáo viên ở máy khác <b>chưa đăng nhập được</b>. Vào Vercel → dự án <b>quickplay</b> → <b>Settings → Environment Variables</b> → thêm biến tên <code>VITE_ADMIN_URL</code>, giá trị là link <code>/exec</code> của máy chủ tài khoản → <b>Save</b> → thẻ <b>Deployments</b> → bấm dấu ba chấm ở bản mới nhất → <b>Redeploy</b>.</>}
+            {!envUrl && adminUrl() && (
+              <span className="row" style={{ gap: 6, marginTop: 6 }}>
+                <button className="btn sm" onClick={() => copy('VITE_ADMIN_URL', 'Đã chép tên biến.')}><Copy size={14} /> Chép tên biến</button>
+                <button className="btn sm" onClick={() => copy(adminUrl(), 'Đã chép link /exec.')}><Copy size={14} /> Chép link /exec</button>
+                <a className="btn sm ghost" href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Mở Vercel</a>
+              </span>
+            )}
+          </li>
+          <li className={guideAt > 5 ? 'done' : guideAt === 5 ? 'now' : ''}>
+            <b>Cấp tài khoản cho từng giáo viên.</b> Bấm <b>Cấp tài khoản</b>, nhập tên tài khoản (ví dụ <code>lan.nguyen</code>), họ tên, mật khẩu ban đầu →
+            bấm <b>Chép để gửi</b> rồi gửi cho giáo viên qua Zalo. Tại đây cũng khóa, mở khóa, đặt lại mật khẩu và xóa tài khoản.
+          </li>
+          <li className={guideAt === 6 ? 'now' : ''}>
+            <b>Giáo viên làm gì.</b> Mở <code>{site}/teacher</code>, đăng nhập bằng tài khoản được cấp. Lần đầu trang Cài đặt tự mở: giáo viên làm 5 bước Trình cài đặt
+            để nối Google Drive của riêng mình, rồi khai báo email khôi phục. Từ đó đăng nhập ở máy nào phần mềm cũng tự kết nối lại. Học sinh vào <code>{site}/join</code>, không cần tài khoản.
+            <span className="row" style={{ gap: 6, marginTop: 6 }}>
+              <button className="btn sm" onClick={() => copy(`${site}/teacher`, 'Đã chép link cho giáo viên.')}><Copy size={14} /> Chép link giáo viên</button>
+              <button className="btn sm" onClick={() => copy(`${site}/join`, 'Đã chép link cho học sinh.')}><Copy size={14} /> Chép link học sinh</button>
+            </span>
+          </li>
+        </ol>
+      </details>
+
       {step === 'server' && (
         <section className="card stack">
           <h2 style={{ margin: 0 }}>Kết nối máy chủ tài khoản</h2>
@@ -169,7 +259,8 @@ export default function Admin() {
           )}
           <div className="row">
             <button className="btn primary" type="submit" disabled={busy}>{step === 'init' ? <><ShieldCheck size={18} /> Lưu tài khoản quản trị</> : <><LogIn size={18} /> Đăng nhập</>}</button>
-            {step === 'login' && <button type="button" className="btn ghost" onClick={() => setStep('init')}>Quên mật khẩu? Đặt lại bằng ADMIN_KEY</button>}
+            {step === 'login' && <button type="button" className="btn ghost" onClick={() => setFg({ sentTo: '', code: '', next: '', again: '', err: '', busy: false })}><Mail size={16} /> Quên mật khẩu?</button>}
+            {step === 'login' && <button type="button" className="btn ghost" onClick={() => setStep('init')}>Đặt lại bằng ADMIN_KEY</button>}
             {step === 'init' && <button type="button" className="btn ghost" onClick={check}>Quay lại đăng nhập</button>}
           </div>
           <small className="muted">Máy chủ: {adminUrl().replace(/^https?:\/\//, '').slice(0, 44)}… <button type="button" className="btn sm ghost" onClick={async () => { if (await askConfirm('Bỏ địa chỉ máy chủ tài khoản khỏi trình duyệt này?')) { setAdminUrl(''); setUrl(''); setStep('server'); } }}>Đổi máy chủ</button></small>
@@ -180,6 +271,7 @@ export default function Admin() {
         <div className="row between">
           <span className="badge green"><ShieldCheck size={14} /> Đang đăng nhập: {adminUser() || 'quản trị'}</span>
           <div className="row">
+            <button className={`btn sm ${myEmail ? '' : 'accent'}`} onClick={() => setMail({ email: myEmail, password: '' })}><Mail size={16} /> Email khôi phục{myEmail ? <Check size={14} /> : ': chưa khai báo'}</button>
             <button className="btn sm" onClick={() => setPw({ password: '', next: '', again: '' })}><KeyRound size={16} /> Đổi mật khẩu quản trị</button>
             <button className="btn sm ghost" onClick={signOut}><LogOut size={16} /> Đăng xuất</button>
           </div>
@@ -241,6 +333,39 @@ export default function Admin() {
                 <button type="button" className="btn" onClick={() => setAdd({ ...add, password: randomPassword() })}>Tạo ngẫu nhiên</button>
               </div>
             </Field>
+          </div>
+        </Modal>
+      )}
+      {mail && (
+        <Modal title="Email khôi phục của quản trị" onClose={() => setMail(null)} footer={<button className="btn success" onClick={saveMail} disabled={!mail.password}><Mail size={18} /> Lưu email khôi phục</button>}>
+          <div className="stack">
+            <p className="muted" style={{ margin: 0 }}>Khi quên mật khẩu, bấm <b>Quên mật khẩu?</b> ở màn đăng nhập quản trị: phần mềm gửi mã 6 số tới email này để đặt mật khẩu mới.{myEmail ? <> Email đang dùng: <b>{myEmail}</b>.</> : null}</p>
+            <Field label="Email khôi phục (để trống = xóa)"><input className="input" type="email" value={mail.email} onChange={(e) => setMail({ ...mail, email: e.target.value })} placeholder="email-ca-nhan@gmail.com" autoComplete="email" /></Field>
+            <Field label="Mật khẩu quản trị hiện tại (để xác nhận)"><input className="input" type="password" value={mail.password} onChange={(e) => setMail({ ...mail, password: e.target.value })} autoComplete="current-password" /></Field>
+            <small className="muted">Nên dùng email cá nhân mà chỉ quản trị mở được. Thư do chính tài khoản Google đã cài máy chủ tài khoản gửi đi.</small>
+          </div>
+        </Modal>
+      )}
+      {fg && (
+        <Modal title="Quên mật khẩu quản trị" onClose={() => setFg(null)}>
+          <div className="stack">
+            {!fg.sentTo ? (
+              <>
+                <p className="muted" style={{ margin: 0 }}>Phần mềm gửi mã 6 số tới email khôi phục của tài khoản <b>{form.username || '…'}</b>. Tài khoản giáo viên và dữ liệu không bị ảnh hưởng.</p>
+                <button type="button" className="btn primary" onClick={fgSend} disabled={fg.busy || !form.username.trim()}><Mail size={18} /> {fg.busy ? 'Đang gửi…' : 'Gửi mã về email khôi phục'}</button>
+                <small className="muted">Chưa khai báo email khôi phục: đóng hộp này và bấm <b>Đặt lại bằng ADMIN_KEY</b>. Khóa này nằm trong dự án Apps Script của máy chủ tài khoản: biểu tượng bánh răng <b>Cài đặt dự án</b> → <b>Thuộc tính tập lệnh</b> → <code>ADMIN_KEY</code>.</small>
+              </>
+            ) : (
+              <>
+                <div className="alert ok" role="status"><div>Đã gửi mã 6 số tới <b>{fg.sentTo}</b>. Mã có hiệu lực 15 phút. Nếu chưa thấy, hãy xem cả mục Thư rác.</div></div>
+                <Field label="Mã 6 số trong email"><input className="input" inputMode="numeric" maxLength={6} autoComplete="one-time-code" value={fg.code} onChange={(e) => setFg({ ...fg, code: e.target.value.replace(/\D/g, '') })} style={{ letterSpacing: '0.4em', textAlign: 'center', fontWeight: 800, fontSize: '1.3rem' }} /></Field>
+                <Field label="Mật khẩu quản trị mới" help="Từ 8 đến 72 ký tự."><input className="input" type="password" value={fg.next} onChange={(e) => setFg({ ...fg, next: e.target.value })} autoComplete="new-password" /></Field>
+                <Field label="Nhập lại mật khẩu mới"><input className="input" type="password" value={fg.again} onChange={(e) => setFg({ ...fg, again: e.target.value })} autoComplete="new-password" /></Field>
+                <button type="button" className="btn success" onClick={fgFinish} disabled={fg.busy}><ShieldCheck size={18} /> Đặt lại mật khẩu</button>
+                <button type="button" className="btn ghost sm" onClick={fgSend} disabled={fg.busy}>Gửi lại mã (sau 1 phút)</button>
+              </>
+            )}
+            {fg.err && <div className="alert error" role="alert"><div>{fg.err}</div></div>}
           </div>
         </Modal>
       )}

@@ -156,4 +156,31 @@ describe('máy chủ tài khoản', () => {
     a.post({ action: 'adminSetLocked', admin_key: a.adminKey, username: 'lan.nguyen', locked: true });
     expect(a.post({ action: 'forgotStart', username: 'lan.nguyen' }).error).toMatch(/đang bị khóa/);
   });
+
+  it('quản trị khai báo email khôi phục và tự đặt lại mật khẩu bằng mã', () => {
+    const a = createAdmin();
+    const t = a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'adminquantri', password: 'mat-khau-dai' }).data.token;
+    // chưa khai báo email, hoặc sai tên tài khoản: cùng một câu, không gửi thư
+    const none = a.post({ action: 'adminForgotStart', username: 'adminquantri' }).error;
+    expect(none).toMatch(/chưa khai báo email/);
+    expect(a.post({ action: 'adminForgotStart', username: 'nguoikhac' }).error).toBe(none);
+    expect(a.mails).toHaveLength(0);
+
+    expect(a.post({ action: 'adminSetEmail', email: 'qt@example.com', password: 'mat-khau-dai' }).ok).toBe(false); // phải đang đăng nhập
+    expect(a.post({ action: 'adminSetEmail', admin_token: t, email: 'qt@example.com', password: 'sai' }).error).toMatch(/hiện tại không đúng/);
+    expect(a.post({ action: 'adminSetEmail', admin_token: t, email: 'quantri@example.com', password: 'mat-khau-dai' }).data.recovery_email).toBe('quantri@example.com');
+
+    expect(a.post({ action: 'adminForgotStart', username: 'adminquantri' }).data.email).toBe('qu***i@example.com');
+    const code = a.mails[0].body.match(/là: (\d{6})/)![1];
+    expect(a.post({ action: 'adminForgotFinish', username: 'adminquantri', code, new_password: 'ngan' }).error).toMatch(/8 đến 72/);
+    const done = a.post({ action: 'adminForgotFinish', username: 'adminquantri', code, new_password: 'mat-khau-moi-2' });
+    expect(done.data.recovery_email).toBe('quantri@example.com');
+    expect(a.post({ action: 'adminList', admin_token: done.data.token }).ok).toBe(true);
+    expect(a.post({ action: 'adminList', admin_token: t }).ok).toBe(false); // phiên cũ hết hiệu lực
+    expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'mat-khau-dai' }).ok).toBe(false);
+    expect(a.post({ action: 'adminForgotFinish', username: 'adminquantri', code, new_password: 'lan-nua-12345' }).ok).toBe(false); // mã dùng một lần
+
+    // đặt lại bằng ADMIN_KEY vẫn giữ email khôi phục
+    expect(a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'adminquantri', password: 'dat-lai-khoa-1' }).data.recovery_email).toBe('quantri@example.com');
+  });
 });

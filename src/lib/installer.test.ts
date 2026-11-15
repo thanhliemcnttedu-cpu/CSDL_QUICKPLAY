@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { SCRIPT_VERSION, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, randomKey } from './installer';
+import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, randomKey } from './installer';
 import { parseBackup } from './backup';
 import { fileSlug } from './localFolder';
 
@@ -10,7 +10,7 @@ const adminCode = readFileSync('apps-script-admin/Code.gs', 'utf8');
 describe('trình cài đặt Apps Script', () => {
   it('phiên bản trong phần mềm trùng với hai tệp mã máy chủ', () => {
     expect(teacherCode).toContain(`var APP_VERSION = '${SCRIPT_VERSION}';`);
-    expect(adminCode).toContain(`var ADMIN_VERSION = '${SCRIPT_VERSION}';`);
+    expect(adminCode).toContain(`var ADMIN_VERSION = '${ADMIN_SCRIPT_VERSION}';`);
   });
   it('đọc mã thư mục từ các dạng link Google Drive', () => {
     expect(folderIdOf('https://drive.google.com/drive/folders/1ZVJkapI-ikPsp2rdd6kuvXSGu-zzgJEk?usp=sharing')).toBe('1ZVJkapI-ikPsp2rdd6kuvXSGu-zzgJEk');

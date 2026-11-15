@@ -1,7 +1,7 @@
 // Trình cài đặt Apps Script 5 bước, dùng chung cho giáo viên (kho dữ liệu riêng) và quản trị (máy chủ tài khoản).
 import { useEffect, useState } from 'react';
 import { Check, CheckCircle2, Code2, Copy, ExternalLink, FolderOpen, Link2, Rocket, TriangleAlert, Wand2 } from 'lucide-react';
-import { SCRIPT_VERSION, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, loadScriptCode, pingScript, randomKey, type InstallKind } from '../lib/installer';
+import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION as TEACHER_SCRIPT_VERSION, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, loadScriptCode, pingScript, randomKey, type InstallKind } from '../lib/installer';
 import { useToast } from './ui';
 import '../installer.css';
 
@@ -50,6 +50,7 @@ const Step = ({ n, icon, title, done, children }: { n: number; icon: React.React
 export function ScriptInstaller({ kind, current, onDone }: Props) {
   const toast = useToast();
   const teacher = kind === 'teacher';
+  const SCRIPT_VERSION = teacher ? TEACHER_SCRIPT_VERSION : ADMIN_SCRIPT_VERSION;
   const [mode, setMode] = useState<'new' | 'update'>(current?.scriptUrl ? 'update' : 'new');
   // Khóa tạo sẵn cho lần cài mới: giữ tạm trong phiên trình duyệt để lỡ tải lại trang vẫn khớp với mã đã dán
   const [draft, setDraft] = useState<{ key: string; folderUrl: string }>(() => {

@@ -11,7 +11,7 @@
  */
 
 var ADMIN_APP = 'QUICKPLAY-ACCOUNTS';
-var ADMIN_VERSION = '1.1.0';
+var ADMIN_VERSION = '1.2.0';
 
 // Trình cài đặt trong phần mềm điền sẵn khóa quản trị vào đây khi bấm "Sao chép mã" (không phải chạy setup()).
 var PRESET_ADMIN_KEY = '';
@@ -47,6 +47,9 @@ function doPost(e) {
       adminLogin: actAdminLogin_,
       adminLogout: admin_(actAdminLogout_),
       adminChangePassword: admin_(actAdminChangePassword_),
+      adminSetEmail: admin_(actAdminSetEmail_),
+      adminForgotStart: actAdminForgotStart_,
+      adminForgotFinish: actAdminForgotFinish_,
       adminList: admin_(actAdminList_),
       adminCreate: admin_(actAdminCreate_),
       adminSetLocked: admin_(actAdminSetLocked_),
@@ -274,8 +277,11 @@ function actAdminInit_(req) {
   return lock_(function () {
     var salt = randomKey_(16);
     var token = randomKey_(40);
-    saveAdminAcc_({ username: username, salt: salt, hash: hash_(salt, password), token_hash: sha_(token), token_at: Date.now(), fails: 0 });
-    return { username: username, token: token };
+    var old = adminAcc_();
+    var acc = { username: username, salt: salt, hash: hash_(salt, password), token_hash: sha_(token), token_at: Date.now(), fails: 0 };
+    if (old && old.email) acc.email = old.email; // đặt lại bằng ADMIN_KEY không làm mất email khôi phục
+    saveAdminAcc_(acc);
+    return { username: username, token: token, recovery_email: acc.email || '' };
   });
 }
 
@@ -302,7 +308,7 @@ function actAdminLogin_(req) {
     acc.token_at = now;
     acc.fails = 0;
     saveAdminAcc_(acc);
-    return { username: acc.username, token: token };
+    return { username: acc.username, token: token, recovery_email: acc.email || '' };
   });
 }
 
@@ -325,6 +331,82 @@ function actAdminChangePassword_(req) {
     acc.hash = hash_(acc.salt, next);
     saveAdminAcc_(acc);
     return { changed: true };
+  });
+}
+
+/** Quản trị khai báo (hoặc xóa) email khôi phục của chính mình. Phải nhập lại mật khẩu hiện tại. */
+function actAdminSetEmail_(req) {
+  var email = String(req.email || '').trim().toLowerCase();
+  if (email && (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))) throw err_('Địa chỉ email chưa đúng.');
+  return lock_(function () {
+    var acc = adminAcc_();
+    if (!acc) throw err_('Chưa thiết lập tài khoản quản trị.');
+    if (!safeEq_(hash_(acc.salt, String(req.password || '')), acc.hash)) throw err_('Mật khẩu hiện tại không đúng.');
+    if (email) acc.email = email; else delete acc.email;
+    delete acc.reset;
+    saveAdminAcc_(acc);
+    return { recovery_email: acc.email || '' };
+  });
+}
+
+/** Quản trị quên mật khẩu, bước 1: gửi mã 6 số tới email khôi phục của quản trị. */
+function actAdminForgotStart_(req) {
+  var username = String(req.username || '').trim().toLowerCase();
+  return lock_(function () {
+    var acc = adminAcc_();
+    // cùng một câu cho sai tên tài khoản và chưa khai báo email
+    if (!acc || !acc.email || !safeEq_(username, acc.username)) {
+      throw err_('Tài khoản quản trị này chưa khai báo email khôi phục. Hãy dùng "Đặt lại bằng ADMIN_KEY".');
+    }
+    var now = Date.now();
+    if (acc.reset && now - (acc.reset.at || 0) < RESET_GAP_MS) throw err_('Vừa gửi mã xong. Hãy chờ 1 phút rồi bấm gửi lại.');
+    var code = randomDigits_(6);
+    acc.reset = { hash: sha_(acc.salt + ':' + code), at: now, tries: 0 };
+    saveAdminAcc_(acc);
+    try {
+      MailApp.sendEmail({
+        to: acc.email,
+        name: 'Quickplay',
+        subject: 'Quickplay – Mã đặt lại mật khẩu quản trị',
+        body: 'Mã xác nhận đặt lại mật khẩu QUẢN TRỊ Quickplay là: ' + code +
+          '\n\nMã có hiệu lực trong 15 phút. Không chia sẻ mã này cho bất kỳ ai.' +
+          '\nNếu không phải bạn yêu cầu, hãy bỏ qua thư này và nên đổi mật khẩu quản trị.\n\nQuickplay'
+      });
+    } catch (e) {
+      delete acc.reset;
+      saveAdminAcc_(acc);
+      throw err_('Máy chủ chưa gửi được email. Hãy thử lại sau hoặc dùng "Đặt lại bằng ADMIN_KEY".');
+    }
+    return { sent: true, email: maskEmail_(acc.email) };
+  });
+}
+
+/** Quản trị quên mật khẩu, bước 2: nhập mã và mật khẩu mới. Trả về phiên đăng nhập mới. */
+function actAdminForgotFinish_(req) {
+  var username = String(req.username || '').trim().toLowerCase();
+  var code = String(req.code || '').replace(/\D/g, '');
+  var next = String(req.new_password || '');
+  checkAdminPassword_(next);
+  return lock_(function () {
+    var acc = adminAcc_();
+    if (!acc || !acc.reset || !safeEq_(username, acc.username)) throw err_('Hãy bấm "Gửi mã về email khôi phục" trước.');
+    var now = Date.now();
+    if (now - (acc.reset.at || 0) > RESET_TTL_MS) { delete acc.reset; saveAdminAcc_(acc); throw err_('Mã đã hết hạn. Hãy bấm gửi lại mã.'); }
+    if ((acc.reset.tries || 0) >= RESET_MAX_TRIES) { delete acc.reset; saveAdminAcc_(acc); throw err_('Nhập sai mã quá nhiều lần. Hãy bấm gửi lại mã.'); }
+    if (!safeEq_(sha_(acc.salt + ':' + code), acc.reset.hash)) {
+      acc.reset.tries = (acc.reset.tries || 0) + 1;
+      saveAdminAcc_(acc);
+      throw err_('Mã xác nhận không đúng (còn ' + (RESET_MAX_TRIES - acc.reset.tries) + ' lần thử).');
+    }
+    var token = randomKey_(40);
+    acc.salt = randomKey_(16);
+    acc.hash = hash_(acc.salt, next);
+    acc.token_hash = sha_(token);
+    acc.token_at = now;
+    acc.fails = 0;
+    delete acc.reset;
+    saveAdminAcc_(acc);
+    return { username: acc.username, token: token, recovery_email: acc.email || '' };
   });
 }
 

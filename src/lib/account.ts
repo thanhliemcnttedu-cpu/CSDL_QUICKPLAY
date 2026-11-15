@@ -162,9 +162,12 @@ const ADMIN_USER = 'quickplay.adminUser';
 export const DEFAULT_ADMIN_USER = 'adminquantri';
 export const adminSignedIn = () => !!sessionStorage.getItem(ADMIN_TOKEN) || !!getAdminKey();
 export const adminUser = () => sessionStorage.getItem(ADMIN_USER) || '';
-function keepAdmin(r: { username: string; token: string }) {
+const ADMIN_EMAIL = 'quickplay.adminEmail';
+export const adminEmail = () => sessionStorage.getItem(ADMIN_EMAIL) || '';
+function keepAdmin(r: { username: string; token: string; recovery_email?: string }) {
   sessionStorage.setItem(ADMIN_TOKEN, r.token);
   sessionStorage.setItem(ADMIN_USER, r.username);
+  sessionStorage.setItem(ADMIN_EMAIL, r.recovery_email || '');
   sessionStorage.removeItem(ADMIN_KEY); // đã có phiên đăng nhập thì không giữ khóa ADMIN_KEY trong trình duyệt nữa
 }
 const adminCall = <T>(action: string, params: Record<string, unknown> = {}) =>
@@ -173,13 +176,23 @@ export const adminAuth = {
   /** Máy chủ đã có tài khoản quản trị chưa */
   status: () => call<{ has_admin: boolean }>('adminStatus'),
   /** Thiết lập lần đầu hoặc đặt lại mật khẩu quản trị (cần ADMIN_KEY) */
-  init: async (adminKey: string, username: string, password: string) => keepAdmin(await call<{ username: string; token: string }>('adminInit', { admin_key: adminKey.trim(), username, password })),
-  login: async (username: string, password: string) => keepAdmin(await call<{ username: string; token: string }>('adminLogin', { username, password })),
+  init: async (adminKey: string, username: string, password: string) => keepAdmin(await call<{ username: string; token: string; recovery_email?: string }>('adminInit', { admin_key: adminKey.trim(), username, password })),
+  login: async (username: string, password: string) => keepAdmin(await call<{ username: string; token: string; recovery_email?: string }>('adminLogin', { username, password })),
+  /** Khai báo (hoặc xóa) email khôi phục của quản trị */
+  setEmail: async (email: string, password: string) => {
+    const r = await adminCall<{ recovery_email: string }>('adminSetEmail', { email: email.trim(), password });
+    sessionStorage.setItem(ADMIN_EMAIL, r.recovery_email);
+    return r.recovery_email;
+  },
+  forgotStart: (username: string) => call<{ sent: boolean; email: string }>('adminForgotStart', { username: username.trim().toLowerCase() }),
+  forgotFinish: async (username: string, code: string, newPassword: string) =>
+    keepAdmin(await call<{ username: string; token: string; recovery_email?: string }>('adminForgotFinish', { username: username.trim().toLowerCase(), code, new_password: newPassword })),
   changePassword: (password: string, new_password: string) => adminCall<{ changed: boolean }>('adminChangePassword', { password, new_password }),
   logout: async () => {
     try { await adminCall('adminLogout'); } catch { /* máy chủ không tới được: vẫn xóa phiên trên máy */ }
     sessionStorage.removeItem(ADMIN_TOKEN);
     sessionStorage.removeItem(ADMIN_USER);
+    sessionStorage.removeItem(ADMIN_EMAIL);
     sessionStorage.removeItem(ADMIN_KEY);
   },
 };

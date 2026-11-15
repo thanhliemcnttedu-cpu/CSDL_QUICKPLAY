@@ -26,7 +26,11 @@ Chỉ tác giả/quản trị cài, và chỉ cài **một lần**.
 3. Chọn hàm `setup` → **Chạy** → cấp quyền. Mở **Nhật ký thực thi** để lấy dòng `ADMIN_KEY`. Giữ bí mật khóa này.
 4. **Triển khai → Triển khai mới → Ứng dụng web**: *Thực thi dưới danh nghĩa* = Tôi; *Ai có quyền truy cập* = Bất kỳ ai. Chép địa chỉ kết thúc bằng `/exec`.
 
-## 2. Bật bắt buộc đăng nhập cho bản web
+> Trang `/adminquantri` có sẵn **bảng hướng dẫn 6 bước**, tự đánh dấu bước đã xong và bước đang làm.
+
+## 2. Bật đăng nhập cho giáo viên trên bản web (bắt buộc)
+
+Nếu bỏ qua bước này, giáo viên ở máy khác **không đăng nhập được** vì trang web chưa biết máy chủ tài khoản ở đâu.
 
 Trên Vercel, vào **Settings → Environment Variables**, thêm:
 
@@ -54,7 +58,9 @@ Trang hiện mục **Thiết lập tài khoản quản trị**: nhập `ADMIN_KE
 **Từ lần sau:** mở `/adminquantri`, nhập tên tài khoản và mật khẩu → **Đăng nhập**. Phiên đăng nhập hết hạn sau 12 giờ hoặc khi đóng thẻ.
 
 > Mật khẩu quản trị **không nằm trong mã nguồn** (mã của trang web ai cũng đọc được). Máy chủ chỉ lưu bản băm có muối.
-> Quên mật khẩu: bấm **Quên mật khẩu? Đặt lại bằng ADMIN_KEY**. Nhập sai quá 8 lần thì bị tạm khóa 15 phút.
+> Nên khai báo **email khôi phục** ngay sau lần đăng nhập đầu (nút **Email khôi phục** phía trên danh sách tài khoản).
+> Quên mật khẩu: bấm **Quên mật khẩu?** để nhận mã 6 số qua email khôi phục; chưa khai báo email thì bấm **Đặt lại bằng ADMIN_KEY**
+> (khóa nằm trong dự án Apps Script: Cài đặt dự án → Thuộc tính tập lệnh → `ADMIN_KEY`). Nhập sai quá 8 lần thì bị tạm khóa 15 phút.
 > Đổi mật khẩu: nút **Đổi mật khẩu quản trị** sau khi đăng nhập.
 
 **Cấp tài khoản**: bấm **Cấp tài khoản**, nhập tên tài khoản, họ tên, mật khẩu ban đầu → gửi cho giáo viên (nút *Chép để gửi*).
