@@ -30,7 +30,7 @@ export function Home() {
         <section className="hero">
           <div>
             <span className="badge blue">Miễn phí · Không quảng cáo</span>
-            <h1 style={{ marginTop: 12 }}>Kiểm tra mà như chơi – học sinh hào hứng, thầy cô nhẹ việc.</h1>
+            <h1 className="hero-title" style={{ marginTop: 12 }}><span>TRẮC NGHIỆM TƯƠNG TÁC</span> <span>- AI BỨT PHÁ</span> <span>- QUẢN LÝ TRONG TAY</span></h1>
             <p className="muted" style={{ fontSize: '1.15rem', maxWidth: 560 }}>
               Soạn đề trong vài phút, tổ chức thi trực tiếp trên lớp hoặc giao bài về nhà. Mọi dữ liệu lưu trên Google Drive của thầy cô.
             </p>

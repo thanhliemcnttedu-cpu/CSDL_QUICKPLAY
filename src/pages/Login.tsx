@@ -107,7 +107,7 @@ export default function Login({ role: fixed }: { role?: Role }) {
         {/* Màn hình rộng (máy tính): thêm khung giới thiệu bên trái */}
         <aside className="login-side" aria-hidden>
           <Wordmark size={44} />
-          <h2>Kiểm tra mà như chơi</h2>
+          <h2>TRẮC NGHIỆM TƯƠNG TÁC<br />AI BỨT PHÁ<br />QUẢN LÝ TRONG TAY</h2>
           <ul>
             <li><GraduationCap size={20} /> <span><b>Giáo viên</b> soạn bộ câu hỏi, tổ chức trên lớp hoặc giao về nhà, xem báo cáo từng lớp.</span></li>
             <li><ShieldCheck size={20} /> <span><b>Quản trị</b> cấp và quản lý tài khoản giáo viên.</span></li>
