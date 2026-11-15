@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, LogIn } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, Gamepad2, LogIn } from 'lucide-react';
 import { api } from '../lib/api';
 import { avatarKind, randomAnyAvatar } from '../lib/avatar';
 import { sfx } from '../lib/sound';
@@ -53,15 +53,31 @@ export function Join() {
   const [busy, setBusy] = useState(false);
   const [nameUsed, setNameUsed] = useState(false); // tên + lớp này đã nộp bài ở lượt trước → hỏi đổi tên hay vẫn dùng
   // Bài kiểm tra: ngoài tên và lớp, em phải nhập mã số học sinh thầy cô đã phát
-  const [exam, setExam] = useState(false);
+  // Em tự bấm "Làm bài kiểm tra", hoặc phần mềm tự chuyển khi mã PIN là phòng kiểm tra
+  const [exam, setExam] = useState(params.get('kt') === '1');
+  const picked = useRef(params.get('kt') === '1'); // em tự chọn làm bài kiểm tra (chưa biết mã PIN là loại phòng nào)
   const [code, setCode] = useState('');
+  const [note, setNote] = useState('');
+  const pickKind = (isExam: boolean) => {
+    picked.current = isExam;
+    setExam(isExam);
+    setNote('');
+    setErr('');
+  };
   useEffect(() => {
-    setExam(false);
+    setNote('');
     if (!/^\d{6}$/.test(pin)) return;
     let live = true;
-    api.poll(pin).then((p) => { if (live) setExam(p.mode === 'exam'); }).catch(() => {});
+    api.poll(pin).then((p) => {
+      if (!live) return;
+      const isExam = p.mode === 'exam';
+      if (isExam && !exam) setNote('Mã PIN này là phòng kiểm tra: em cần nhập thêm mã số học sinh.');
+      if (!isExam && picked.current) setNote('Mã PIN này là phòng chơi thường, không phải bài kiểm tra nên không cần mã số học sinh.');
+      picked.current = false;
+      setExam(isExam);
+    }).catch(() => {});
     return () => { live = false; };
-  }, [pin]);
+  }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
   const nameRef = useRef<HTMLInputElement>(null);
   const again = params.get('again') === '1'; // em vừa bấm "Làm lại bài này": chính em đó làm lại nên không cần hỏi
   const s = params.get('s');
@@ -124,6 +140,13 @@ export function Join() {
           }}
         >
           <h1 className="center" style={{ margin: 0 }}>{exam ? 'Vào làm bài kiểm tra' : 'Vào phòng chơi'}</h1>
+          {!saved && (
+            <div className="join-kind" role="radiogroup" aria-label="Em vào phòng để làm gì">
+              <button type="button" role="radio" aria-checked={!exam} className={!exam ? 'on' : ''} onClick={() => pickKind(false)}><Gamepad2 size={20} /> Vào phòng chơi</button>
+              <button type="button" role="radio" aria-checked={exam} className={exam ? 'on' : ''} onClick={() => pickKind(true)}><ClipboardCheck size={20} /> Làm bài kiểm tra</button>
+            </div>
+          )}
+          {note && <div className="alert ok" role="status"><div>{note}</div></div>}
           {pinLocked ? (
             <div className="pin-ok" role="status">
               <span>Mã PIN của phòng</span>

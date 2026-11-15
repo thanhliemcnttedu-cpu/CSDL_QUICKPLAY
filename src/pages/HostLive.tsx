@@ -188,7 +188,7 @@ export default function HostLive() {
       <div className="page" style={{ maxWidth: 1280 }}>
         {header}
         {err && <div className="alert warn" style={{ marginBottom: 12 }}>Mất kết nối tạm thời: {err}</div>}
-        {s.settings.mode === 'exam' && s.exam && <ExamPanel s={s} now={nowMs} />}
+        {s.settings.mode === 'exam' && s.exam && <ExamPanel s={s} now={nowMs} link={link} qr={qr} />}
 
         {s.state === 'LOBBY_WAITING' && (
           <div className="stack" style={{ gap: 20 }}>
@@ -519,8 +519,19 @@ function Completed({ s, quiz }: { s: Session; quiz: Quiz | null }) {
 }
 
 /** Bài kiểm tra: lớp được giao, đồng hồ thu bài, ai đã vào, ai đã nộp, ai chưa vào. */
-function ExamPanel({ s, now }: { s: Session; now: number }) {
+function ExamPanel({ s, now, link, qr }: { s: Session; now: number; link: string; qr: string }) {
+  const toast = useToast();
   const roster = s.exam?.roster ?? [];
+  // Chép vào bộ nhớ tạm để dán vào Zalo, tin nhắn… gửi cho phụ huynh, học sinh
+  const copy = (text: string, done: string) =>
+    navigator.clipboard.writeText(text).then(() => toast(done, 'ok')).catch(() => { window.prompt('Bôi đen rồi nhấn Ctrl + C để sao chép:', text); });
+  const host = link ? new URL(link).host : '';
+  const message = [
+    `Bài kiểm tra "${s.quiz_title}" – lớp ${s.exam?.class_name ?? ''} (${s.settings.exam_minutes ?? 45} phút).`,
+    link ? `Vào link: ${link}` : '',
+    `${link ? 'Hoặc mở' : 'Mở'} ${host ? host + '/join' : 'trang Quickplay'}, bấm "Làm bài kiểm tra" và nhập mã PIN: ${s.pin}`,
+    'Sau đó nhập tên, lớp và mã số học sinh của em.',
+  ].filter(Boolean).join('\n');
   const byCode = new Map(s.players.filter((p) => !p.kicked && p.student_code).map((p) => [p.student_code!, p]));
   const absent = roster.filter((r) => !byCode.has(r.code));
   const handed = [...byCode.values()].filter((p) => p.finished).length;
@@ -547,6 +558,31 @@ function ExamPanel({ s, now }: { s: Session; now: number }) {
         {locked > 0 && <span className="badge red">Bị khóa do vi phạm {locked}</span>}
         <span className={`badge ${absent.length ? 'amber' : ''}`}>Chưa vào {absent.length}</span>
       </div>
+      {s.state !== 'COMPLETED' && (
+        <div className="exam-share">
+          {qr && <img className="qr" src={qr} alt="Mã QR để vào bài kiểm tra" width={132} height={132} />}
+          <div className="stack grow" style={{ gap: 8, minWidth: 0 }}>
+            <b>Gửi cho học sinh, phụ huynh để vào bài kiểm tra</b>
+            <div className="exam-share-row">
+              <span className="lbl">Mã PIN</span>
+              <b className="pin" aria-label={`Mã PIN ${s.pin.split('').join(' ')}`}>{s.pin.slice(0, 3)} {s.pin.slice(3)}</b>
+              <button className="btn sm" onClick={() => copy(s.pin, 'Đã chép mã PIN.')}><Copy size={16} /> Chép mã PIN</button>
+            </div>
+            {link && (
+              <div className="exam-share-row">
+                <span className="lbl">Đường link</span>
+                <a className="url" href={link} target="_blank" rel="noopener noreferrer">{link.replace(/^https?:\/\//, '')}</a>
+                <button className="btn sm" onClick={() => copy(link, 'Đã chép đường link vào bài kiểm tra.')}><Copy size={16} /> Chép link</button>
+              </div>
+            )}
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn sm primary" onClick={() => copy(message, 'Đã chép lời nhắn. Dán vào Zalo hoặc tin nhắn để gửi.')}><Copy size={16} /> Chép lời nhắn gửi đi</button>
+              {qr && <a className="btn sm" href={qr} download={`QR-bai-kiem-tra-${s.pin}.png`}><Download size={16} /> Tải ảnh mã QR</a>}
+            </div>
+            <small className="muted">Quét mã QR hoặc mở đường link là tới thẳng trang nhập tên, lớp và mã số học sinh. Mã số học sinh thầy cô phát riêng cho từng em.</small>
+          </div>
+        </div>
+      )}
       {absent.length > 0 && (
         <details>
           <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Học sinh chưa vào làm bài ({absent.length})</summary>

@@ -642,6 +642,21 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .gem-web { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 16px; border: 1.5px dashed #9cc3ff; background: #f7faff; }
 .gem-web textarea { font-size: 0.85rem; }
 
+/* Màn quản lý bài kiểm tra: mã QR, mã PIN, đường link để gửi cho học sinh */
+.exam-share { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; padding: 12px; border-radius: 16px; border: 1.5px solid var(--border); background: #f7faff; }
+.exam-share .qr { flex: none; border-radius: 12px; background: #fff; border: 1.5px solid var(--border); }
+.exam-share-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.exam-share-row .lbl { flex: none; width: 84px; font-weight: 700; color: var(--muted-fg); }
+.exam-share-row .pin { font-size: 1.6rem; letter-spacing: 0.08em; }
+.exam-share-row .url { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+
+/* Trang vào phòng: chọn Vào phòng chơi / Làm bài kiểm tra */
+.join-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px; border-radius: 999px; background: #fff; border: 1.5px solid var(--border); }
+.join-kind button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 8px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--fg); font: inherit; font-weight: 800; cursor: pointer; }
+.join-kind button.on { background: linear-gradient(180deg, #2f80ff, #1463e6); color: #fff; box-shadow: 0 6px 14px -6px rgba(20, 99, 230, 0.7); }
+.join-kind button:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+@media (max-width: 420px) { .join-kind button { font-size: 0.92rem; padding: 8px 6px; } }
+
 /* Tiến độ AI soạn câu hỏi */
 .ai-prog { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 16px; background: var(--primary-soft); border: 1.5px solid #9cc3ff; color: var(--fg); text-align: left; }
 .ai-prog .ai-pct { font-size: 1.25rem; color: var(--primary-ink); }
