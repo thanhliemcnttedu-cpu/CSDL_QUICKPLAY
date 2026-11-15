@@ -9,7 +9,7 @@ type DeviceId = 'desktop' | 'tablet' | 'phone';
 const DEVICES: Record<DeviceId, { name: string; w: number; h: number; icon: typeof Monitor }> = {
   desktop: { name: 'Máy tính', w: 1366, h: 768, icon: Monitor },
   tablet: { name: 'Máy tính bảng', w: 820, h: 1180, icon: Tablet },
-  phone: { name: 'Điện thoại', w: 390, h: 844, icon: Smartphone },
+  phone: { name: 'Điện thoại (19,5:9)', w: 390, h: 845, icon: Smartphone }, // 390 × 845 = đúng tỉ lệ 19,5:9 của màn hình tràn viền
 };
 const PAGES: [string, string][] = [
   ['/', 'Trang chủ'],

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Cloud, Mic, Sparkles, Shapes, MonitorSmartphone, FileText, ArrowRight, Gamepad2 } from 'lucide-react';
 import { Brand } from '../App';
 import { AppFooter } from '../components/AppFooter';
+import { JoinShare } from '../components/JoinShare';
 
 const FEATURES = [
   { ic: Shapes, t: '7 dạng câu hỏi', d: 'Một/nhiều đáp án, Đúng/Sai, điền chỗ trống, sắp xếp, nối cột, trả lời miệng.' },
@@ -68,6 +69,7 @@ export function Home() {
               />
             </label>
             <button className="btn accent lg">Vào phòng</button>
+            <JoinShare />
           </form>
         </section>
         <section className="feature-list" aria-label="Tính năng">
