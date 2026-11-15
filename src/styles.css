@@ -502,3 +502,7 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
   .lib-actions { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
   .lib-actions .btn { padding: 8px 10px; font-size: 0.9rem; justify-content: center; white-space: normal; line-height: 1.2; }
 }
+
+/* Trang vào phòng: mã PIN đã có sẵn thì hiện gọn, không bắt nhập lại */
+.pin-ok { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; padding: 10px 14px; border-radius: 18px; border: 1.5px solid #86d9a8; background: #f0fbf4; color: #0b6a33; font-weight: 700; }
+.pin-ok b { font-size: 1.7rem; letter-spacing: 0.25em; font-weight: 800; color: var(--fg); }

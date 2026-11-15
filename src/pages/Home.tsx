@@ -16,7 +16,8 @@ const FEATURES = [
 export function Home() {
   const nav = useNavigate();
   const [pin, setPin] = useState('');
-  const go = () => /^\d{6}$/.test(pin) && nav(`/join?pin=${pin}`);
+  // Bấm "Vào phòng" luôn sang trang dành cho học sinh; đã gõ đủ 6 số thì mang mã theo để em không phải nhập lại
+  const go = () => nav(/^\d{6}$/.test(pin) ? `/join?pin=${pin}` : '/join');
   return (
     <>
       <header className="topbar">
@@ -55,11 +56,10 @@ export function Home() {
           >
             <h2 style={{ margin: 0 }}>Học sinh vào phòng</h2>
             <label className="field">
-              <span>Nhập mã PIN 6 số giáo viên đưa</span>
+              <span>Nhập mã PIN 6 số thầy cô giao (có thể nhập sau)</span>
               <input
                 className="input"
                 inputMode="numeric"
-                pattern="\d{6}"
                 maxLength={6}
                 placeholder="000000"
                 value={pin}
@@ -67,7 +67,7 @@ export function Home() {
                 aria-label="Mã PIN"
               />
             </label>
-            <button className="btn accent lg" disabled={pin.length !== 6}>Vào phòng</button>
+            <button className="btn accent lg">Vào phòng</button>
           </form>
         </section>
         <section className="feature-list" aria-label="Tính năng">

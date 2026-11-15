@@ -25,6 +25,8 @@ export function Join() {
   const [params] = useSearchParams();
   const nav = useNavigate();
   const [pin, setPin] = useState(params.get('pin') ?? '');
+  // Mã PIN đã có sẵn (gõ ở trang chủ, mở từ link hoặc quét mã QR): không bắt em nhập lại, chỉ còn điền tên và lớp
+  const [pinLocked, setPinLocked] = useState(/^\d{6}$/.test(params.get('pin') ?? ''));
   const [name, setName] = useState(() => localStorage.getItem('quizzi.lastName') ?? '');
   const [cls, setCls] = useState(() => localStorage.getItem('quizzi.lastClass') ?? '');
   const [avatar, setAvatar] = useState<string>(() => {
@@ -84,11 +86,19 @@ export function Join() {
           }}
         >
           <h1 className="center" style={{ margin: 0 }}>Vào phòng chơi</h1>
-          <label className="field">
-            <span>1. Mã PIN</span>
-            <input className="input" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              style={{ fontSize: '1.8rem', textAlign: 'center', letterSpacing: '.3em', fontWeight: 800, color: 'var(--fg)' }} />
-          </label>
+          {pinLocked ? (
+            <div className="pin-ok" role="status">
+              <span>Mã PIN của phòng</span>
+              <b aria-label={`Mã PIN ${pin.split('').join(' ')}`}>{pin}</b>
+              <button type="button" className="btn sm ghost" onClick={() => { setPinLocked(false); setErr(''); }}>Đổi mã</button>
+            </div>
+          ) : (
+            <label className="field">
+              <span>1. Mã PIN thầy cô giao</span>
+              <input className="input" inputMode="numeric" maxLength={6} value={pin} autoFocus onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000" style={{ fontSize: '1.8rem', textAlign: 'center', letterSpacing: '.3em', fontWeight: 800, color: 'var(--fg)' }} />
+            </label>
+          )}
           {saved ? (
             <div className="card stack center" style={{ color: 'var(--fg)' }}>
               <div style={{ alignSelf: 'center' }}><Avatar value={saved.avatar} size={96} /></div>
@@ -99,11 +109,11 @@ export function Join() {
           ) : (
             <>
               <label className="field">
-                <span>2. Tên hiển thị</span>
-                <input className="input" maxLength={24} required ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Nguyễn Minh Anh" style={{ color: 'var(--fg)', fontSize: '1.2rem' }} autoComplete="nickname" />
+                <span>{pinLocked ? '1' : '2'}. Tên hiển thị</span>
+                <input className="input" maxLength={24} required ref={nameRef} autoFocus={pinLocked} value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Nguyễn Minh Anh" style={{ color: 'var(--fg)', fontSize: '1.2rem' }} autoComplete="nickname" />
               </label>
               <label className="field">
-                <span>3. Lớp của em</span>
+                <span>{pinLocked ? '2' : '3'}. Lớp của em</span>
                 <input className="input" maxLength={20} required value={cls} onChange={(e) => setCls(e.target.value)} placeholder="VD: 5A" style={{ color: 'var(--fg)', fontSize: '1.2rem' }} autoCapitalize="characters" />
                 <small className="help">Thầy cô dùng lớp để thống kê kết quả.</small>
               </label>
