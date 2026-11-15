@@ -83,7 +83,7 @@ function guard() { if (full) throw new Error("Exception: The user's Drive storag
 function mkFile(folder, name, content, mime) {
   guard();
   const f = { id: '1' + String(++idn).padStart(15, 'x'), name, content: content instanceof Buffer ? content : Buffer.from(String(content)), trashed: false, mime: mime || 'application/json',
-    getName: () => f.name, getId: () => f.id, isTrashed: () => f.trashed, setTrashed: (v) => { f.trashed = v; }, getSize: () => f.content.length,
+    getName: () => f.name, setName: (n) => { f.name = String(n); }, getId: () => f.id, isTrashed: () => f.trashed, setTrashed: (v) => { f.trashed = v; }, getSize: () => f.content.length,
     getBlob: () => ({ getDataAsString: () => f.content.toString('utf8'), getContentType: () => f.mime, getBytes: () => f.content }),
     setContent: (c) => { guard(); f.content = Buffer.from(String(c)); }, getUrl: () => 'https://drive.google.com/file/d/' + f.id, setSharing() {}, getLastUpdated: () => new Date() };
   folder.files.push(f); files[f.id] = f;
@@ -134,6 +134,19 @@ http.createServer((req, res) => {
     if (req.url.includes('api=1')) apiOn = true;
     if (req.url.includes('scopes=0')) scopesOn = false;
     if (req.url.includes('scopes=1')) scopesOn = true;
+    // legacy=1: đưa thư mục quizzes về kiểu cũ (tệp tên <mã>.json, chỉ mục không có file_id) để thử việc tự đổi tên của bản 1.5.3
+    if (req.url.includes('legacy=1')) {
+      for (const f of Object.values(files)) {
+        const m = !f.trashed && f.name.match(/\(([\w-]+)\)\.json$/);
+        if (m) f.name = m[1] + '.json';
+        if (!f.trashed && f.name === '_index.json') {
+          try {
+            const list = JSON.parse(f.content.toString('utf8'));
+            if (Array.isArray(list) && list.some((x) => x.file_id)) f.content = Buffer.from(JSON.stringify(list.map(({ file_id, ...x }) => x)));
+          } catch { /* không phải chỉ mục bộ đề */ }
+        }
+      }
+    }
     res.setHeader('Content-Type', 'application/json');
     return res.end(JSON.stringify({ version: code.match(/var APP_VERSION = '([\d.]+)';/)[1], apiOn, scopesOn, full, files: Object.values(files).filter((f) => !f.trashed).map((f) => [f.name, f.content.length]), trashed: Object.values(files).filter((f) => f.trashed).length }));
   }

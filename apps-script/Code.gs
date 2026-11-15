@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.2';
+var APP_VERSION = '1.5.3';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -253,7 +253,80 @@ function rebuildQuizIndex() {
 // ============================================================================
 
 function actListQuizzes_() {
-  return readQuizIndex_();
+  var index = readQuizIndex_();
+  // Lần đầu sau khi lên bản 1.5.3: tệp cũ còn mang tên <mã>.json → đổi sang tên dễ hiểu và ghi nhớ mã tệp (làm một lần)
+  if (index.some(function (s) { return !s.file_id; })) {
+    index = withLock_(function () { return rebuildQuizIndex_(); });
+  }
+  return index;
+}
+
+/** Bỏ ký tự không dùng được trong tên tệp (Windows, Drive), gộp khoảng trắng. */
+function cleanFilePart_(x) {
+  return String(x || '').replace(/[\\/:*?"<>|\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Tên tệp bộ đề để thầy cô nhìn là hiểu (1.5.3): "<Khối lớp> - <Môn> - <Tên bộ đề> (<mã bộ đề>).json",
+ * ví dụ "Lớp 1 - Tiếng Việt - Bài 2 Ôn tập (quiz_mwhxf6se95s36v).json". Mã bộ đề trong ngoặc giúp phần mềm tìm lại đúng tệp.
+ */
+function quizFileName_(quiz) {
+  var parts = [quiz.grade, quiz.subject, quiz.title].map(cleanFilePart_).filter(function (x) { return x; });
+  var label = parts.join(' - ').slice(0, 120).trim();
+  return (label ? label + ' ' : '') + '(' + quiz.id + ').json';
+}
+
+/**
+ * Tìm tệp của một bộ đề: theo mã tệp ghi trong chỉ mục → theo tên cũ <mã>.json → quét thư mục tìm tên kết thúc bằng "(<mã>).json".
+ * Nhờ vậy thầy cô có đổi tên tệp trên Drive (miễn giữ phần "(mã).json") phần mềm vẫn tìm thấy.
+ */
+function quizFile_(folder, id, index) {
+  var list = index || readQuizIndexRaw_(folder) || [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === id && list[i].file_id) {
+      try {
+        var byId = DriveApp.getFileById(list[i].file_id);
+        if (!byId.isTrashed()) return byId;
+      } catch (e) { /* tệp không còn: tìm cách khác */ }
+      break;
+    }
+  }
+  var old = findFile_(folder, id + '.json');
+  if (old) return old;
+  var tail = '(' + id + ').json';
+  var it = folder.getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    var n = String(f.getName());
+    if (!f.isTrashed() && n.length >= tail.length && n.slice(-tail.length) === tail) return f;
+  }
+  return null;
+}
+
+/** Đọc một bộ đề theo mã; null nếu không có. */
+function readQuiz_(id) {
+  var f = quizFile_(folder_('quizzes'), id);
+  if (!f) return null;
+  var txt = f.getBlob().getDataAsString('UTF-8');
+  if (!txt) return null;
+  try {
+    return JSON.parse(txt);
+  } catch (e) {
+    throw userError_('Tệp bộ đề "' + f.getName() + '" trên Drive bị hỏng (không phải JSON hợp lệ).');
+  }
+}
+
+/** Ghi một bộ đề (gọi khi đang giữ khóa): ghi đè tệp đang có, đổi tên tệp theo lớp / môn / tên bộ đề hiện tại. Trả về tệp. */
+function writeQuiz_(folder, quiz, index) {
+  var name = quizFileName_(quiz);
+  var text = JSON.stringify(quiz);
+  var f = quizFile_(folder, quiz.id, index);
+  if (!f) return folder.createFile(name, text, 'application/json');
+  f.setContent(text);
+  if (f.getName() !== name) {
+    try { f.setName(name); } catch (e) { /* không đổi được tên: nội dung vẫn đã lưu */ }
+  }
+  return f;
 }
 
 function actListPublicQuizzes_() {
@@ -262,7 +335,7 @@ function actListPublicQuizzes_() {
 
 function actGetQuiz_(req) {
   var id = requireId_(req.id, 'Mã bộ đề');
-  var quiz = readJson_(folder_('quizzes'), id + '.json');
+  var quiz = readQuiz_(id);
   if (!quiz) throw userError_('Không tìm thấy bộ đề (mã ' + id + ').');
   return quiz;
 }
@@ -286,15 +359,18 @@ function actSaveQuiz_(req) {
   return withLock_(function () {
     var folder = folder_('quizzes');
     var now = new Date().toISOString();
+    var index = readQuizIndexRaw_(folder) || rebuildQuizIndex_();
     var existing = null;
-    try { existing = readJson_(folder, quiz.id + '.json'); } catch (e) { existing = null; }
+    try {
+      var ef = quizFile_(folder, quiz.id, index);
+      existing = ef ? JSON.parse(ef.getBlob().getDataAsString('UTF-8')) : null;
+    } catch (e) { existing = null; }
     quiz.created_at = (existing && existing.created_at) || quiz.created_at || now;
     quiz.updated_at = now;
-    writeJson_(folder, quiz.id + '.json', quiz);
+    var file = writeQuiz_(folder, quiz, index);
 
-    var index = readQuizIndexRaw_(folder) || rebuildQuizIndex_();
     index = index.filter(function (s) { return s.id !== quiz.id; });
-    index.push(quizSummary_(quiz));
+    index.push(quizSummary_(quiz, file.getId()));
     sortQuizIndex_(index);
     writeJson_(folder, QUIZ_INDEX_FILE, index);
     return quiz;
@@ -305,8 +381,8 @@ function actDeleteQuiz_(req) {
   var id = requireId_(req.id, 'Mã bộ đề');
   return withLock_(function () {
     var folder = folder_('quizzes');
-    var file = findFile_(folder, id + '.json');
     var index = readQuizIndexRaw_(folder) || rebuildQuizIndex_();
+    var file = quizFile_(folder, id, index);
     var inIndex = index.some(function (s) { return s.id === id; });
     if (!file && !inIndex) throw userError_('Không tìm thấy bộ đề cần xóa (mã ' + id + ').');
     if (file) file.setTrashed(true); // chuyển vào thùng rác, khôi phục được trong 30 ngày
@@ -317,7 +393,7 @@ function actDeleteQuiz_(req) {
   });
 }
 
-function quizSummary_(quiz) {
+function quizSummary_(quiz, fileId) {
   var s = {
     id: quiz.id,
     title: quiz.title,
@@ -331,6 +407,7 @@ function quizSummary_(quiz) {
   if (quiz.lesson_id) s.lesson_id = quiz.lesson_id;
   if (quiz.grade) s.grade = quiz.grade;
   if (quiz.cover_url) s.cover_url = quiz.cover_url;
+  if (fileId) s.file_id = fileId; // mã tệp trên Drive, để tìm lại tệp dù tên tệp thay đổi
   return s;
 }
 
@@ -365,7 +442,14 @@ function rebuildQuizIndex_() {
     if (f.isTrashed() || name === QUIZ_INDEX_FILE || !/\.json$/i.test(name)) continue;
     try {
       var q = JSON.parse(f.getBlob().getDataAsString('UTF-8'));
-      if (q && q.id) list.push(quizSummary_(q));
+      if (q && q.id) {
+        list.push(quizSummary_(q, f.getId()));
+        // đặt lại tên tệp cho dễ hiểu (tệp cũ mang tên <mã>.json)
+        var want = quizFileName_(q);
+        if (name !== want) {
+          try { f.setName(want); } catch (e2) { /* giữ tên cũ */ }
+        }
+      }
     } catch (e) {
       console.warn('Bỏ qua tệp bộ đề hỏng: ' + name);
     }
@@ -506,7 +590,7 @@ function sanitizeFileName_(name) {
 
 function actCreateSession_(req) {
   var quizId = requireId_(req.quiz_id, 'Mã bộ đề');
-  var quiz = readJson_(folder_('quizzes'), quizId + '.json');
+  var quiz = readQuiz_(quizId);
   if (!quiz) throw userError_('Không tìm thấy bộ đề (mã ' + quizId + ').');
   if (!Array.isArray(quiz.questions) || quiz.questions.length === 0) {
     throw userError_('Bộ đề chưa có câu hỏi nào, chưa thể tổ chức.');
@@ -656,7 +740,7 @@ function isPaperQuestion_(q) {
 
 function actCreatePaperSession_(req) {
   var quizId = requireId_(req.quiz_id, 'Mã bộ đề');
-  var quiz = readJson_(folder_('quizzes'), quizId + '.json');
+  var quiz = readQuiz_(quizId);
   if (!quiz) throw userError_('Không tìm thấy bộ đề (mã ' + quizId + ').');
   quiz.questions = (Array.isArray(quiz.questions) ? quiz.questions : []).filter(isPaperQuestion_);
   if (!quiz.questions.length) {
@@ -1068,7 +1152,7 @@ function actGetSessionQuiz_(req) {
     try { quiz = JSON.parse(cached); } catch (e) { quiz = null; }
   }
   if (!quiz) {
-    quiz = readJson_(folder_('quizzes'), s.quiz_id + '.json');
+    quiz = readQuiz_(s.quiz_id);
     if (!quiz) throw userError_('Bộ đề của phòng này không còn tồn tại (có thể đã bị xóa).');
   }
   return { quiz: quiz, settings: s.settings, state: s.state };
@@ -2322,7 +2406,7 @@ function actRestoreData_(req) {
         q.visibility = q.visibility === 'public' ? 'public' : 'private';
         if (!q.updated_at) q.updated_at = new Date().toISOString(); // giữ ngày cập nhật trong tệp sao lưu nếu có
         if (!q.created_at) q.created_at = q.updated_at;
-        writeJson_(qf, q.id + '.json', q);
+        writeQuiz_(qf, q);
         r.quizzes++;
       });
     }

@@ -27,6 +27,11 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 Apps Script ghi một tệp `.json` duy nhất vào thư mục lưu trữ, tên theo tên đăng nhập và thời điểm lưu, ví dụ `035091005725_15_11_2026_12h45.json`.
 Tệp gộp cũ của cùng tài khoản được chuyển vào Thùng rác. Nếu đã chọn thư mục trên máy tính (Cài đặt → Sao lưu và khôi phục), tệp này cũng được ghi vào đó.
 
+**Bản 1.5.3:** tên tệp bộ đề dễ hiểu. Trong thư mục `quizzes`, mỗi bộ đề mang tên `<Khối lớp> - <Môn> - <Tên bộ đề> (<mã bộ đề>).json`,
+ví dụ `Lớp 1 - Tiếng Việt - Bài 2 Ôn tập (quiz_mwhxf6se95s36v).json`. Tệp cũ tên `<mã>.json` được đổi tên một lần khi thầy cô mở Thư viện sau khi cập nhật;
+về sau tên tệp đổi theo mỗi lần lưu bộ đề (đổi tên bộ đề, chuyển lớp, chuyển môn). Phần mềm tìm tệp theo mã tệp Drive ghi trong `_index.json`,
+nên thầy cô đổi tên tệp trên Drive cũng không sao; đừng xóa phần `(mã bộ đề).json` ở cuối tên. Cập nhật tay bằng 5 bước ở trang Cài đặt.
+
 **Bản 1.5.2:** xóa báo cáo. Trang Báo cáo cho chọn các phiên để xóa, hoặc xóa toàn bộ. Apps Script chuyển tệp kết quả của phiên
 (`sessions/<pin>.json`, `<pin>.quiz.json`) và bản ghi âm trả lời miệng của phiên đó vào Thùng rác của Drive (khôi phục được trong 30 ngày), rồi bỏ phiên khỏi chỉ mục.
 Cập nhật tay bằng 5 bước ở trang Cài đặt.
