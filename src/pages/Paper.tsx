@@ -1,7 +1,8 @@
 // Dạy học trên lớp – Thẻ trả lời: in thẻ, quản lý lớp, mở buổi học quét thẻ.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Pencil, Plus, Printer, ScanLine, Trash2, Users } from 'lucide-react';
+import { Download, KeyRound, Pencil, Plus, Printer, ScanLine, Trash2, Users } from 'lucide-react';
+import { StudentCodesDialog } from '../components/StudentCodesDialog';
 import type { ClassRoom, QuizSummary } from '../lib/types';
 import { api } from '../lib/api';
 import { CARD_CODES, CARD_COUNT, cardBit, cardsBackPdf, cardsPdf, type NameImage } from '../lib/paperCard';
@@ -74,6 +75,7 @@ export default function Paper() {
   const [busy, setBusy] = useState(false);
   const [perPage, setPerPage] = useState<1 | 2>(2);
   const [printFor, setPrintFor] = useState(''); // '' = bộ thẻ chung 1–100, hoặc id lớp (in sẵn tên)
+  const [codesFor, setCodesFor] = useState<ClassRoom | null>(null); // lớp đang mở hộp đặt mã số học sinh
 
   const load = useCallback(async () => {
     try {
@@ -122,7 +124,17 @@ export default function Paper() {
     if (!edit.name.trim()) return toast('Hãy nhập tên lớp.', 'error');
     if (!students.length) return toast('Hãy dán danh sách học sinh, mỗi dòng một tên.', 'error');
     try {
-      const saved = await api.saveClass({ id: edit.id, name: edit.name.trim(), students });
+      // Sửa danh sách tên thì mã số đã đặt vẫn đi theo đúng em (ghép theo tên); em mới thêm chưa có mã
+      const old = classes?.find((c) => c.id === edit.id);
+      let codes: string[] | undefined;
+      if (old?.codes) {
+        const pool = old.students.map((n, i) => ({ n, c: old.codes![i] ?? '' }));
+        codes = students.map((n) => {
+          const k = pool.findIndex((x) => x.n === n);
+          return k < 0 ? '' : pool.splice(k, 1)[0].c;
+        });
+      }
+      const saved = await api.saveClass({ id: edit.id, name: edit.name.trim(), students, codes });
       setEdit(null);
       toast(`Đã lưu lớp ${saved.name} (${saved.students.length} em).`, 'ok');
       await load();
@@ -233,7 +245,9 @@ export default function Paper() {
                 <div className="grow">
                   <b>{c.name}</b>
                   <div className="muted small"><Users size={14} /> {c.students.length} em · thẻ số 1 đến {c.students.length}</div>
+                  <div className="muted small"><KeyRound size={14} /> {(() => { const n = (c.codes ?? []).filter(Boolean).length; return n >= c.students.length ? 'Đã có đủ mã số học sinh' : n ? `Mã số học sinh: ${n}/${c.students.length} em` : 'Chưa đặt mã số học sinh'; })()}</div>
                 </div>
+                <button className="btn sm" onClick={() => setCodesFor(c)} aria-label={`Mã số học sinh lớp ${c.name}`}><KeyRound size={16} /> Mã học sinh</button>
                 <button className="btn icon ghost" onClick={() => setEdit({ id: c.id, name: c.name, text: c.students.join('\n') })} aria-label={`Sửa lớp ${c.name}`}><Pencil size={18} /></button>
                 <button className="btn icon danger" onClick={() => removeClass(c)} aria-label={`Xóa lớp ${c.name}`}><Trash2 size={18} /></button>
               </div>
@@ -264,6 +278,7 @@ export default function Paper() {
         </div>
       </section>
 
+      {codesFor && <StudentCodesDialog cls={codesFor} onClose={() => setCodesFor(null)} onSaved={(c) => { setCodesFor(c); load(); }} />}
       {edit && (
         <Modal title={edit.id ? 'Sửa lớp' : 'Thêm lớp'} onClose={() => setEdit(null)} footer={<button className="btn primary" onClick={saveClass}>Lưu lớp</button>}>
           <div className="stack">

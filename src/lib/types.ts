@@ -97,7 +97,7 @@ export interface CatalogSubject { id: string; name: string; chapters: CatalogCha
 export interface Catalog { subjects: CatalogSubject[]; grades?: string[]; updated_at?: string }
 
 // ---------- Phiên tổ chức ----------
-export type SessionMode = 'classic_live' | 'instructor_paced' | 'homework' | 'paper'; // paper = chế độ giấy (quét thẻ)
+export type SessionMode = 'classic_live' | 'instructor_paced' | 'homework' | 'paper' | 'exam'; // paper = chế độ giấy (quét thẻ); exam = bài kiểm tra theo danh sách lớp
 export type SessionState = 'LOBBY_WAITING' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED';
 
 export interface AntiCheatSettings {
@@ -122,7 +122,9 @@ export interface SessionSettings {
   retry_rounds?: number; // 0–20 (giáo viên tự điền): số LƯỢT làm lại các câu sai của cả bài (trực tiếp tự do, bài về nhà). Giáo viên điều khiển: không có làm lại
   power_ups: boolean;
   start_time?: string; // homework
-  deadline?: string; // homework
+  deadline?: string; // homework: hạn nộp; exam: giờ thu bài (máy chủ đặt khi giáo viên bấm Bắt đầu)
+  exam_class_id?: string; // exam: lớp được giao bài kiểm tra
+  exam_minutes?: number; // exam: thời gian làm bài (phút)
   anti_cheat?: AntiCheatSettings;
 }
 
@@ -151,6 +153,7 @@ export interface Player {
   player_id: string;
   name: string;
   class_name?: string; // lớp của học sinh (bắt buộc khi vào phòng trực tuyến)
+  student_code?: string; // exam: mã số học sinh trong danh sách lớp
   avatar: string;
   score: number;
   correct: number;
@@ -206,6 +209,14 @@ export interface Session {
   violations?: Violation[];
   question_count: number;
   paper?: PaperInfo; // chỉ có ở chế độ giấy
+  exam?: ExamInfo; // chỉ có ở bài kiểm tra (không gửi cho học sinh)
+}
+
+/** Bài kiểm tra: lớp được giao và danh sách mã số học sinh được phép vào làm. */
+export interface ExamInfo {
+  class_id: string;
+  class_name: string;
+  roster: { code: string; name: string }[];
 }
 
 /** Lớp học dùng cho chế độ giấy: số thẻ = số thứ tự của học sinh trong danh sách. */
@@ -213,6 +224,7 @@ export interface ClassRoom {
   id: string;
   name: string;
   students: string[];
+  codes?: string[]; // mã số học sinh do giáo viên đặt, cùng thứ tự với `students` (chuỗi rỗng = chưa đặt)
   updated_at: string;
 }
 
@@ -246,6 +258,7 @@ export interface PollResult {
   paused_at?: number;
   paused_total_ms?: number;
   server_now: number;
+  deadline?: number; // exam: giờ thu bài (ms)
   players: Pick<Player, 'player_id' | 'name' | 'class_name' | 'avatar' | 'score' | 'correct' | 'answered' | 'finished' | 'current_index' | 'coins' | 'joined_at' | 'finished_at'>[];
   my_pending?: number[]; // các câu trả lời miệng của em đang chờ chấm
   my_graded?: Record<number, boolean>; // q_index -> kết quả giáo viên chấm (trả lời miệng)

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Radio, Users, Home as HomeIcon, ShieldAlert, Eye } from 'lucide-react';
-import type { AntiCheatSettings, QuizSummary, SessionMode, SessionSettings } from '../lib/types';
+import { Radio, Users, Home as HomeIcon, ShieldAlert, Eye, ClipboardCheck } from 'lucide-react';
+import type { AntiCheatSettings, ClassRoom, QuizSummary, SessionMode, SessionSettings } from '../lib/types';
 import { DEFAULT_ANTI_CHEAT } from '../lib/anticheat';
 import { api } from '../lib/api';
 import { Modal, useToast } from './ui';
@@ -10,6 +10,7 @@ const MODES: { id: SessionMode; title: string; desc: string; icon: typeof Radio 
   { id: 'classic_live', title: 'Trực tiếp tự do', desc: 'Mỗi học sinh làm theo tốc độ riêng, bảng điểm cập nhật liên tục.', icon: Radio },
   { id: 'instructor_paced', title: 'Giáo viên điều khiển nhịp', desc: 'Thầy cô mở từng câu, xem thống kê rồi chuyển câu.', icon: Users },
   { id: 'homework', title: 'Giao bài về nhà', desc: 'Đặt giờ mở và hạn nộp; tự lưu nháp, làm tiếp được.', icon: HomeIcon },
+  { id: 'exam', title: 'Bài kiểm tra', desc: 'Giao cho một lớp, vào bằng mã số học sinh, có giờ làm bài, nộp một lần, không hiện đáp án.', icon: ClipboardCheck },
 ];
 
 const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -33,6 +34,23 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
   const [start, setStart] = useState(toLocalInput(new Date()));
   const [deadline, setDeadline] = useState(toLocalInput(new Date(Date.now() + 7 * 86400000)));
   const set = (p: Partial<SessionSettings>) => setS((x) => ({ ...x, ...p }));
+  const exam = s.mode === 'exam';
+  // Bài kiểm tra: danh sách lớp để giao, thời gian làm bài
+  const [classes, setClasses] = useState<ClassRoom[] | null>(null);
+  const [minutesText, setMinutesText] = useState('45');
+  useEffect(() => {
+    if (!exam || classes) return;
+    api.listClasses().then((c) => {
+      setClasses(c);
+      setS((x) => (x.exam_class_id ? x : { ...x, exam_class_id: c[0]?.id }));
+    }).catch((e) => { setClasses([]); toast((e as Error).message, 'error'); });
+  }, [exam]); // eslint-disable-line react-hooks/exhaustive-deps
+  const examClass = classes?.find((c) => c.id === s.exam_class_id);
+  const codesDone = examClass ? (examClass.codes ?? []).filter(Boolean).length : 0;
+  /** Chọn chế độ; bài kiểm tra thì bật sẵn chống gian lận với ngưỡng 3 lần. */
+  const pickMode = (mode: SessionMode) => setS((x) => (mode === 'exam' && x.mode !== 'exam'
+    ? { ...x, mode, shuffle_questions: x.shuffle_questions, anti_cheat: { ...x.anti_cheat!, enabled: true, max_violations: 3 } }
+    : { ...x, mode }));
   const [roundsText, setRoundsText] = useState('0');
   /** Lưu số lượt làm lại giáo viên tự điền (0–20). */
   const saveRounds = () => {
@@ -49,9 +67,16 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
   };
 
   const go = async () => {
-    if (s.mode !== 'instructor_paced' && String(s.retry_rounds ?? 0) !== roundsText.trim())
+    if (s.mode !== 'instructor_paced' && !exam && String(s.retry_rounds ?? 0) !== roundsText.trim())
       return toast('Thầy cô vừa điền số lượt làm lại nhưng chưa bấm "Lưu số lượt".', 'error');
     const settings = { ...s };
+    if (exam) {
+      const minutes = Math.round(Number(minutesText));
+      if (!examClass) return toast('Hãy chọn lớp để giao bài kiểm tra.', 'error');
+      if (codesDone < examClass.students.length) return toast(`Lớp ${examClass.name} còn ${examClass.students.length - codesDone} em chưa có mã số học sinh. Vào Dạy học trên lớp → Lớp học → Mã học sinh để đặt mã.`, 'error');
+      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 300 || minutesText.trim() === '') return toast('Thời gian làm bài là một số từ 1 đến 300 phút.', 'error');
+      settings.exam_minutes = minutes;
+    }
     if (s.mode === 'homework') {
       if (new Date(deadline) <= new Date(start)) return toast('Hạn nộp phải sau giờ mở.', 'error');
       settings.start_time = new Date(start).toISOString();
@@ -76,14 +101,14 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
         <>
           <button className="btn ghost" onClick={onClose}>Hủy</button>
           <Link className="btn" to={`/teacher/preview/${quiz.id}`}><Eye size={18} /> Chơi thử như học sinh</Link>
-          <button className="btn success lg" onClick={go} disabled={busy}>{busy ? 'Đang tạo phòng…' : s.mode === 'homework' ? 'Giao bài' : 'Mở phòng chờ'}</button>
+          <button className="btn success lg" onClick={go} disabled={busy}>{busy ? 'Đang tạo phòng…' : s.mode === 'homework' ? 'Giao bài' : exam ? 'Mở phòng kiểm tra' : 'Mở phòng chờ'}</button>
         </>
       }
     >
       <div className="stack" style={{ gap: 18 }}>
         <div className="type-grid" role="radiogroup" aria-label="Chế độ chơi">
           {MODES.map((m) => (
-            <button key={m.id} type="button" role="radio" aria-checked={s.mode === m.id} aria-label={m.title} className="type-btn" onClick={() => set({ mode: m.id })}
+            <button key={m.id} type="button" role="radio" aria-checked={s.mode === m.id} aria-label={m.title} className="type-btn" onClick={() => pickMode(m.id)}
               style={s.mode === m.id ? { borderColor: 'var(--primary)', background: '#eff6ff' } : undefined}>
               <span className="ic" style={{ background: s.mode === m.id ? 'var(--primary)' : '#94a3b8' }}><m.icon size={20} /></span>
               <span><b>{m.title}</b><br /><small className="muted">{m.desc}</small></span>
@@ -109,6 +134,35 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
             <p className="help" style={{ margin: 0 }}>Thầy cô vẫn có thể bấm Kết thúc sớm bất cứ lúc nào để xem bảng tổng kết.</p>
           </div>
         )}
+        {exam && (
+          <div className="stack">
+            <div className="row" style={{ alignItems: 'flex-start' }}>
+              <label className="field grow" style={{ minWidth: 220 }}>
+                <span>Giao cho lớp</span>
+                <select className="input" value={s.exam_class_id ?? ''} onChange={(e) => set({ exam_class_id: e.target.value })} disabled={!classes?.length}>
+                  {!classes && <option value="">Đang tải danh sách lớp…</option>}
+                  {classes && !classes.length && <option value="">Chưa có lớp nào</option>}
+                  {classes?.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.students.length} em)</option>)}
+                </select>
+              </label>
+              <label className="field" style={{ width: 200 }}>
+                <span>Thời gian làm bài (phút)</span>
+                <input className="input" type="number" inputMode="numeric" min={1} max={300} value={minutesText} onChange={(e) => setMinutesText(e.target.value)} />
+              </label>
+            </div>
+            {classes && !classes.length && (
+              <div className="alert warn"><div>Chưa có lớp nào. Vào <Link to="/teacher/paper"><b>Dạy học trên lớp</b></Link> → Lớp học → Thêm lớp, dán danh sách học sinh rồi đặt mã số học sinh.</div></div>
+            )}
+            {examClass && codesDone < examClass.students.length && (
+              <div className="alert warn"><div>Lớp <b>{examClass.name}</b> mới có mã số cho {codesDone}/{examClass.students.length} em. Vào <Link to="/teacher/paper"><b>Dạy học trên lớp</b></Link> → Lớp học → <b>Mã học sinh</b> để đặt đủ mã rồi quay lại.</div></div>
+            )}
+            <p className="help" style={{ margin: 0 }}>
+              Học sinh nhập mã PIN của phòng và <b>mã số học sinh</b> của mình; chỉ em có mã trong lớp này mới vào được, mỗi em làm một lần.
+              Đồng hồ bắt đầu chạy khi thầy cô bấm <b>Bắt đầu</b>; hết giờ phần mềm tự thu bài. Trong lúc làm, học sinh không được báo đúng hay sai;
+              bấm <b>Nộp bài kiểm tra</b> xong mới thấy số câu đúng, số câu sai và điểm.
+            </p>
+          </div>
+        )}
         {s.mode !== 'instructor_paced' && (
           <div className="stack" style={{ gap: 8 }}>
             <div className="field">
@@ -119,11 +173,11 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
               </div>
               <small className="help">
                 {s.navigation === 'free'
-                  ? 'Học sinh có bảng số câu, bấm số nào chuyển tới câu đó, làm xong bấm Nộp bài. Chế độ này không tính giờ từng câu và không thưởng tốc độ.'
+                  ? exam ? 'Học sinh có bảng số câu, bấm số nào chuyển tới câu đó, làm xong bấm Nộp bài kiểm tra.' : 'Học sinh có bảng số câu, bấm số nào chuyển tới câu đó, làm xong bấm Nộp bài. Chế độ này không tính giờ từng câu và không thưởng tốc độ.'
                   : 'Học sinh phải trả lời câu đang làm thì mới sang được câu tiếp theo.'}
               </small>
             </div>
-            <div className="field">
+            {!exam && <div className="field">
               <span>Sau khi hiện kết quả một câu</span>
               <div className="row" role="radiogroup" aria-label="Cách sang câu tiếp theo">
                 <button type="button" role="radio" aria-checked={s.auto_next !== false} className={`tab ${s.auto_next !== false ? 'on' : ''}`} onClick={() => set({ auto_next: true })}>Tự sang câu sau</button>
@@ -134,7 +188,7 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
                   ? 'Kết quả và lời giải thích ở lại trên màn hình cho tới khi học sinh bấm "Câu tiếp theo". Hợp với lớp nhỏ, cần thời gian đọc.'
                   : 'Tự chuyển sau khoảng 2 giây; nếu câu có lời giải thích hoặc em trả lời chưa đúng thì chờ 7 giây. Học sinh vẫn có thể bấm "Câu tiếp theo" để đi nhanh hơn.'}
               </small>
-            </div>
+            </div>}
             {s.navigation === 'free' && (
               <div className="field">
                 <span>Khi học sinh bấm Nộp bài mà chưa làm hết</span>
@@ -150,15 +204,15 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 4 }}>
           {s.mode !== 'instructor_paced' && <label className="switch"><input type="checkbox" checked={s.shuffle_questions} onChange={(e) => set({ shuffle_questions: e.target.checked })} /> Xáo trộn câu hỏi</label>}
           <label className="switch"><input type="checkbox" checked={s.shuffle_options} onChange={(e) => set({ shuffle_options: e.target.checked })} /> Xáo trộn đáp án</label>
-          <label className="switch"><input type="checkbox" checked={s.show_leaderboard} onChange={(e) => set({ show_leaderboard: e.target.checked })} /> Hiện bảng xếp hạng</label>
-          <label className="switch"><input type="checkbox" checked={s.power_ups} onChange={(e) => set({ power_ups: e.target.checked })} /> Thưởng chuỗi trả lời đúng</label>
-          <label className="switch"><input type="checkbox" checked={s.music} onChange={(e) => set({ music: e.target.checked })} /> Nhạc nền</label>
+          {!exam && <label className="switch"><input type="checkbox" checked={s.show_leaderboard} onChange={(e) => set({ show_leaderboard: e.target.checked })} /> Hiện bảng xếp hạng</label>}
+          {!exam && <label className="switch"><input type="checkbox" checked={s.power_ups} onChange={(e) => set({ power_ups: e.target.checked })} /> Thưởng chuỗi trả lời đúng</label>}
+          {!exam && <label className="switch"><input type="checkbox" checked={s.music} onChange={(e) => set({ music: e.target.checked })} /> Nhạc nền</label>}
         </div>
         {s.mode === 'instructor_paced' ? (
           <p className="help" style={{ margin: 0 }}>
             Giáo viên điều khiển: học sinh không được làm lại câu sai, nhưng khi câu còn thời gian thì được chọn lại đáp án. Hết giờ mà chưa trả lời, em được ghi là <b>chưa trả lời</b>.
           </p>
-        ) : (
+        ) : exam ? null : (
           <div className="field">
             <span>Cho học sinh làm lại các câu trả lời sai</span>
             <div className="row" role="radiogroup" aria-label="Số lượt làm lại câu sai">
@@ -182,7 +236,7 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
             </small>
           </div>
         )}
-        {s.show_leaderboard && (
+        {s.show_leaderboard && !exam && (
           <label className="field" style={{ maxWidth: 320 }}>
             <span>Bảng xếp hạng và tặng cúp cho</span>
             <select className="input" value={s.leaderboard_top ?? 10} onChange={(e) => set({ leaderboard_top: Number(e.target.value) })}>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../components/Avatar';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Pause, Check, X, Clock, Home as HomeIcon, WifiOff, ShieldAlert, Maximize, Lock, Coins, Volume2, VolumeX, Gift, PartyPopper, HeartHandshake, RotateCcw, Trophy, ArrowRight } from 'lucide-react';
+import { Pause, Check, X, Clock, Home as HomeIcon, WifiOff, ShieldAlert, Maximize, Lock, Coins, Volume2, VolumeX, Gift, PartyPopper, HeartHandshake, RotateCcw, Trophy, ArrowRight, ClipboardCheck, Send } from 'lucide-react';
 import type { PollResult, Question, Quiz, SessionSettings, ViolationKind } from '../lib/types';
 import { enterFullscreen, fullscreenSupported, isFullscreen, useAntiCheat, VIOLATION_LABELS } from '../lib/anticheat';
 import { api } from '../lib/api';
@@ -41,6 +41,12 @@ function preloadMedia(q: Question) {
     preloaded.set(u, img);
   }
 }
+
+/** Thời gian còn lại dạng phút:giây (bài kiểm tra). */
+const clock = (ms: number) => {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
 const fmtDeadline = (iso: string) => new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -103,9 +109,12 @@ export default function Play() {
   const mode = settings?.mode;
   const paced = mode === 'instructor_paced';
   const homework = mode === 'homework';
+  const exam = mode === 'exam'; // bài kiểm tra: không báo đúng/sai từng câu, có giờ làm cả bài, nộp một lần
   const free = !paced && settings?.navigation === 'free'; // tự do chọn câu, có bảng số câu và nút Nộp bài
-  const untimed = homework || free; // không tính giờ từng câu
+  const untimed = homework || free || exam; // không tính giờ từng câu
   const [submitted, setSubmitted] = useState(false);
+  // Bài kiểm tra: đã nộp (vừa bấm nộp, hoặc máy chủ ghi nhận đã nộp từ trước) thì không làm tiếp được
+  const examSubmitted = exam && (submitted || !!poll?.players.find((p) => p.player_id === me?.player_id)?.finished);
   const [submitAsk, setSubmitAsk] = useState(false);
 
   // Thứ tự câu hỏi riêng của từng học sinh (ổn định khi tải lại trang)
@@ -237,7 +246,18 @@ export default function Play() {
   }, [paced, curIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Làm xong lượt hiện tại (chưa tính lượt làm lại câu sai)
-  const allDone = !paced && order.length > 0 && !retry && (free ? submitted : idx >= order.length);
+  const allDone = !paced && order.length > 0 && !retry && (exam ? examSubmitted : free ? submitted : idx >= order.length);
+  // Bài kiểm tra: đồng hồ đếm ngược cả bài theo giờ thu bài của máy chủ; hết giờ thì tự nộp
+  const examLeftMs = exam && poll?.deadline ? poll.deadline - (Date.now() + clockOffset.current) : null;
+  const examTimeUp = examLeftMs !== null && examLeftMs <= 0 && poll?.state === 'IN_PROGRESS';
+  const [timedOut, setTimedOut] = useState(false); // bài bị thu vì hết giờ (em chưa tự bấm nộp)
+  useEffect(() => {
+    if (examTimeUp && !examSubmitted) {
+      setTimedOut(true);
+      setSubmitted(true);
+      doPoll();
+    }
+  }, [examTimeUp, examSubmitted, doPoll]);
   const wrongList = useMemo(() => [...ratios.entries()].filter(([, r]) => !r.oral && r.ratio < 1).map(([i]) => i).sort((a, b) => a - b), [ratios]);
   const roundsLeft = Math.max(0, (settings?.retry_rounds ?? 0) - roundsUsed);
   // Còn lượt và còn câu sai → hỏi em có muốn làm lại các câu sai không
@@ -298,7 +318,7 @@ export default function Play() {
         left: paced ? -1 : free ? order.length - answered.size - 1 : order.length - curIndex - 1, answered: curIndex + 1, gifts: false,
       });
       const n2 = (v: number) => v.toLocaleString('vi-VN');
-      const say: Cheer | null = oral || paced ? null
+      const say: Cheer | null = oral || paced || exam ? null
         : bonus.streak ? { text: `${newStreak} câu đúng liên tiếp! Em được +${n2(bonus.total)} điểm thưởng.`, tone: 'gift', bonusCoins: 0 }
         : bonus.speed ? { text: `Trả lời nhanh và đúng! Em được +${n2(bonus.speed)} điểm thưởng.`, tone: 'gift', bonusCoins: 0 }
         : plain;
@@ -308,10 +328,10 @@ export default function Play() {
         cheerTimer.current = window.setTimeout(() => setCheer(null), 3200);
       }
       const coins = bonus.total;
-      if (paced) sfx.pop();
+      if (paced || exam) sfx.pop(); // bài kiểm tra: không phát âm thanh đúng/sai
       else if (!oral) ratio === 1 ? sfx.correct() : sfx.wrong();
-      if (!paced && !oral && ratio === 1 && newStreak >= 3) sfx.combo(); // chuỗi đúng liên tiếp
-      setFeedback({ ratio, score: pts, q, answer: a, coins });
+      if (!paced && !exam && !oral && ratio === 1 && newStreak >= 3) sfx.combo(); // chuỗi đúng liên tiếp
+      if (!exam) setFeedback({ ratio, score: pts, q, answer: a, coins });
       setAnswered((s) => new Set(s).add(curIndex));
       setScore((s) => s + pts - before);
       setRatios((m) => new Map(m).set(curIndex, { ratio, score: pts, oral }));
@@ -340,7 +360,17 @@ export default function Play() {
       void send(0);
       // Mở khóa sau khi giao diện đã cập nhật xong (tránh bấm hai lần liền vào cùng một câu)
       window.setTimeout(() => { submitting.current = false; }, 0);
-      if (!paced) {
+      if (exam) {
+        // Bài kiểm tra: không hiện kết quả, sang ngay câu kế tiếp (tự do chọn câu: tới câu chưa làm kế tiếp)
+        let next = curIndex + 1;
+        if (free) {
+          const done = new Set(answered).add(curIndex);
+          const open = Array.from({ length: order.length }, (_, k) => (curIndex + 1 + k) % order.length).find((i) => !done.has(i));
+          next = open ?? curIndex;
+        }
+        setIdx(next);
+        api.saveProgress(pin, me.player_id, Math.min(next, order.length), null).catch(() => {});
+      } else if (!paced) {
         const go = () => {
           clearTimeout(advanceTimer.current);
           if (advanceRef.current !== go) return; // đã chuyển câu rồi
@@ -373,7 +403,7 @@ export default function Play() {
         if (settings?.auto_next !== false) advanceTimer.current = window.setTimeout(go, q.explanation || ratio < 1 ? 7000 : homework ? 2200 : 1800);
       }
     },
-    [q, me, answered, curIndex, homework, free, untimed, streak, settings, pin, paced, order.length, poll?.question_locked, retry, ratios], // eslint-disable-line react-hooks/exhaustive-deps
+    [q, me, answered, curIndex, homework, exam, free, untimed, streak, settings, pin, paced, order.length, poll?.question_locked, retry, ratios], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // Hết giờ -> tự nộp "không trả lời"
@@ -575,8 +605,12 @@ export default function Play() {
         <span className="grow" />
       )}
       {q && !untimed && (poll.state === 'IN_PROGRESS' || poll.state === 'PAUSED') && <span className="badge amber"><Clock size={14} /> {Math.ceil(remain / 1000)}s</span>}
-      <span className="badge blue" style={{ fontSize: '1rem' }}>{shown.current.score.toLocaleString('vi-VN')} điểm</span>
-      <span className="badge amber" style={{ fontSize: '1rem' }} title="Điểm thưởng: trả lời nhanh và chuỗi câu đúng"><Coins size={14} /> +{shown.current.coins.toLocaleString('vi-VN')} thưởng</span>
+      {exam && examLeftMs !== null && (poll.state === 'IN_PROGRESS' || poll.state === 'PAUSED') && !examSubmitted && (
+        <span className={`badge ${examLeftMs < 60000 ? 'red' : 'amber'}`} style={{ fontSize: '1.05rem' }} role="timer" aria-label="Thời gian làm bài còn lại"><Clock size={16} /> Còn {clock(examLeftMs)}</span>
+      )}
+      {exam && <span className="badge blue" style={{ fontSize: '1rem' }}><ClipboardCheck size={14} /> Bài kiểm tra</span>}
+      {!exam && <span className="badge blue" style={{ fontSize: '1rem' }}>{shown.current.score.toLocaleString('vi-VN')} điểm</span>}
+      {!exam && <span className="badge amber" style={{ fontSize: '1rem' }} title="Điểm thưởng: trả lời nhanh và chuỗi câu đúng"><Coins size={14} /> +{shown.current.coins.toLocaleString('vi-VN')} thưởng</span>}
       {canSeeRank && (
         <button type="button" className="btn sm ghost" onClick={() => setShowRank(true)} title="Xem bảng xếp hạng">
           <Trophy size={16} /> Hạng {myRank}/{ranked.length}
@@ -599,8 +633,18 @@ export default function Play() {
           <Avatar value={me.avatar} size={128} label />
           <h1>Chào {me.name}!</h1>
           <p style={{ fontSize: '1.2rem' }}>Đã vào phòng <b>{pin}</b> – {quiz.title}. Chờ giáo viên bắt đầu nhé…</p>
+          {exam && (
+            <div className="card stack" style={{ color: 'var(--fg)', textAlign: 'left', maxWidth: 560 }}>
+              <b className="row" style={{ gap: 8 }}><ClipboardCheck size={20} color="var(--primary)" /> Đây là bài kiểm tra</b>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                <li>Bài có <b>{total}</b> câu, làm trong <b>{settings.exam_minutes ?? 45} phút</b>. Đồng hồ chạy khi thầy cô bấm Bắt đầu; hết giờ bài tự được thu.</li>
+                <li>Trong lúc làm, phần mềm <b>không báo đúng hay sai</b>. Mỗi câu chỉ trả lời một lần, em hãy đọc kỹ rồi mới chọn.</li>
+                <li>Làm xong, em bấm <b>Nộp bài kiểm tra</b>. Nộp rồi thì không làm lại được.</li>
+              </ul>
+            </div>
+          )}
           {paced && <p className="muted" style={{ margin: 0, maxWidth: 560 }}>Thầy cô mở từng câu cho cả lớp. Khi chưa hết giờ, em được chọn lại đáp án. Hết giờ mà chưa trả lời thì câu đó tính là chưa trả lời.</p>}
-          {!paced && (
+          {!paced && !exam && (
             <p className="muted" style={{ margin: 0, maxWidth: 560 }}>
               {free
                 ? `Bài này em được tự chọn câu để làm: bấm số câu trong bảng để chuyển câu, làm xong bấm Nộp bài. ${settings.require_all ? 'Em phải trả lời hết các câu thì mới nộp được.' : 'Em nộp được cả khi chưa làm hết, câu bỏ trống không có điểm.'}`
@@ -653,6 +697,44 @@ export default function Play() {
             <button className="btn primary lg" onClick={startRetry}><RotateCcw size={20} /> Làm lại {wrongList.length} câu sai</button>
             <button className="btn ghost lg" onClick={() => setRetryDeclined(true)}>Nộp bài luôn</button>
           </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (exam && (poll.state === 'COMPLETED' || selfDone)) {
+    // Kết quả bài kiểm tra: số câu đúng, sai và điểm thang 10. Câu trả lời miệng chờ giáo viên chấm.
+    let right = 0, part = 0, oralWait = 0;
+    for (const [i, r] of ratios) {
+      if (r.oral) {
+        const g = poll.my_graded?.[i];
+        if (g === undefined) oralWait++;
+        else if (g) { right++; part += 1; }
+      } else {
+        part += r.ratio;
+        if (r.ratio >= 1) right++;
+      }
+    }
+    const wrong = Math.max(0, total - right - oralWait);
+    const mark = total ? Math.round((part / total) * 1000) / 100 : 0;
+    const handedIn = examSubmitted && !timedOut;
+    return (
+      <Shell>
+        {top}
+        <div className="card stack center exam-result" style={{ margin: 'auto', alignItems: 'center', maxWidth: 560, width: '100%', color: 'var(--fg)' }}>
+          <PartyPopper size={56} color="var(--primary)" />
+          <h1 style={{ margin: 0 }}>{handedIn ? 'Chúc mừng em đã hoàn thành bài kiểm tra!' : 'Đã hết giờ làm bài'}</h1>
+          <p style={{ margin: 0 }}><b>{me.name}</b>{me.class_name ? ` · lớp ${me.class_name}` : ''} · {quiz.title}</p>
+          {!handedIn && <p className="muted" style={{ margin: 0 }}>Bài của em đã được thu. Các câu em đã trả lời đều được tính điểm.</p>}
+          <div className="exam-nums" role="status">
+            <div className="ok"><b>{right}</b><span>câu đúng</span></div>
+            <div className="bad"><b>{wrong}</b><span>câu sai hoặc bỏ trống</span></div>
+            <div className="mark"><b>{mark.toLocaleString('vi-VN')}</b><span>điểm (thang 10)</span></div>
+          </div>
+          <p style={{ margin: 0, fontSize: '1.1rem' }}>Bài kiểm tra em làm đúng <b>{right}/{total}</b> câu, sai <b>{wrong}</b> câu. Điểm em đạt được là <b>{mark.toLocaleString('vi-VN')}</b>.</p>
+          {oralWait > 0 && <p className="muted" style={{ margin: 0 }}>Còn {oralWait} câu trả lời miệng chờ thầy cô chấm; điểm sẽ được cộng thêm sau khi chấm.</p>}
+          <p className="muted small" style={{ margin: 0 }}>Bài đã nộp và đã khóa, em không thể làm lại bài kiểm tra này.</p>
+          <button className="btn ghost" onClick={() => nav('/')}><HomeIcon size={18} /> Về trang chủ</button>
         </div>
       </Shell>
     );
@@ -718,11 +800,17 @@ export default function Play() {
     setSubmitAsk(false);
     setSubmitted(true); // nếu còn lượt làm lại câu sai thì màn hỏi làm lại hiện ra trước khi nộp hẳn
   };
+  /** Bài kiểm tra: hỏi lại trước khi nộp, vì nộp rồi không làm lại được. */
+  const handInExam = async () => {
+    if (missing.length) return setSubmitAsk(true);
+    if (await askConfirm('Nộp bài kiểm tra?\n\nSau khi nộp, bài được khóa lại và em không thể làm lại.', { okLabel: 'Nộp bài kiểm tra' })) finish();
+  };
+  const examEnd = exam && !free && curIndex >= total; // trả lời lần lượt: đã qua câu cuối, chờ em bấm nộp
   return (
     <Shell>
       {top}
       <div className="row between small muted" style={{ fontWeight: 700 }}>
-        <span>Câu {curIndex + 1}/{total}</span>
+        <span>{examEnd ? `Đã trả lời ${answered.size}/${total} câu` : `Câu ${curIndex + 1}/${total}`}</span>
         {homework && settings.deadline && <span>Hạn nộp: {fmtDeadline(settings.deadline)}</span>}
         {retry && <span className="badge amber">Làm lại câu sai · lượt {retry.round}/{settings.retry_rounds} · câu {retry.pos + 1}/{retry.queue.length}</span>}
         {streak >= 2 && settings.power_ups && !paced && <span className="badge amber">Chuỗi đúng ×{streak}</span>}
@@ -734,7 +822,7 @@ export default function Play() {
           seed={hashString(me.player_id + q.id)}
           shuffleOptions={settings.shuffle_options}
           disabled={!!feedback || locked || (free && answered.has(curIndex)) || poll.state === 'PAUSED' || isLocked || needFullscreen}
-          reveal={paced ? pacedReveal : !!feedback || (free && !retry && answered.has(curIndex))}
+          reveal={paced ? pacedReveal : exam ? false : !!feedback || (free && !retry && answered.has(curIndex))}
           chosen={feedback?.answer ?? (answered.has(curIndex) ? myAnswers.get(curIndex) ?? null : null)}
           onSubmit={submit}
           draft={draft?.i === curIndex ? draft.a : null}
@@ -742,12 +830,21 @@ export default function Play() {
           uploadAudio={uploadAudio}
         />
       )}
-      {free && !retry && !feedback && answered.has(curIndex) && <div className="alert ok" role="status"><div>Em đã trả lời câu này rồi (đáp án của em và đáp án đúng đang hiện ở trên). Chọn câu khác trong bảng số câu bên dưới.</div></div>}
+      {examEnd && (
+        <div className="card stack center" style={{ alignItems: 'center', color: 'var(--fg)', margin: 'auto', maxWidth: 560, width: '100%' }}>
+          <ClipboardCheck size={52} color="var(--primary)" />
+          <h1 style={{ margin: 0 }}>Em đã trả lời hết {total} câu</h1>
+          <p style={{ margin: 0 }}>Bấm nút dưới đây để nộp bài kiểm tra. Sau khi nộp, bài được khóa lại và em không thể làm lại.</p>
+          <button className="btn success lg" onClick={handInExam} disabled={isLocked}><Send size={20} /> Nộp bài kiểm tra</button>
+        </div>
+      )}
+      {free && !retry && !feedback && answered.has(curIndex) && <div className="alert ok" role="status"><div>{exam ? 'Em đã trả lời câu này rồi. Chọn câu khác trong bảng số câu bên dưới, hoặc bấm Nộp bài kiểm tra khi đã làm xong.' : 'Em đã trả lời câu này rồi (đáp án của em và đáp án đúng đang hiện ở trên). Chọn câu khác trong bảng số câu bên dưới.'}</div></div>}
       {free && !retry && (
         <QuestionNav
           total={total} current={curIndex} answered={answered} busy={!!feedback}
           onGo={(i) => { sfx.pop(); setIdx(i); setDraft(null); api.saveProgress(pin, me.player_id, i, null).catch(() => {}); }}
-          onSubmit={() => (answered.size >= total ? finish() : setSubmitAsk(true))}
+          onSubmit={() => (exam ? handInExam() : answered.size >= total ? finish() : setSubmitAsk(true))}
+          submitLabel={exam ? 'Nộp bài kiểm tra' : undefined}
         />
       )}
       {free && submitAsk && (
@@ -756,7 +853,7 @@ export default function Play() {
             <h2 style={{ marginTop: 0 }}>{settings.require_all ? 'Chưa nộp bài được' : 'Em chưa làm hết bài'}</h2>
             <p>
               Em còn <b>{missing.length}</b> câu chưa trả lời: <b>câu {missing.map((i) => i + 1).join(', ')}</b>.{' '}
-              {settings.require_all ? 'Em cần trả lời hết các câu hỏi thì mới được nộp bài.' : 'Câu bỏ trống sẽ không có điểm. Em có muốn nộp bài luôn không?'}
+              {settings.require_all ? 'Em cần trả lời hết các câu hỏi thì mới được nộp bài.' : exam ? 'Câu bỏ trống tính là sai. Nộp rồi em không làm lại được. Em có muốn nộp bài kiểm tra luôn không?' : 'Câu bỏ trống sẽ không có điểm. Em có muốn nộp bài luôn không?'}
             </p>
             <div className="qnav-grid">
               {missing.map((i) => <button key={i} className="qnav-no" onClick={() => { setSubmitAsk(false); setIdx(i); setDraft(null); }}>{i + 1}</button>)}
@@ -835,9 +932,9 @@ export default function Play() {
             <h1 style={{ margin: 0 }}>Bài làm đã bị khóa</h1>
             <p style={{ margin: 0 }}>
               Em đã vi phạm quy chế thi {poll.my_violations ?? ''} lần, vượt quá số lần thầy cô cho phép.{' '}
-              {paced ? 'Hãy giơ tay báo giáo viên để được mở khóa.' : 'Lượt làm này không làm tiếp được nữa. Em hãy thoát ra và vào lại để làm lại từ đầu.'}
+              {paced || exam ? 'Hãy giơ tay báo giáo viên để được mở khóa.' : 'Lượt làm này không làm tiếp được nữa. Em hãy thoát ra và vào lại để làm lại từ đầu.'}
             </p>
-            {!paced && <button className="btn primary lg" onClick={restart}><RotateCcw size={20} /> Thoát và làm lại từ đầu</button>}
+            {!paced && !exam && <button className="btn primary lg" onClick={restart}><RotateCcw size={20} /> Thoát và làm lại từ đầu</button>}
           </div>
         </div>
       )}
@@ -865,8 +962,8 @@ export default function Play() {
 }
 
 /** Bảng số câu (chế độ tự do chọn câu): bấm số để chuyển câu, có nút Câu trước / Câu tiếp / Nộp bài. */
-function QuestionNav({ total, current, answered, busy, onGo, onSubmit }: {
-  total: number; current: number; answered: Set<number>; busy: boolean; onGo: (i: number) => void; onSubmit: () => void;
+function QuestionNav({ total, current, answered, busy, onGo, onSubmit, submitLabel }: {
+  total: number; current: number; answered: Set<number>; busy: boolean; onGo: (i: number) => void; onSubmit: () => void; submitLabel?: string;
 }) {
   return (
     <nav className="qnav card" aria-label="Bảng số câu">
@@ -875,7 +972,7 @@ function QuestionNav({ total, current, answered, busy, onGo, onSubmit }: {
         <div className="row" style={{ gap: 6 }}>
           <button className="btn sm ghost" disabled={busy || current === 0} onClick={() => onGo(current - 1)}>Câu trước</button>
           <button className="btn sm ghost" disabled={busy || current >= total - 1} onClick={() => onGo(current + 1)}>Câu tiếp</button>
-          <button className="btn sm success" disabled={busy} onClick={onSubmit}>Nộp bài</button>
+          <button className="btn sm success" disabled={busy} onClick={onSubmit}>{submitLabel ?? 'Nộp bài'}</button>
         </div>
       </div>
       <div className="qnav-grid">

@@ -5,6 +5,12 @@
 .pp-tips { margin: 0; padding: 14px 16px 14px 34px; border-radius: 16px; background: var(--muted); color: var(--muted-fg); display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
 .pp-class { display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-radius: 16px; border: 1.5px solid var(--border); background: #fff; }
 .pp-class .small { display: flex; gap: 6px; align-items: center; }
+.pp-class { flex-wrap: wrap; }
+.pp-class .grow { min-width: 160px; }
+/* Bảng đặt mã số học sinh */
+.code-table { max-height: 46vh; overflow: auto; border: 1.5px solid var(--border); border-radius: 14px; }
+.code-table .input { min-height: 40px; padding: 6px 10px; font-weight: 700; }
+.code-table thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
 
 .pp-choice { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .pp-choice button { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 14px 16px; border-radius: 18px; border: 2px solid var(--border); background: #fff; color: var(--fg); cursor: pointer; min-height: 44px; font: inherit; }

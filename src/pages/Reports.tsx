@@ -11,7 +11,7 @@ const STATE_LABEL: Record<string, [string, string]> = {
   PAUSED: ['Tạm dừng', 'amber'],
   COMPLETED: ['Đã kết thúc', ''],
 };
-const MODE_LABEL: Record<string, string> = { classic_live: 'Trực tiếp tự do', instructor_paced: 'GV điều khiển', homework: 'Bài về nhà', paper: 'Thẻ trả lời (giấy)' };
+const MODE_LABEL: Record<string, string> = { classic_live: 'Trực tiếp tự do', instructor_paced: 'GV điều khiển', homework: 'Bài về nhà', paper: 'Thẻ trả lời (giấy)', exam: 'Bài kiểm tra' };
 type Row = Awaited<ReturnType<typeof api.listSessions>>[number];
 const idOf = (r: Row) => r.session_id || r.pin + ':' + r.created_at;
 

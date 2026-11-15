@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { avatarKind, randomAnyAvatar } from '../lib/avatar';
 import { sfx } from '../lib/sound';
 import { enterFullscreen } from '../lib/anticheat';
-import { NAME_USED } from '../lib/sessionLogic';
+import { NAME_USED, NEED_CODE } from '../lib/sessionLogic';
 import { Avatar } from '../components/Avatar';
 import { AppFooter } from '../components/AppFooter';
 import { AvatarBuilder } from '../components/AvatarBuilder';
@@ -52,6 +52,16 @@ export function Join() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [nameUsed, setNameUsed] = useState(false); // tên + lớp này đã nộp bài ở lượt trước → hỏi đổi tên hay vẫn dùng
+  // Bài kiểm tra: ngoài tên và lớp, em phải nhập mã số học sinh thầy cô đã phát
+  const [exam, setExam] = useState(false);
+  const [code, setCode] = useState('');
+  useEffect(() => {
+    setExam(false);
+    if (!/^\d{6}$/.test(pin)) return;
+    let live = true;
+    api.poll(pin).then((p) => { if (live) setExam(p.mode === 'exam'); }).catch(() => {});
+    return () => { live = false; };
+  }, [pin]);
   const nameRef = useRef<HTMLInputElement>(null);
   const again = params.get('again') === '1'; // em vừa bấm "Làm lại bài này": chính em đó làm lại nên không cần hỏi
   const s = params.get('s');
@@ -61,7 +71,7 @@ export function Join() {
   useEffect(() => {
     setErr('');
     setNameUsed(false);
-  }, [pin, name, cls]);
+  }, [pin, name, cls, code]);
 
   const join = async (resume?: SavedPlayer, reuse = again) => {
     if (!/^\d{6}$/.test(pin)) {
@@ -71,9 +81,10 @@ export function Join() {
     }
     if (!resume && !name.trim()) return setErr('Hãy nhập tên của em.');
     if (!resume && !cls.trim()) return setErr('Hãy nhập lớp của em (ví dụ: 5A).');
+    if (!resume && exam && !code.trim()) return setErr('Hãy nhập mã số học sinh thầy cô đã phát.');
     setBusy(true);
     try {
-      const r = await api.joinSession(pin, resume?.name ?? name.trim(), resume?.avatar ?? avatar, resume?.player_id, resume?.class_name ?? cls.trim(), reuse);
+      const r = await api.joinSession(pin, resume?.name ?? name.trim(), resume?.avatar ?? avatar, resume?.player_id, resume?.class_name ?? cls.trim(), reuse, resume ? undefined : code.trim());
       const sp: SavedPlayer = { pin, player_id: r.player_id, name: r.player.name, avatar: r.player.avatar, class_name: r.player.class_name };
       localStorage.setItem(playerKey(pin), JSON.stringify(sp));
       localStorage.setItem('quizzi.lastName', sp.name);
@@ -85,7 +96,11 @@ export function Join() {
     } catch (e) {
       const msg = (e as Error).message;
       if (msg.includes(NAME_USED)) setNameUsed(true);
-      else if (/Không tìm thấy phòng/.test(msg)) {
+      else if (msg.includes(NEED_CODE)) {
+        // phòng này là bài kiểm tra: hiện ô nhập mã số học sinh (nếu chưa hiện) và báo lý do
+        setExam(true);
+        setErr(msg.replace(NEED_CODE, '').trim());
+      } else if (/Không tìm thấy phòng/.test(msg)) {
         // mã đủ 6 số nhưng không có phòng nào dùng mã này: mở lại ô mã để em sửa
         setPinLocked(false);
         setErr(BAD_PIN);
@@ -108,7 +123,7 @@ export function Join() {
             join();
           }}
         >
-          <h1 className="center" style={{ margin: 0 }}>Vào phòng chơi</h1>
+          <h1 className="center" style={{ margin: 0 }}>{exam ? 'Vào làm bài kiểm tra' : 'Vào phòng chơi'}</h1>
           {pinLocked ? (
             <div className="pin-ok" role="status">
               <span>Mã PIN của phòng</span>
@@ -140,6 +155,14 @@ export function Join() {
                 <input className="input" maxLength={20} required value={cls} onChange={(e) => setCls(e.target.value)} placeholder="VD: 5A" style={{ color: 'var(--fg)', fontSize: '1.2rem' }} autoCapitalize="characters" />
                 <small className="help">Thầy cô dùng lớp để thống kê kết quả.</small>
               </label>
+              {exam && (
+                <label className="field">
+                  <span>{pinLocked ? '3' : '4'}. Mã số học sinh</span>
+                  <input className="input" maxLength={20} required value={code} onChange={(e) => setCode(e.target.value.replace(/\s+/g, '').toUpperCase())} placeholder="VD: HS12"
+                    style={{ color: 'var(--fg)', fontSize: '1.4rem', fontWeight: 800, letterSpacing: '.08em' }} autoCapitalize="characters" autoComplete="off" />
+                  <small className="help">Đây là bài kiểm tra: em nhập đúng mã số thầy cô đã phát. Mỗi mã chỉ làm bài một lần; tên trong bài lấy theo danh sách lớp.</small>
+                </label>
+              )}
               <div className="av-me">
                 <button type="button" onClick={() => setBuilding(true)} style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }} aria-label="Đổi nhân vật">
                   <Avatar value={avatar} size={96} label />

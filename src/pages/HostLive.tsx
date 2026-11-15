@@ -164,7 +164,7 @@ export default function HostLive() {
         <Link to="/teacher" className="btn ghost"><ArrowLeft size={18} /> Thư viện</Link>
         <h2 style={{ margin: 0 }}>{s.quiz_title}</h2>
         <span className="badge blue">
-          {s.settings.mode === 'classic_live' ? 'Trực tiếp tự do' : paced ? 'Giáo viên điều khiển' : 'Giao bài về nhà'}
+          {s.settings.mode === 'classic_live' ? 'Trực tiếp tự do' : paced ? 'Giáo viên điều khiển' : s.settings.mode === 'exam' ? 'Bài kiểm tra' : 'Giao bài về nhà'}
         </span>
       </div>
       <div className="row">
@@ -188,12 +188,13 @@ export default function HostLive() {
       <div className="page" style={{ maxWidth: 1280 }}>
         {header}
         {err && <div className="alert warn" style={{ marginBottom: 12 }}>Mất kết nối tạm thời: {err}</div>}
+        {s.settings.mode === 'exam' && s.exam && <ExamPanel s={s} now={nowMs} />}
 
         {s.state === 'LOBBY_WAITING' && (
           <div className="stack" style={{ gap: 20 }}>
             <div className="lobby-head">
               <div className="stack">
-                <span style={{ fontSize: '1.2rem' }}>Vào <b>{link ? `${new URL(link).host}/join` : 'trang Quickplay'}</b> và nhập mã:</span>
+                <span style={{ fontSize: '1.2rem' }}>Vào <b>{link ? `${new URL(link).host}/join` : 'trang Quickplay'}</b> và nhập mã{s.settings.mode === 'exam' ? ' PIN, sau đó nhập mã số học sinh' : ''}:</span>
                 <div className="pin-display" aria-label={`Mã PIN ${pin.split('').join(' ')}`}>{pin.slice(0, 3)} {pin.slice(3)}</div>
                 {link && (
                   <div className="row">
@@ -512,6 +513,45 @@ function Completed({ s, quiz }: { s: Session; quiz: Quiz | null }) {
           <h2 className="row" style={{ gap: 8, margin: 0 }}><ShieldAlert size={24} /> Nhật ký gian lận</h2>
           <CheatMonitor s={s} busy newSince={Date.now()} onUnlock={() => {}} onKick={() => {}} />
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Bài kiểm tra: lớp được giao, đồng hồ thu bài, ai đã vào, ai đã nộp, ai chưa vào. */
+function ExamPanel({ s, now }: { s: Session; now: number }) {
+  const roster = s.exam?.roster ?? [];
+  const byCode = new Map(s.players.filter((p) => !p.kicked && p.student_code).map((p) => [p.student_code!, p]));
+  const absent = roster.filter((r) => !byCode.has(r.code));
+  const handed = [...byCode.values()].filter((p) => p.finished).length;
+  const locked = [...byCode.values()].filter((p) => p.locked).length;
+  const due = s.settings.deadline ? Date.parse(s.settings.deadline) : 0;
+  const left = due ? Math.max(0, due - now) : 0;
+  const sec = Math.ceil(left / 1000);
+  const running = s.state === 'IN_PROGRESS' || s.state === 'PAUSED';
+  return (
+    <div className="card stack" style={{ color: 'var(--fg)', marginBottom: 16 }} role="status">
+      <div className="row between">
+        <b style={{ fontSize: '1.15rem' }}>Bài kiểm tra lớp {s.exam?.class_name} · {s.settings.exam_minutes ?? 45} phút</b>
+        {running && due > 0 && (
+          <span className={`badge ${left < 60000 ? 'red' : 'amber'}`} style={{ fontSize: '1.1rem' }}>
+            Còn {Math.floor(sec / 60)}:{String(sec % 60).padStart(2, '0')} · thu bài lúc {new Date(due).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+        {s.state === 'LOBBY_WAITING' && <span className="badge blue">Đồng hồ chạy khi thầy cô bấm Bắt đầu</span>}
+        {s.state === 'COMPLETED' && <span className="badge">Đã thu bài</span>}
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        <span className="badge green">Đã vào {byCode.size}/{roster.length}</span>
+        <span className="badge blue">Đã nộp bài {handed}</span>
+        {locked > 0 && <span className="badge red">Bị khóa do vi phạm {locked}</span>}
+        <span className={`badge ${absent.length ? 'amber' : ''}`}>Chưa vào {absent.length}</span>
+      </div>
+      {absent.length > 0 && (
+        <details>
+          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Học sinh chưa vào làm bài ({absent.length})</summary>
+          <p className="small" style={{ margin: '6px 0 0' }}>{absent.map((r) => `${r.name} (${r.code})`).join(' · ')}</p>
+        </details>
       )}
     </div>
   );

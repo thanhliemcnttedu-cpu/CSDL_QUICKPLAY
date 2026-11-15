@@ -28,6 +28,17 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
 **Tiết kiệm dung lượng (Gmail miễn phí chỉ có 15 GB):** ảnh tự đổi sang WebP (cạnh dài tối đa 1280 điểm ảnh), âm thanh tự đổi sang Opus 24 kbit/s một kênh
 (1 phút khoảng 180 KB) trước khi tải lên; ảnh trùng chỉ lưu một lần. Video nên nhúng link YouTube: không tốn dung lượng Drive, phát mượt trên điện thoại.
 
+## Bài kiểm tra theo danh sách lớp
+
+1. **Đặt mã số học sinh:** Dạy học trên lớp → Lớp học → **Mã học sinh**. Gõ mã vào từng ô, hoặc điền chữ đứng đầu (ví dụ `HS`) và số bắt đầu rồi bấm
+   **Tạo mã tự động** (HS1, HS2…). Bấm **Lưu mã**, rồi **Xuất Excel** để in hoặc gửi danh sách (lớp, họ tên, mã số) cho học sinh.
+2. **Giao bài:** Thư viện → **Tổ chức** trên bộ câu hỏi → chọn **Bài kiểm tra** → chọn lớp, điền thời gian làm bài (phút), chọn trả lời lần lượt hay tự do chọn câu,
+   bật / chỉnh **Chống gian lận** (mặc định nhắc nhở 3 lần, lần thứ 4 khóa bài) → **Mở phòng kiểm tra**.
+3. **Học sinh vào làm:** nhập mã PIN, tên, lớp và **mã số học sinh**. Chỉ mã có trong lớp mới vào được; tên trong bài lấy theo danh sách lớp; mỗi mã làm một lần.
+4. Thầy cô bấm **Bắt đầu**: đồng hồ chạy, hết giờ phần mềm tự thu bài. Trong lúc làm, học sinh không được báo đúng hay sai.
+   Làm xong em bấm **Nộp bài kiểm tra** và thấy số câu đúng, số câu sai, điểm thang 10; nộp rồi không làm lại được.
+5. **Giám sát:** màn hình của thầy cô hiện số em đã vào, đã nộp, chưa vào; thẻ **Giám sát gian lận** hiện từng lần vi phạm và nút **Mở khóa** cho bài bị khóa.
+
 ## Soạn bộ câu hỏi
 
 - **Thư viện → Tạo bộ đề**, hoặc **Nhập từ tệp** (Word, PDF, Excel, Google Form), hoặc **AI sinh đề**.

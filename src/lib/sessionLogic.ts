@@ -1,5 +1,5 @@
 // Máy trạng thái phiên – bản chạy trong trình duyệt (chế độ cục bộ). Apps Script cài đặt cùng quy tắc (docs/API.md).
-import type { AnswerRecord, Player, PollResult, Session, SessionSettings, ViolationKind } from './types';
+import type { AnswerRecord, ClassRoom, ExamInfo, Player, PollResult, Session, SessionSettings, ViolationKind } from './types';
 import { uid } from './util';
 
 export type HostOp = 'start' | 'pause' | 'resume' | 'next' | 'lock' | 'end' | 'kick' | 'unlock' | 'grade';
@@ -61,8 +61,37 @@ export function reportViolation(
   return { violations: p.violations ?? 0, locked: !!p.locked };
 }
 
-export function createSession(pin: string, quizId: string, title: string, count: number, settings: SessionSettings): Session {
+/** Chuẩn hóa mã số học sinh để so sánh: bỏ khoảng trắng thừa, không phân biệt hoa thường. */
+export const normCode = (c: unknown) => String(c ?? '').replace(/\s+/g, '').toUpperCase().slice(0, 20);
+
+/** Danh sách được phép vào bài kiểm tra, lấy từ lớp. Báo lỗi nếu lớp chưa đặt đủ mã hoặc mã trùng nhau. */
+export function examRoster(cls: ClassRoom | null | undefined): ExamInfo {
+  if (!cls || !cls.students?.length) throw new Error('Hãy chọn lớp có danh sách học sinh để giao bài kiểm tra.');
+  const roster = cls.students.map((name, i) => ({ name, code: normCode(cls.codes?.[i]) }));
+  const missing = roster.filter((r) => !r.code).length;
+  if (missing) throw new Error(`Lớp ${cls.name} còn ${missing} học sinh chưa có mã số. Vào Dạy học trên lớp → Lớp học → Mã học sinh để đặt mã.`);
+  const seen = new Set<string>();
+  for (const r of roster) {
+    if (seen.has(r.code)) throw new Error(`Mã số học sinh "${r.code}" bị trùng trong lớp ${cls.name}. Mỗi em cần một mã riêng.`);
+    seen.add(r.code);
+  }
+  return { class_id: cls.id, class_name: cls.name, roster };
+}
+
+/** Bài kiểm tra: không làm lại, không bảng xếp hạng, không thưởng, không nhạc. */
+export function examSettings(s: SessionSettings): SessionSettings {
+  if (s.mode !== 'exam') return s;
   return {
+    ...s, music: false, show_leaderboard: false, power_ups: false, retry_rounds: 0,
+    exam_minutes: Math.min(300, Math.max(1, Math.round(Number(s.exam_minutes) || 45))),
+    start_time: undefined, deadline: undefined,
+  };
+}
+
+export function createSession(pin: string, quizId: string, title: string, count: number, settings: SessionSettings, exam?: ExamInfo): Session {
+  settings = examSettings(settings);
+  return {
+    ...(exam ? { exam } : {}),
     session_id: uid('s_'),
     pin,
     quiz_id: quizId,
@@ -91,6 +120,8 @@ export function applyHostOp(
       if (s.state !== 'LOBBY_WAITING') break;
       s.state = 'IN_PROGRESS';
       s.started_at = now; // đếm ngược 3-2-1 hiển thị ở máy học sinh
+      // Bài kiểm tra: giờ thu bài = lúc bắt đầu + thời gian làm bài
+      if (s.settings.mode === 'exam') s.settings.deadline = new Date(now + (s.settings.exam_minutes ?? 45) * 60000).toISOString();
       s.question_opened_at = now;
       s.current_index = 0;
       s.question_locked = false;
@@ -106,6 +137,8 @@ export function applyHostOp(
         s.state = 'IN_PROGRESS';
         s.paused_total_ms = (s.paused_total_ms ?? 0) + (now - (s.paused_at ?? now));
         if (s.question_opened_at) s.question_opened_at += now - (s.paused_at ?? now);
+        // Bài kiểm tra: thời gian tạm dừng không tính vào giờ làm bài
+        if (s.settings.mode === 'exam' && s.settings.deadline) s.settings.deadline = new Date(Date.parse(s.settings.deadline) + (now - (s.paused_at ?? now))).toISOString();
         s.paused_at = undefined;
       }
       break;
@@ -150,7 +183,10 @@ export function applyHostOp(
 /** Tiền tố của lỗi "tên này đã được dùng ở lượt trước": máy học sinh bắt lỗi này để hỏi em đổi tên hay vẫn dùng tên cũ. */
 export const NAME_USED = '[TEN_DA_DUNG]';
 
-export function joinPlayer(s: Session, name: string, avatar: string, playerId?: string, className = '', reuseName = false): Player {
+/** Tiền tố của lỗi "phòng này là bài kiểm tra, cần mã số học sinh": máy học sinh bắt lỗi này để hiện ô nhập mã. */
+export const NEED_CODE = '[CAN_MA_HS]';
+
+export function joinPlayer(s: Session, name: string, avatar: string, playerId?: string, className = '', reuseName = false, studentCode = ''): Player {
   const now = Date.now();
   const existing = playerId ? s.players.find((p) => p.player_id === playerId) : undefined;
   if (existing) {
@@ -160,6 +196,27 @@ export function joinPlayer(s: Session, name: string, avatar: string, playerId?: 
   }
   if (s.state === 'COMPLETED') throw new Error('Phiên này đã kết thúc.');
   if (s.settings.mode === 'paper') throw new Error('Phòng này dùng thẻ trả lời giấy, học sinh không cần vào bằng thiết bị.');
+  if (s.settings.mode === 'exam') {
+    // Bài kiểm tra: chỉ học sinh có mã số trong danh sách lớp mới vào được; mỗi mã chỉ làm một lần
+    const code = normCode(studentCode);
+    if (!code) throw new Error(`${NEED_CODE} Đây là bài kiểm tra. Em hãy nhập mã số học sinh thầy cô đã phát.`);
+    const entry = s.exam?.roster.find((r) => r.code === code);
+    if (!entry) throw new Error(`${NEED_CODE} Mã số học sinh "${code}" không có trong danh sách lớp ${s.exam?.class_name ?? ''}. Em hãy kiểm tra lại mã.`);
+    if (s.settings.deadline && now > Date.parse(s.settings.deadline)) throw new Error('Đã hết giờ làm bài kiểm tra.');
+    const had = s.players.find((p) => p.student_code === code);
+    if (had) {
+      if (had.kicked) throw new Error('Bạn đã được giáo viên mời ra khỏi phòng.');
+      if (had.finished) throw new Error(`Mã số ${code} đã nộp bài kiểm tra này rồi, không thể làm lại.`);
+      had.last_seen = now; // đang làm dở (đổi máy, tải lại trang): làm tiếp bài cũ
+      return had;
+    }
+    const pl: Player = {
+      player_id: uid('p_'), name: entry.name.slice(0, 40), class_name: (s.exam?.class_name ?? className).slice(0, 20), student_code: code, avatar,
+      score: 0, correct: 0, answered: 0, current_index: 0, finished: false, last_seen: now, joined_at: now, streak: 0,
+    };
+    s.players.push(pl);
+    return pl;
+  }
   if (s.settings.mode === 'homework') {
     if (s.settings.start_time && now < Date.parse(s.settings.start_time)) throw new Error('Bài tập chưa đến giờ mở.');
     if (s.settings.deadline && now > Date.parse(s.settings.deadline)) throw new Error('Đã quá hạn nộp bài.');
@@ -206,6 +263,10 @@ export function submitAnswer(s: Session, rec: AnswerRecord): Player {
   if (p.kicked) throw new Error('Bạn đã được mời ra khỏi phòng.');
   if (p.locked) throw new Error('Bài làm đang bị khóa do vi phạm. Chờ giáo viên mở khóa.');
   if (s.state === 'COMPLETED') throw new Error('Phiên đã kết thúc.');
+  if (s.settings.mode === 'exam') {
+    if (p.finished) throw new Error('Em đã nộp bài kiểm tra, không thể trả lời thêm.');
+    if (s.settings.deadline && Date.now() > Date.parse(s.settings.deadline)) throw new Error('Đã hết giờ làm bài kiểm tra.');
+  }
   const paced = s.settings.mode === 'instructor_paced';
   const old = s.answers.find((a) => a.player_id === rec.player_id && a.q_index === rec.q_index);
   if (old) {
@@ -243,7 +304,7 @@ export function submitAnswer(s: Session, rec: AnswerRecord): Player {
   if (!old) p.current_index = Math.max(p.current_index, rec.q_index + 1);
   p.last_seen = Date.now();
   // Tự đánh dấu "xong" khi đã trả lời hết, trừ khi còn lượt làm lại hoặc học sinh tự bấm Nộp bài (tự do chọn câu)
-  const selfSubmit = !paced && (s.settings.navigation === 'free' || (s.settings.retry_rounds ?? 0) > 0);
+  const selfSubmit = !paced && (s.settings.mode === 'exam' || s.settings.navigation === 'free' || (s.settings.retry_rounds ?? 0) > 0);
   if (!selfSubmit && p.answered >= s.question_count && !p.finished) {
     p.finished = true;
     p.finished_at = Date.now();
@@ -269,13 +330,14 @@ export function visiblePlayers(s: Session): Player[] {
 
 export function pollView(s: Session, playerId?: string): PollResult {
   const now = Date.now();
-  if (s.settings.mode === 'homework' && s.settings.deadline && now > Date.parse(s.settings.deadline) && s.state !== 'COMPLETED') {
+  if ((s.settings.mode === 'homework' || (s.settings.mode === 'exam' && s.state !== 'LOBBY_WAITING')) && s.settings.deadline && now > Date.parse(s.settings.deadline) && s.state !== 'COMPLETED') {
     s.state = 'COMPLETED';
     s.ended_at = now;
   }
   const me = playerId ? s.players.find((p) => p.player_id === playerId) : undefined;
   if (me) me.last_seen = now;
-  const visible = visiblePlayers(s).filter((p) => !p.kicked && (!p.superseded || p.player_id === playerId) && (s.state !== 'LOBBY_WAITING' || now - p.last_seen < 60000));
+  const visible = visiblePlayers(s).filter((p) => !p.kicked && (!p.superseded || p.player_id === playerId) && (s.state !== 'LOBBY_WAITING' || now - p.last_seen < 60000))
+    .filter((p) => s.settings.mode !== 'exam' || p.player_id === playerId); // bài kiểm tra: học sinh chỉ thấy thông tin của chính mình
   let stats: Record<string, number> | undefined;
   if (s.settings.mode === 'instructor_paced') {
     stats = {};
@@ -296,6 +358,7 @@ export function pollView(s: Session, playerId?: string): PollResult {
     paused_at: s.paused_at,
     paused_total_ms: s.paused_total_ms,
     server_now: now,
+    deadline: s.settings.mode === 'exam' && s.settings.deadline ? Date.parse(s.settings.deadline) : undefined,
     players: visible.map(({ player_id, name, class_name, avatar, score, correct, answered, finished, current_index, coins, joined_at, finished_at }) => ({
       player_id, name, class_name, avatar, score, correct, answered, finished, current_index, coins: coins ?? 0, joined_at, finished_at,
     })),

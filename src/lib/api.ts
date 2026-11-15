@@ -107,13 +107,23 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
         if (!quiz) throw new ApiError('Không tìm thấy bộ câu hỏi.');
         let pin = randomPin();
         while (localStorage.getItem(SESS(pin))) pin = randomPin();
-        const s = logic.createSession(pin, quiz.id, quiz.title, quiz.questions.length, p.settings as SessionSettings);
+        const st = p.settings as SessionSettings;
+        const exam = st.mode === 'exam' ? logic.examRoster(await kvGet<ClassRoom>('class:' + st.exam_class_id)) : undefined;
+        const s = logic.createSession(pin, quiz.id, quiz.title, quiz.questions.length, st, exam);
         writeSession(s);
         await kvSet('sessionquiz:' + pin, quiz); // ảnh chụp bộ đề tại thời điểm tổ chức
         return { pin, session_id: s.session_id };
       }
-      case 'hostState':
-        return readSession(p.pin);
+      case 'hostState': {
+        const s = readSession(p.pin);
+        // Bài kiểm tra hết giờ: tự kết thúc cả khi không còn học sinh nào đang mở trang
+        if (s.settings.mode === 'exam' && s.state !== 'COMPLETED' && s.state !== 'LOBBY_WAITING' && s.settings.deadline && Date.now() > Date.parse(s.settings.deadline)) {
+          s.state = 'COMPLETED';
+          s.ended_at = Date.now();
+          writeSession(s);
+        }
+        return s;
+      }
       case 'hostAction':
         return mutate(p.pin, (s) => logic.applyHostOp(s, p.op, p.player_id, { q_index: p.q_index, correct: p.correct, points: p.points, coins: p.coins }));
       case 'listSessions':
@@ -143,7 +153,7 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
       }
       case 'joinSession':
         return mutate(p.pin, (s) => {
-          const player = logic.joinPlayer(s, p.name, p.avatar, p.player_id, p.class_name, !!p.reuse_name);
+          const player = logic.joinPlayer(s, p.name, p.avatar, p.player_id, p.class_name, !!p.reuse_name, p.student_code);
           return { player_id: player.player_id, player };
         });
       case 'poll':
@@ -187,6 +197,7 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
       }
       case 'saveClass': {
         const c: ClassRoom = { ...p.cls, id: p.cls.id || uid('c_'), updated_at: new Date().toISOString() };
+        if (c.codes) c.codes = c.students.map((_, i) => logic.normCode(c.codes?.[i]));
         await kvSet('class:' + c.id, c);
         return c;
       }
@@ -252,8 +263,8 @@ export const api = {
   /** Xóa báo cáo: các phiên được chọn, hoặc toàn bộ (all). Trên Drive, tệp vào Thùng rác. */
   deleteSessions: (session_ids: string[], all = false) => call<{ removed: number; files: number; audio: number; left: number }>('deleteSessions', { session_ids, all }),
   getSessionQuiz: (pin: string) => call<{ quiz: Quiz; settings: SessionSettings; state: string }>('getSessionQuiz', { pin }),
-  joinSession: (pin: string, name: string, avatar: string, player_id?: string, class_name?: string, reuse_name?: boolean) =>
-    call<{ player_id: string; player: import('./types').Player }>('joinSession', { pin, name, avatar, player_id, class_name, reuse_name }),
+  joinSession: (pin: string, name: string, avatar: string, player_id?: string, class_name?: string, reuse_name?: boolean, student_code?: string) =>
+    call<{ player_id: string; player: import('./types').Player }>('joinSession', { pin, name, avatar, player_id, class_name, reuse_name, student_code }),
   poll: (pin: string, player_id?: string) => call<PollResult>('poll', { pin, player_id }),
   submitAnswer: (pin: string, player_id: string, record: AnswerRecord) => call<{ player: import('./types').Player }>('submitAnswer', { pin, player_id, record }),
   saveProgress: (pin: string, player_id: string, current_index: number, draft: unknown) => call('saveProgress', { pin, player_id, current_index, draft }),
@@ -268,7 +279,7 @@ export const api = {
   getCatalog: () => call<Catalog>('getCatalog'),
   saveCatalog: (catalog: Catalog) => call<Catalog>('saveCatalog', { catalog }),
   listClasses: () => call<ClassRoom[]>('listClasses'),
-  saveClass: (cls: Partial<ClassRoom> & { name: string; students: string[] }) => call<ClassRoom>('saveClass', { cls }),
+  saveClass: (cls: Partial<ClassRoom> & { name: string; students: string[] }) => call<ClassRoom>('saveClass', { cls: cls.codes ? cls : { ...cls, codes: undefined } }),
   deleteClass: (id: string) => call<{ id: string }>('deleteClass', { id }),
   createPaperSession: (quiz_id: string, class_name: string, students: string[]) =>
     call<{ pin: string; session_id: string }>('createPaperSession', { quiz_id, class_name, students }),

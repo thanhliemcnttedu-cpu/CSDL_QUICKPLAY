@@ -36,3 +36,15 @@
 .sr-sheet { max-width: 520px; display: flex; flex-direction: column; gap: 12px; max-height: calc(100dvh - 32px); overflow: auto; }
 .sr-sheet-img { width: 100%; height: auto; border-radius: 12px; border: 1.5px solid var(--border); -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
 .sr-sheet .alert { text-align: left; }
+
+/* Kết quả bài kiểm tra */
+.exam-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.exam-nums > div { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px; border-radius: 18px; border: 1.5px solid var(--border); background: #fff; }
+.exam-nums b { font-size: 2.2rem; line-height: 1.1; }
+.exam-nums span { font-weight: 700; color: var(--muted-fg); font-size: 0.9rem; text-align: center; }
+.exam-nums .ok { border-color: #86d9a8; background: #f0fbf4; }
+.exam-nums .ok b { color: #0b6a33; }
+.exam-nums .bad { border-color: #ef9a9a; background: #fff1f1; }
+.exam-nums .bad b { color: #b91c1c; }
+.exam-nums .mark { border-color: #9cc3ff; background: var(--primary-soft); }
+.exam-nums .mark b { color: var(--primary-ink); }

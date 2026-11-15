@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.3';
+var APP_VERSION = '1.5.4';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -596,6 +596,14 @@ function actCreateSession_(req) {
     throw userError_('Bộ đề chưa có câu hỏi nào, chưa thể tổ chức.');
   }
   var settings = normalizeSettings_(req.settings);
+  // Bài kiểm tra (1.5.4): giao cho một lớp, chỉ học sinh có mã số trong danh sách lớp mới vào làm được
+  var exam = null;
+  if (settings.mode === 'exam') {
+    var classId = requireId_(req.settings && req.settings.exam_class_id, 'Mã lớp');
+    var cls = readClasses_().filter(function (c) { return c.id === classId; })[0];
+    exam = examRoster_(cls);
+    settings.exam_class_id = classId;
+  }
 
   return withLock_(function () {
     var index = readSessionIndex_();
@@ -616,6 +624,7 @@ function actCreateSession_(req) {
       answers: [],
       question_count: quiz.questions.length
     };
+    if (exam) session.exam = exam;
     applyHomeworkRules_(session, now); // bài về nhà có thể tự mở ngay
 
     // Lưu ảnh chụp bộ đề vào cache để học sinh tải nhanh
@@ -706,16 +715,47 @@ function cleanStudents_(raw) {
   return out;
 }
 
+/** Chuẩn hóa mã số học sinh: bỏ khoảng trắng, viết hoa, tối đa 20 ký tự (giống normCode ở giao diện). */
+function normCode_(c) {
+  return String(c == null ? '' : c).replace(/\s+/g, '').toUpperCase().slice(0, 20);
+}
+
+/** Danh sách được phép vào bài kiểm tra, lấy từ lớp. Báo lỗi nếu lớp chưa đặt đủ mã hoặc mã trùng nhau. */
+function examRoster_(cls) {
+  if (!cls || !Array.isArray(cls.students) || !cls.students.length) throw userError_('Hãy chọn lớp có danh sách học sinh để giao bài kiểm tra.');
+  var codes = Array.isArray(cls.codes) ? cls.codes : [];
+  var seen = {}, missing = 0;
+  var roster = cls.students.map(function (name, i) {
+    var code = normCode_(codes[i]);
+    if (!code) missing++;
+    else if (seen[code]) throw userError_('Mã số học sinh "' + code + '" bị trùng trong lớp ' + cls.name + '. Mỗi em cần một mã riêng.');
+    seen[code] = true;
+    return { code: code, name: String(name) };
+  });
+  if (missing) throw userError_('Lớp ' + cls.name + ' còn ' + missing + ' học sinh chưa có mã số. Vào Dạy học trên lớp → Lớp học → Mã học sinh để đặt mã.');
+  return { class_id: cls.id, class_name: String(cls.name), roster: roster };
+}
+
 function actSaveClass_(req) {
   var c = req.cls && typeof req.cls === 'object' ? req.cls : {};
   var name = String(c.name || '').trim().slice(0, 60);
   if (!name) throw userError_('Hãy nhập tên lớp.');
+  // Giữ mã số đi kèm đúng học sinh: lọc tên rỗng và mã của dòng đó cùng lúc
+  var students = [], codes = [], hasCodes = Array.isArray(c.codes);
+  var rawStudents = Array.isArray(c.students) ? c.students : [];
+  for (var i = 0; i < rawStudents.length && students.length < MAX_CARDS; i++) {
+    var sn = String(rawStudents[i] == null ? '' : rawStudents[i]).trim().slice(0, MAX_NAME_LEN);
+    if (!sn) continue;
+    students.push(sn);
+    codes.push(hasCodes ? normCode_(c.codes[i]) : '');
+  }
   var cls = {
     id: c.id ? requireId_(c.id, 'Mã lớp') : newId_('c_'),
     name: name,
-    students: cleanStudents_(c.students),
+    students: students,
     updated_at: new Date().toISOString()
   };
+  if (hasCodes) cls.codes = codes;
   return withLock_(function () {
     var list = readClasses_().filter(function (x) { return x.id !== cls.id; });
     list.push(cls);
@@ -956,6 +996,10 @@ function actHostAction_(req) {
       case 'resume':
         if (s.state !== 'PAUSED') deny('Phòng không ở trạng thái tạm dừng.');
         s.paused_total_ms = (s.paused_total_ms || 0) + Math.max(0, now - (s.paused_at || now));
+        // Bài kiểm tra: thời gian tạm dừng không tính vào giờ làm bài
+        if (mode === 'exam' && parseTime_(s.settings.deadline)) {
+          s.settings.deadline = new Date(parseTime_(s.settings.deadline) + Math.max(0, now - (s.paused_at || now))).toISOString();
+        }
         delete s.paused_at;
         s.state = 'IN_PROGRESS';
         break;
@@ -1188,6 +1232,32 @@ function actJoinSession_(req) {
 
     if (s.state === 'COMPLETED') deny('Phòng đã kết thúc, không thể tham gia.');
     if (s.settings.mode === 'paper') deny('Phòng này dùng thẻ trả lời giấy, học sinh không cần vào bằng thiết bị.');
+    if (s.settings.mode === 'exam') {
+      // Bài kiểm tra: chỉ học sinh có mã số trong danh sách lớp mới vào được; mỗi mã chỉ làm một lần
+      var code = normCode_(req.student_code);
+      var roster = s.exam && Array.isArray(s.exam.roster) ? s.exam.roster : [];
+      var examClass = s.exam ? s.exam.class_name : '';
+      if (!code) deny('[CAN_MA_HS] Đây là bài kiểm tra. Em hãy nhập mã số học sinh thầy cô đã phát.');
+      var entry = roster.filter(function (r) { return r.code === code; })[0];
+      if (!entry) deny('[CAN_MA_HS] Mã số học sinh "' + code + '" không có trong danh sách lớp ' + examClass + '. Em hãy kiểm tra lại mã.');
+      var due = parseTime_(s.settings.deadline);
+      if (due && now > due) deny('Đã hết giờ làm bài kiểm tra.');
+      var had = s.players.filter(function (p) { return p.student_code === code; })[0];
+      if (had) {
+        if (had.kicked) deny('Bạn đã được giáo viên mời ra khỏi phòng này.');
+        if (had.finished) deny('Mã số ' + code + ' đã nộp bài kiểm tra này rồi, không thể làm lại.');
+        had.last_seen = now; // đang làm dở (đổi máy, tải lại trang): làm tiếp bài cũ
+        saveSession_(s, changed);
+        return { player_id: had.player_id, player: had };
+      }
+      var examPlayer = {
+        player_id: newId_('p'), name: String(entry.name).slice(0, MAX_NAME_LEN), class_name: String(examClass).slice(0, 20), student_code: code, avatar: avatar,
+        score: 0, correct: 0, answered: 0, current_index: 0, finished: false, last_seen: now, joined_at: now, streak: 0
+      };
+      s.players.push(examPlayer);
+      saveSession_(s, true);
+      return { player_id: examPlayer.player_id, player: examPlayer };
+    }
     if (!name) deny('Vui lòng nhập tên của bạn.');
     if (!className) deny('Vui lòng nhập lớp của bạn.');
     if (s.settings.mode === 'homework') {
@@ -1293,6 +1363,7 @@ function actSubmitAnswer_(req) {
     if (s.state === 'PAUSED') deny('Giáo viên đang tạm dừng, câu trả lời chưa được ghi nhận. Hãy gửi lại khi tiếp tục.');
     if (s.state === 'COMPLETED') deny('Phòng đã kết thúc, không thể nộp thêm câu trả lời.');
     if (qi < 0 || qi >= s.question_count) deny('Câu hỏi không tồn tại trong bộ đề.');
+    if (s.settings.mode === 'exam' && p.finished) deny('Em đã nộp bài kiểm tra, không thể trả lời thêm.');
 
     // Chống nộp trùng: cùng player_id + q_index → bỏ qua, trả về trạng thái hiện tại
     var paced = s.settings.mode === 'instructor_paced';
@@ -1361,7 +1432,7 @@ function actSubmitAnswer_(req) {
     p.last_seen = now;
     // Đã trả lời hết → finished (KHÔNG tự kết thúc phòng; giáo viên bấm "Kết thúc")
     // Còn lượt làm lại hoặc học sinh tự bấm Nộp bài (tự do chọn câu) thì chờ finishPlayer.
-    var selfSubmit = !paced && (s.settings.navigation === 'free' || (s.settings.retry_rounds || 0) > 0);
+    var selfSubmit = !paced && (s.settings.mode === 'exam' || s.settings.navigation === 'free' || (s.settings.retry_rounds || 0) > 0);
     if (!selfSubmit && p.answered >= s.question_count && !p.finished) {
       p.finished = true;
       p.finished_at = now;
@@ -1496,7 +1567,7 @@ function actReportViolation_(req) {
 
 function normalizeSettings_(raw) {
   raw = raw && typeof raw === 'object' ? raw : {};
-  var modes = ['classic_live', 'instructor_paced', 'homework'];
+  var modes = ['classic_live', 'instructor_paced', 'homework', 'exam'];
   var mode = String(raw.mode || 'classic_live');
   if (modes.indexOf(mode) < 0) throw userError_('Chế độ tổ chức không hợp lệ: "' + mode + '".');
   var bool = function (v, def) { return v === undefined || v === null ? def : !!v; };
@@ -1524,6 +1595,14 @@ function normalizeSettings_(raw) {
       max_violations: clamp_(Math.floor(Number(ac.max_violations) || 0), 0, 20)
     };
   }
+  if (mode === 'exam') {
+    // Bài kiểm tra: không làm lại, không bảng xếp hạng, không thưởng, không nhạc
+    s.music = false;
+    s.show_leaderboard = false;
+    s.power_ups = false;
+    s.retry_rounds = 0;
+    s.exam_minutes = clamp_(Math.round(Number(raw.exam_minutes) || 45), 1, 300);
+  }
   if (mode === 'homework') {
     if (raw.start_time) {
       if (!parseTime_(raw.start_time)) throw userError_('Thời gian bắt đầu không hợp lệ.');
@@ -1546,6 +1625,8 @@ function normalizeSettings_(raw) {
 function startSession_(s, now) {
   s.state = 'IN_PROGRESS';
   s.started_at = now;
+  // Bài kiểm tra: giờ thu bài = lúc bắt đầu + thời gian làm bài
+  if (s.settings.mode === 'exam') s.settings.deadline = new Date(now + (s.settings.exam_minutes || 45) * 60000).toISOString();
   s.current_index = 0;
   s.question_opened_at = now;
   s.question_locked = false;
@@ -1574,7 +1655,13 @@ function applyHomeworkRules_(s, now) {
 
 /** Kiểm tra (không thay đổi dữ liệu) xem bài về nhà có cần chuyển trạng thái không. */
 function homeworkNeedsUpdate_(s, now) {
-  if (!s || !s.settings || s.settings.mode !== 'homework' || s.state === 'COMPLETED') return false;
+  if (!s || !s.settings || s.state === 'COMPLETED') return false;
+  // Bài kiểm tra: chỉ tự kết thúc khi hết giờ làm bài (không tự bắt đầu, giáo viên bấm Bắt đầu)
+  if (s.settings.mode === 'exam') {
+    var due = parseTime_(s.settings.deadline);
+    return s.state !== 'LOBBY_WAITING' && !!due && now > due;
+  }
+  if (s.settings.mode !== 'homework') return false;
   var deadline = parseTime_(s.settings.deadline);
   if (deadline && now > deadline) return true;
   if (s.state === 'LOBBY_WAITING') {
@@ -1604,8 +1691,10 @@ function buildPollResult_(s, me, now) {
       if (a.q_index === s.current_index && !a.pending) hide[a.player_id] = a;
     });
   }
+  var examMode = s.settings.mode === 'exam';
   var players = s.players.filter(function (p) {
     if (p.kicked) return false;
+    if (examMode && !(me && me.player_id === p.player_id)) return false; // bài kiểm tra: học sinh chỉ thấy thông tin của chính mình
     if (p.superseded && !(me && me.player_id === p.player_id)) return false; // đã có lần làm mới hơn
     if (lobby && now - (p.last_seen || 0) > LOBBY_HIDE_MS && !(me && me.player_id === p.player_id)) return false;
     return true;
@@ -1635,6 +1724,7 @@ function buildPollResult_(s, me, now) {
     server_now: now,
     players: players
   };
+  if (examMode && parseTime_(s.settings.deadline)) r.deadline = parseTime_(s.settings.deadline); // giờ thu bài
   if (s.question_opened_at) r.question_opened_at = s.question_opened_at;
   if (s.started_at) r.started_at = s.started_at;
   if (s.paused_at) r.paused_at = s.paused_at;

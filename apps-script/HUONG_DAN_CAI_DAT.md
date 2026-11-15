@@ -27,6 +27,11 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 (một tệp `.json` duy nhất); sang máy khác hoặc đổi Google Drive thì **Khôi phục từ file .json**. Tệp gộp cũ (tên `<tên đăng nhập>_<ngày giờ>.json`)
 còn trong thư mục Drive có thể xóa đi.
 
+**Bản 1.5.4:** bài kiểm tra theo danh sách lớp. Mỗi lớp (`classes.json`) có thêm `codes`: mã số học sinh do giáo viên đặt, cùng thứ tự với danh sách tên.
+Chế độ tổ chức mới `exam`: phòng lưu danh sách mã được phép vào (`exam.roster`, không gửi cho học sinh); học sinh vào bằng mã PIN + mã số học sinh, mỗi mã làm một lần;
+giờ thu bài = lúc giáo viên bấm Bắt đầu + số phút đã đặt (tạm dừng thì cộng bù), hết giờ phòng tự kết thúc; đã nộp thì không vào lại và không trả lời thêm được.
+Cập nhật tay bằng 5 bước ở trang Cài đặt.
+
 **Bản 1.5.3:** tên tệp bộ đề dễ hiểu. Trong thư mục `quizzes`, mỗi bộ đề mang tên `<Khối lớp> - <Môn> - <Tên bộ đề> (<mã bộ đề>).json`,
 ví dụ `Lớp 1 - Tiếng Việt - Bài 2 Ôn tập (quiz_mwhxf6se95s36v).json`. Tệp cũ tên `<mã>.json` được đổi tên một lần khi thầy cô mở Thư viện sau khi cập nhật;
 về sau tên tệp đổi theo mỗi lần lưu bộ đề (đổi tên bộ đề, chuyển lớp, chuyển môn). Phần mềm tìm tệp theo mã tệp Drive ghi trong `_index.json`,
