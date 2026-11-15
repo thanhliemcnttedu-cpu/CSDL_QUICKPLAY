@@ -10,7 +10,7 @@ const FEATURES = [
   { ic: Mic, t: 'Soạn bằng giọng nói', d: 'Nói để nhập câu hỏi và từng đáp án; Ctrl+V dán ảnh chụp màn hình.' },
   { ic: Sparkles, t: 'AI sinh đề', d: 'Từ giáo án Word/PDF: sinh câu hỏi mới hoặc số hóa nguyên văn đề có sẵn.' },
   { ic: Cloud, t: 'Lưu trên Google Drive', d: 'Miễn phí, dữ liệu là tệp .json của chính thầy cô.' },
-  { ic: MonitorSmartphone, t: 'Web + bản cài .exe', d: 'Dùng chung một kho dữ liệu trên mọi thiết bị.' },
+  { ic: MonitorSmartphone, t: 'Mọi thiết bị', d: 'Chạy ngay trên trình duyệt của máy tính, máy tính bảng và điện thoại.' },
   { ic: FileText, t: 'Báo cáo Excel', d: 'Bục vinh danh, thống kê từng câu và từng lớp, xuất Excel và PDF.' },
 ];
 

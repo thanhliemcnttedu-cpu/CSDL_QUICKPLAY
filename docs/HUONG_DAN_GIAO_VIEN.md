@@ -7,10 +7,8 @@
    (dán link thư mục → Sao chép mã → dán vào Apps Script mới → Triển khai → dán link `/exec` và bấm Kiểm tra).
 3. Vào **Cài đặt → Tài khoản → Email khôi phục**, điền email cá nhân để sau này tự lấy lại mật khẩu khi quên.
 
-Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối lại Google Drive của thầy cô. Phần mềm **tự lưu một tệp gộp** `<tên đăng nhập>_<ngày>_<tháng>_<năm>_<giờ>h<phút>.json` lên Google Drive và vào thư mục trên máy (nếu đã chọn) mỗi khi dữ liệu thay đổi. Muốn cất dự phòng thêm: **Cài đặt → Sao lưu và khôi phục** (tải một tệp `.json`, hoặc chọn một thư mục ở ổ D / E để phần mềm tự ghi thêm một bản mỗi lần lưu; tự ghi vào thư mục chỉ có trên Chrome, Edge, Cốc Cốc cho máy tính).
-
-Chưa cài Apps Script vẫn dùng thử được ở chế độ **"Chỉ máy này"** (dữ liệu nằm trong trình duyệt của máy đang dùng,
-học sinh chỉ vào được từ cùng máy).
+Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối lại Google Drive của thầy cô. Mọi dữ liệu nằm trên Google Drive nên dùng được trên mọi máy.
+Muốn giữ một bản dự phòng: **Cài đặt → Sao lưu và khôi phục → Tải file sao lưu toàn bộ** (một tệp `.json` duy nhất).
 
 ## Cập nhật Apps Script khi có bản mới
 
@@ -26,11 +24,9 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
 - **Khi Google Drive đầy**, phần mềm hiện cảnh báo đỏ ở mọi trang kèm nút **Tải file sao lưu toàn bộ** (vẫn tải được khi Drive đã đầy). Từ 90% dung lượng trở lên, phần mềm nhắc trước.
 - **Chuyển sang Drive mới:** tải file sao lưu → tạo thư mục ở Google Drive mới → chạy lại Trình cài đặt (Cài đặt → Nơi lưu dữ liệu) bằng Gmail mới →
   **Khôi phục từ file sao lưu** → chọn **Google Drive đang kết nối**. Ảnh, âm thanh được tải lên Drive mới, link trong câu hỏi tự đổi theo.
-- **Chạy độc lập trên máy:** khi khôi phục chọn **Chỉ máy này (chạy độc lập)**: toàn bộ dữ liệu mở ngay trên máy tính, không cần Google Drive.
 
 **Tiết kiệm dung lượng (Gmail miễn phí chỉ có 15 GB):** ảnh tự đổi sang WebP (cạnh dài tối đa 1280 điểm ảnh), âm thanh tự đổi sang Opus 24 kbit/s một kênh
-(1 phút khoảng 180 KB) trước khi tải lên; ảnh trùng chỉ lưu một lần. Ảnh, âm thanh tải lên từ trước: bấm **Nén lại ảnh, âm thanh đã tải lên**
-(tệp gốc vào Thùng rác của Drive; dọn Thùng rác để lấy lại dung lượng ngay). Video nên nhúng link YouTube: không tốn dung lượng Drive, phát mượt trên điện thoại.
+(1 phút khoảng 180 KB) trước khi tải lên; ảnh trùng chỉ lưu một lần. Video nên nhúng link YouTube: không tốn dung lượng Drive, phát mượt trên điện thoại.
 
 ## Soạn bộ câu hỏi
 

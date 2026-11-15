@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, FolderCog, HardDriveDownload, Minimize2, ArrowRightLeft, ChevronRight, KeyRound, Mail, Wand2, Wrench, Info } from 'lucide-react';
-import { loadSettings, saveSettings, isDesktop, type AppSettings } from '../lib/settings';
+import { PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, ChevronRight, KeyRound, Mail, Wand2, Wrench } from 'lucide-react';
+import { loadSettings, saveSettings, type AppSettings } from '../lib/settings';
 import { GeminiKeyPanel } from '../components/GeminiKeyPanel';
 import { changePassword, currentAccount, saveVault, setRecoveryEmail } from '../lib/account';
 import { testConnection } from '../lib/api';
@@ -14,8 +14,6 @@ import { noteScriptVersion } from '../lib/scriptUpdate';
 import { ProgressLine, lastFullBackup, useFullBackup, useRestore } from '../components/BackupTools';
 import { checkDriveSpace, driveSpace, fmtGB, type DriveSpace } from '../lib/driveFull';
 import { formatBytes } from '../lib/util';
-import { allowFolder, chooseFolder, folderMeta, folderState, forgetFolder, type FolderState } from '../lib/localFolder';
-import { runSnapshot, snapshotName, snapshotOwner, snapshotStamp, snapshotStatus, type SnapshotStatus } from '../lib/autoSnapshot';
 import '../installer.css';
 
 /** Mục gập: chỉ hiện một dòng tiêu đề + trạng thái ngắn; bấm mới mở phần chi tiết. */
@@ -38,7 +36,7 @@ function Fold({ id, icon, title, note, open, locked, onToggle, children }: {
 export default function Settings() {
   const toast = useToast();
   // Lần đầu sau khi đăng nhập: mở sẵn phần Google Drive để thầy cô dán hai đường link
-  const [s, setS] = useState<AppSettings>(() => (location.hash.includes('first=1') ? { ...loadSettings(), backend: 'drive' } : loadSettings()));
+  const [s, setS] = useState<AppSettings>(() => ({ ...loadSettings(), backend: 'drive' })); // dữ liệu chỉ lưu trên Google Drive của thầy cô
   const [status, setStatus] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(false);
@@ -73,7 +71,6 @@ export default function Settings() {
   // Các mục gập đang mở. Mở từ thông báo (…#cap-nhat, …#chuyen-kho) thì mở sẵn đúng mục.
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     const h = location.hash;
-    if (h.includes('chuyen-kho')) return new Set(['chuyen-kho']);
     if (h.includes('cap-nhat')) return new Set(['cai-dat-5-buoc']);
     return new Set();
   });
@@ -86,54 +83,11 @@ export default function Settings() {
     setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
   };
   useEffect(() => {
-    const id = location.hash.includes('chuyen-kho') ? 'chuyen-kho' : location.hash.includes('cap-nhat') ? 'ket-noi' : '';
+    const id = location.hash.includes('cap-nhat') ? 'ket-noi' : '';
     if (id) setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
   }, []);
 
 
-  // Thư mục trên máy tính để tự lưu thêm một bản
-  const [folder, setFolder] = useState<{ state: FolderState; name: string; last?: number; error?: string }>({ state: 'none', name: '' });
-  const refreshFolder = async () => {
-    const m = folderMeta();
-    setFolder({ state: await folderState(), name: m?.name ?? '', last: m?.last, error: m?.error });
-  };
-  useEffect(() => {
-    refreshFolder();
-    window.addEventListener('quickplay-folder', refreshFolder);
-    return () => window.removeEventListener('quickplay-folder', refreshFolder);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const pickFolder = async () => {
-    try {
-      const m = await chooseFolder();
-      if (m) {
-        toast(`Đã chọn thư mục “${m.name}”. Phần mềm ghi ngay tệp gộp vào đây và tự cập nhật mỗi khi dữ liệu thay đổi.`, 'ok');
-        saveNow();
-      }
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    }
-  };
-  // Tệp gộp: một tệp .json duy nhất mang tên đăng nhập + ngày giờ, tự lưu lên Drive và vào thư mục trên máy
-  const [snap, setSnap] = useState<SnapshotStatus | null>(snapshotStatus());
-  useEffect(() => {
-    const on = () => setSnap(snapshotStatus());
-    window.addEventListener('quickplay-snapshot', on);
-    return () => window.removeEventListener('quickplay-snapshot', on);
-  }, []);
-  const saveNow = async () => {
-    setBusy(true);
-    try {
-      const r = await runSnapshot();
-      if (!r) return toast('Chưa có nơi nào để lưu: hãy kết nối Google Drive hoặc chọn thư mục trên máy tính.', 'info');
-      if (r.error) toast(r.error, 'error');
-      else toast(`Đã lưu tệp ${r.name}.`, 'ok');
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-  const nextName = snapshotName(snapshotOwner(acc?.username), snapshotStamp());
 
   // Trình cài đặt đã kiểm tra xong link /exec: lưu kết nối, gắn thư mục, cất vào tài khoản để máy khác tự nhớ
   const installed = async (r: InstallResult) => {
@@ -167,21 +121,6 @@ export default function Settings() {
     window.addEventListener('quickplay-drive-space', on);
     return () => window.removeEventListener('quickplay-drive-space', on);
   }, [connected]);
-  const [opt, setOpt] = useState<{ text: string; pct: number } | null>(null);
-  const optimize = async () => {
-    if (!(await askConfirm('Nén lại toàn bộ ảnh và âm thanh đã tải lên Google Drive?\n\nẢnh được đổi sang WebP, âm thanh sang Opus. Chỉ tệp nào nhẹ đi rõ rệt mới được thay; tệp gốc chuyển vào Thùng rác của Drive (khôi phục được trong 30 ngày, sau đó Drive mới thật sự trống ra). Việc này có thể mất vài phút, hãy giữ trang này mở.', { okLabel: 'Bắt đầu nén' }))) return;
-    setOpt({ text: 'Đang bắt đầu…', pct: 0 });
-    try {
-      const { optimizeDriveMedia } = await import('../lib/mediaOptimize');
-      const r = await optimizeDriveMedia((text, pct) => setOpt({ text, pct: pct ?? 0 }));
-      toast(r.shrunk ? `Đã nén ${r.shrunk}/${r.checked} tệp: ${formatBytes(r.before)} → ${formatBytes(r.after)} (tiết kiệm ${formatBytes(r.before - r.after)}). Dọn Thùng rác của Drive để lấy lại dung lượng ngay.` : `Đã xem ${r.checked} tệp: tất cả đều đã gọn, không cần nén thêm.`, 'ok');
-      checkDriveSpace(true).then(setSpace).catch(() => {});
-    } catch (e) {
-      toast(/không hợp lệ|Hành động/.test((e as Error).message) ? 'Apps Script của thầy cô đang chạy bản cũ. Hãy cập nhật (Trình cài đặt → Cập nhật bản mới) rồi chạy lại.' : (e as Error).message, 'error');
-    } finally {
-      setOpt(null);
-    }
-  };
   const last = lastFullBackup();
 
   const test = async () => {
@@ -272,20 +211,6 @@ export default function Settings() {
   const compact = connected && s.backend === 'drive' && !first;
   const dirty = (s.backend !== saved.backend || s.scriptUrl.trim() !== saved.scriptUrl || s.teacherKey.trim() !== saved.teacherKey || s.folderUrl.trim() !== saved.folderUrl)
     && !(s.backend === 'drive' && !s.scriptUrl.trim());
-  const chooser = (
-    <div className="type-grid" role="radiogroup" aria-label="Nơi lưu dữ liệu">
-      {([
-        ['drive', Cloud, 'Google Drive (khuyên dùng)', 'Dùng được trên mọi thiết bị. Học sinh vào phòng từ điện thoại của mình.'],
-        ['local', HardDrive, 'Chỉ máy này', 'Chạy thử ngay không cần cấu hình. Chỉ dùng được trên trình duyệt này.'],
-      ] as const).map(([id, Ic, t, d]) => (
-        <button key={id} type="button" role="radio" aria-checked={s.backend === id} className="type-btn" onClick={() => set({ backend: id })}
-          style={s.backend === id ? { borderColor: 'var(--primary)', background: '#eff6ff' } : undefined}>
-          <span className="ic" style={{ background: s.backend === id ? 'var(--primary)' : '#94a3b8' }}><Ic size={20} /></span>
-          <span><b>{t}</b><br /><small className="muted">{d}</small></span>
-        </button>
-      ))}
-    </div>
-  );
   const when = (t: number) => new Date(t).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
   return (
@@ -302,8 +227,6 @@ export default function Settings() {
 
       <section className="card stack" id="ket-noi">
         <h2 style={{ margin: 0 }}>Nơi lưu dữ liệu</h2>
-        {!compact && chooser}
-
         {s.backend === 'drive' && (
           <div className="stack">
             {connected ? (
@@ -358,11 +281,6 @@ export default function Settings() {
               {status && <div className={`alert ${status.tone}`} role="status">{status.text}</div>}
             </Fold>
 
-            {compact && (
-              <Fold key="noi-luu" {...fold('noi-luu')} icon={<HardDrive size={18} color="var(--primary)" />} title="Đổi nơi lưu dữ liệu" note="Đang dùng Google Drive">
-                {chooser}
-              </Fold>
-            )}
           </div>
         )}
       </section>
@@ -381,78 +299,12 @@ export default function Settings() {
           <button className="btn" onClick={restoreTool.open} disabled={!!full.prog || busy}><Upload size={18} /> Khôi phục từ file .json</button>
         </div>
         <small className="muted">
-          Một tệp <code>.json</code> chứa tất cả: lớp, học sinh, bộ câu hỏi, kết quả, ảnh và âm thanh. Khi khôi phục, phần mềm cho xem trước và cho chọn nơi đưa dữ liệu vào.
+          Một tệp <code>.json</code> duy nhất chứa tất cả: lớp, học sinh, bộ câu hỏi, kết quả, ảnh và âm thanh. Sang máy khác hoặc đổi Google Drive, chỉ cần khôi phục từ tệp này là đủ dữ liệu.
           {last && <> Lần tải gần nhất: {last.name} ({formatBytes(last.size)}), {when(last.at)}.</>}
         </small>
         <ProgressLine prog={full.prog} />
         {restoreTool.dialog}
 
-        <div className="folder-box">
-          <div className="row between" style={{ width: '100%' }}>
-            <b className="row" style={{ gap: 8 }}><FolderCog size={20} color="var(--primary)" /> Tự lưu khi dữ liệu thay đổi</b>
-            <button className="btn sm primary" onClick={saveNow} disabled={busy}><HardDriveDownload size={16} /> Lưu ngay</button>
-          </div>
-          <div className="snap-grid">
-            <div className={`snap-card ${snap?.drive === 'ok' ? 'ok' : connected ? (snap?.drive === 'old' || snap?.drive === 'error' ? 'bad' : '') : 'off'}`}>
-              <small>Trên Google Drive</small>
-              {!connected ? <span>Chưa kết nối Google Drive</span>
-                : snap?.drive === 'ok' ? <span><CheckCircle2 size={16} /> Đã lưu {snap.driveUrl ? <a href={snap.driveUrl} target="_blank" rel="noopener noreferrer">{snap.name}</a> : snap.name}</span>
-                : snap?.drive === 'old' ? <span><TriangleAlert size={16} /> Cần cập nhật Apps Script (mục Nơi lưu dữ liệu ở trên)</span>
-                : snap?.drive === 'error' ? <span><TriangleAlert size={16} /> Lần lưu gần nhất bị lỗi</span>
-                : <span>Chưa lưu lần nào</span>}
-            </div>
-            <div className={`snap-card ${snap?.local === 'ok' && folder.state === 'granted' ? 'ok' : folder.state === 'none' || folder.state === 'unsupported' ? 'off' : folder.state !== 'granted' ? 'bad' : ''}`}>
-              <small>Trên máy tính này</small>
-              {folder.state === 'unsupported' ? <span>Trình duyệt này không ghi được vào thư mục trên máy (dùng Chrome, Edge hoặc Cốc Cốc trên máy tính)</span>
-                : folder.state === 'none' ? <span>Chưa chọn thư mục</span>
-                : folder.state !== 'granted' ? <span><TriangleAlert size={16} /> Cần cho phép ghi lại vào “{folder.name}”</span>
-                : snap?.local === 'ok' ? <span><CheckCircle2 size={16} /> Đã lưu vào “{folder.name}”</span>
-                : <span>Thư mục “{folder.name}”, chưa lưu lần nào</span>}
-              <div className="row" style={{ gap: 6 }}>
-                {folder.state === 'none' && <button className="btn sm" onClick={pickFolder}><FolderOpen size={14} /> Chọn thư mục</button>}
-                {(folder.state === 'prompt' || folder.state === 'denied') && <button className="btn sm primary" onClick={async () => { if (await allowFolder()) saveNow(); else toast('Trình duyệt chưa cho phép. Hãy bấm lại và chọn "Cho phép".', 'error'); }}>Cho phép ghi lại</button>}
-                {folder.state !== 'unsupported' && folder.state !== 'none' && <>
-                  <button className="btn sm" onClick={pickFolder}>Đổi thư mục</button>
-                  <button className="btn sm ghost" onClick={async () => { if (await askConfirm('Ngừng tự lưu vào thư mục này trên máy? Tệp đã ghi vẫn nằm nguyên trong thư mục.')) await forgetFolder(); }}>Ngừng lưu</button>
-                </>}
-              </div>
-            </div>
-          </div>
-          {snap && <small className="muted">Lần lưu gần nhất: {new Date(snap.at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}{snap.counts ? ` · ${snap.counts.quizzes} bộ câu hỏi, ${snap.counts.classes} lớp, ${snap.counts.sessions} buổi đã tổ chức` : ''}</small>}
-          {snap?.error && <div className="alert error" role="alert"><div>{snap.error}</div></div>}
-        </div>
-
-        <Fold {...fold('tu-luu')} icon={<Info size={18} color="var(--primary)" />} title="Tự lưu hoạt động thế nào?">
-          <ul className="help" style={{ margin: 0, paddingLeft: 18 }}>
-            <li>Mỗi khi thầy cô thêm, sửa, xóa bộ câu hỏi, lớp, học sinh hay tổ chức một buổi, phần mềm tự ghi <b>một tệp .json duy nhất</b> chứa toàn bộ dữ liệu, ví dụ <code>{nextName}</code>.</li>
-            <li>Tệp được ghi sau khoảng 15 giây kể từ thay đổi cuối, hai lần lưu cách nhau ít nhất 3 phút; trong giờ học chỉ lưu khi bấm Kết thúc.</li>
-            <li>Mỗi nơi chỉ giữ tệp mới nhất. Trên Google Drive, tệp cũ vào Thùng rác (khôi phục được trong 30 ngày).</li>
-            <li>Trên máy tính nên chọn thư mục ở <b>ổ D hoặc E</b> (cài lại Windows thường xóa ổ C). Mỗi lần mở lại trình duyệt, trình duyệt hỏi lại quyền ghi.</li>
-            <li>Nơi lưu chính vẫn là {connected ? 'Google Drive của thầy cô' : 'trình duyệt của máy này'}; tệp này là bản sao lưu, khôi phục bằng nút <b>Khôi phục từ file .json</b>.</li>
-          </ul>
-        </Fold>
-
-        {connected && (
-          <Fold {...fold('nen')} icon={<Minimize2 size={18} color="var(--primary)" />} title="Nén ảnh, âm thanh đã tải lên" note="Lấy lại dung lượng Drive">
-            <p className="muted" style={{ margin: 0 }}>
-              Ảnh và âm thanh mới đã <b>tự được nén trước khi tải lên</b>. Nút dưới đây nén lại các tệp tải lên từ trước; tệp gốc vào Thùng rác của Drive (khôi phục được trong 30 ngày).
-              Video nên nhúng từ YouTube để không tốn dung lượng Drive.
-            </p>
-            <ProgressLine prog={opt} />
-            <div className="row"><button className="btn" onClick={optimize} disabled={!!opt || busy}><Minimize2 size={18} /> Nén lại ảnh, âm thanh đã tải lên</button></div>
-          </Fold>
-        )}
-
-        <Fold {...fold('chuyen-kho')} icon={<ArrowRightLeft size={18} color="var(--primary)" />} title="Khi Google Drive đã đầy" note="Chuyển sang Drive mới trong 5 bước">
-          <ol className="move-steps">
-            <li><b>Tải file sao lưu toàn bộ</b> bằng nút ở trên (vẫn tải được khi Drive đã đầy). Cất tệp vào ổ D, USB hoặc gửi vào email của mình.</li>
-            <li><b>Tạo thư mục trong Google Drive mới</b> (một Gmail khác còn trống, hoặc tài khoản có dung lượng lớn hơn) và chép link thư mục.</li>
-            <li>Mở mục <b>Cập nhật hoặc cài đặt lại Apps Script (5 bước)</b> ở phần Nơi lưu dữ liệu, chọn <b>Cài mới</b>, đăng nhập Apps Script bằng Gmail mới và dán link thư mục mới.</li>
-            <li><b>Khôi phục từ file .json</b> → chọn tệp vừa tải → <b>Google Drive đang kết nối</b>. Toàn bộ dữ liệu, ảnh và âm thanh được đưa lên Drive mới.</li>
-            <li>Kiểm tra Thư viện, Lớp và Báo cáo. Drive cũ có thể giữ lại làm bản lưu trữ hoặc dọn đi.</li>
-          </ol>
-          <small className="muted">Chưa kịp có Drive mới? Khi khôi phục chọn <b>Chỉ máy này</b>: dữ liệu dùng ngay trên máy tính, sau này đưa lên Drive mới cũng được.</small>
-        </Fold>
       </section>
 
       <GeminiKeyPanel onChange={(k, m) => set({ geminiKey: k, geminiModel: m })} />
@@ -483,11 +335,10 @@ export default function Settings() {
 
       {dirty && (
         <div className="save-bar" role="status">
-          <span>Có thay đổi chưa lưu ở mục Nơi lưu dữ liệu.</span>
+          <span>Có thay đổi chưa lưu ở mục Sửa tay link và khóa.</span>
           <button className="btn primary" onClick={store} disabled={busy}><Save size={18} /> Lưu cài đặt</button>
         </div>
       )}
-      {isDesktop() && <p className="help">Bạn đang dùng bản cài đặt máy tính. Nhập giọng nói chỉ có ở bản web trên Chrome/Edge.</p>}
     </div>
   );
 }

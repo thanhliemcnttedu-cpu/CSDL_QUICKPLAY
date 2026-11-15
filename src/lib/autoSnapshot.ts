@@ -1,8 +1,7 @@
 // Tự lưu MỘT tệp gộp duy nhất của giáo viên mỗi khi dữ liệu thay đổi:
 //   <tên đăng nhập>_<ngày>_<tháng>_<năm>_<giờ>h<phút>.json   (ví dụ 035091005725_15_11_2026_12h45.json)
 // Tệp chứa bộ câu hỏi, danh mục môn học – chương – bài, lớp (danh sách học sinh) và kết quả các buổi đã tổ chức.
-// Ghi đồng thời: (1) thư mục Google Drive đã kết nối (Apps Script ghi), (2) thư mục trên máy tính đã chọn.
-// Mỗi nơi chỉ giữ tệp mới nhất của tài khoản: tệp cũ trên Drive vào Thùng rác, tệp cũ trên máy bị xóa.
+// Tệp nằm trong thư mục Google Drive đã kết nối (Apps Script ghi); chỉ giữ tệp mới nhất, tệp cũ vào Thùng rác của Drive.
 import { currentAccount } from './account';
 import { loadSettings } from './settings';
 
@@ -22,7 +21,6 @@ export interface SnapshotStatus {
   name: string;
   at: number;
   drive: 'ok' | 'off' | 'error' | 'old';
-  local: 'ok' | 'off' | 'error' | 'permission';
   counts?: { quizzes: number; classes: number; sessions: number };
   error?: string;
   driveUrl?: string;
@@ -65,7 +63,7 @@ export function scheduleSnapshot() {
   timer = window.setTimeout(() => void runSnapshot(), Math.max(SNAPSHOT_DELAY_MS, SNAPSHOT_MIN_GAP_MS - since));
 }
 
-/** Lưu ngay tệp gộp lên Drive (nếu đã kết nối) và vào thư mục trên máy (nếu đã chọn). */
+/** Lưu ngay tệp gộp lên Google Drive đã kết nối. */
 export async function runSnapshot(): Promise<SnapshotStatus | null> {
   window.clearTimeout(timer);
   if (running) {
@@ -78,43 +76,24 @@ export async function runSnapshot(): Promise<SnapshotStatus | null> {
     const owner = snapshotOwner(currentAccount()?.username);
     const stamp = snapshotStamp();
     const name = snapshotName(owner, stamp);
-    const lf = await import('./localFolder');
-    const wantLocal = !!lf.folderMeta() && (await lf.folderState()) === 'granted';
-    const st: SnapshotStatus = { name, at: Date.now(), drive: 'off', local: lf.folderMeta() ? 'permission' : 'off' };
-    let text = '';
-
-    if (settings.backend === 'drive' && settings.scriptUrl) {
+    if (settings.backend !== 'drive' || !settings.scriptUrl) return null; // chưa kết nối Google Drive
+    const st: SnapshotStatus = { name, at: Date.now(), drive: 'off' };
+    {
       try {
         const { call } = await import('./api');
-        const r = await call<{ name: string; url: string; content?: string; counts: SnapshotStatus['counts'] }>('saveSnapshot', { owner, stamp, with_content: wantLocal });
+        const r = await call<{ name: string; url: string; content?: string; counts: SnapshotStatus['counts'] }>('saveSnapshot', { owner, stamp });
         st.drive = 'ok';
         st.name = r.name;
         st.driveUrl = r.url;
         st.counts = r.counts;
-        text = r.content ?? '';
       } catch (e) {
         const msg = (e as Error).message;
         // Apps Script bản cũ chưa có chức năng này
         st.drive = /không hỗ trợ|không hợp lệ|Unknown action|Hành động/i.test(msg) ? 'old' : 'error';
-        st.error = st.drive === 'old' ? 'Apps Script của thầy cô đang chạy bản cũ, chưa ghi được tệp gộp lên Drive. Hãy cập nhật bằng Trình cài đặt (thẻ Cập nhật bản mới).' : msg;
+        st.error = st.drive === 'old' ? 'Apps Script của thầy cô đang chạy bản cũ, chưa ghi được tệp gộp lên Drive. Hãy cập nhật ở trang Cài đặt.' : msg;
       }
     }
 
-    if (wantLocal) {
-      try {
-        if (!text) text = JSON.stringify(await buildLocally(owner));
-        await lf.writeSnapshotFile(st.name, text, owner);
-        st.local = 'ok';
-        if (!st.counts) {
-          const d = JSON.parse(text) as { quizzes?: unknown[]; classes?: unknown[]; sessions?: unknown[] };
-          st.counts = { quizzes: d.quizzes?.length ?? 0, classes: d.classes?.length ?? 0, sessions: d.sessions?.length ?? 0 };
-        }
-      } catch (e) {
-        st.local = 'error';
-        st.error = (st.error ? st.error + ' · ' : '') + (e as Error).message;
-      }
-    }
-    if (st.drive === 'off' && st.local !== 'ok') return null; // chưa có nơi nào để lưu
     setStatus(st);
     return st;
   } finally {
@@ -126,9 +105,3 @@ export async function runSnapshot(): Promise<SnapshotStatus | null> {
   }
 }
 
-/** Dựng tệp gộp ngay trên máy (khi lưu "Chỉ máy này", hoặc Apps Script bản cũ). */
-async function buildLocally(owner: string) {
-  const { exportAll } = await import('./backup');
-  // tệp gộp tự lưu không kèm ảnh/âm thanh để ghi nhanh; tệp "Sao lưu toàn bộ" mới đóng gói cả ảnh/âm thanh
-  return { ...(await exportAll({ media: false, sessions: true })), owner };
-}

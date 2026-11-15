@@ -1,11 +1,11 @@
 // Sao lưu toàn bộ / khôi phục từ tệp / cảnh báo Google Drive đầy — dùng chung cho trang Cài đặt và khung giáo viên.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Cloud, Download, HardDrive, RefreshCw, TriangleAlert, Upload, X } from 'lucide-react';
+import { Download, RefreshCw, TriangleAlert, Upload, X } from 'lucide-react';
 import { backupFileName, backupSummary, exportAll, importAll, parseBackup, type BackupFile, type RestoreResult } from '../lib/backup';
 import { checkDriveSpace, driveSpace, fmtGB, type DriveSpace } from '../lib/driveFull';
 import { currentAccount } from '../lib/account';
-import { loadSettings, saveSettings } from '../lib/settings';
+import { loadSettings } from '../lib/settings';
 import { downloadBlob } from '../lib/xlsx';
 import { formatBytes } from '../lib/util';
 import { Modal, useToast } from './ui';
@@ -75,13 +75,13 @@ export function DriveFullBanner() {
         <span>
           {full
             ? 'Bạn cần tải file sao lưu về máy tính để lưu trữ, và dùng chính file đó để khôi phục dữ liệu sau này khi chuyển sang kho lưu trữ mới.'
-            : 'Hãy tải file sao lưu về máy tính ngay để phòng khi Drive đầy, và nén lại ảnh/âm thanh cũ trong Cài đặt để lấy lại dung lượng.'}
+            : 'Hãy tải file sao lưu về máy tính ngay để phòng khi Drive đầy.'}
           {sp.used !== undefined && sp.limit ? <> Đã dùng <b>{fmtGB(sp.used)}</b> / {fmtGB(sp.limit)}.</> : null}
         </span>
         <ProgressLine prog={prog} />
         <div className="row" style={{ gap: 8 }}>
           <button className="btn primary" onClick={run} disabled={!!prog}><Download size={18} /> Tải file sao lưu toàn bộ</button>
-          <Link className="btn" to="/teacher/settings#chuyen-kho">Hướng dẫn chuyển sang Drive mới</Link>
+          <Link className="btn" to="/teacher/settings#cap-nhat" title="Kết nối thư mục Google Drive mới bằng 5 bước (chọn Cài mới), rồi khôi phục từ file sao lưu">Kết nối Drive mới ở Cài đặt</Link>
           <button className="btn ghost sm" disabled={checking} onClick={async () => { setChecking(true); setSp(await checkDriveSpace(true)); setChecking(false); }}>
             <RefreshCw size={16} /> {checking ? 'Đang kiểm tra…' : 'Kiểm tra lại dung lượng'}
           </button>
@@ -113,7 +113,6 @@ function RestoreDialog({ file, onClose }: { file: { data: BackupFile; name: stri
   const toast = useToast();
   const s = loadSettings();
   const connected = s.backend === 'drive' && !!s.scriptUrl;
-  const [target, setTarget] = useState<'drive' | 'local'>(connected ? 'drive' : 'local');
   const [prog, setProg] = useState<{ text: string; pct: number } | null>(null);
   const [done, setDone] = useState<RestoreResult | null>(null);
   const sum = backupSummary(file.data);
@@ -122,8 +121,6 @@ function RestoreDialog({ file, onClose }: { file: { data: BackupFile; name: stri
   const when = file.data.exported_at ? new Date(file.data.exported_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 
   const go = async () => {
-    const prev = loadSettings();
-    if (target === 'local' && prev.backend !== 'local') saveSettings({ ...prev, backend: 'local' }); // giữ nguyên link Drive để chuyển lại sau
     setProg({ text: 'Đang bắt đầu…', pct: 0 });
     try {
       const r = await importAll(file.data, (text, pct) => setProg({ text, pct: pct ?? 0 }));
@@ -142,7 +139,7 @@ function RestoreDialog({ file, onClose }: { file: { data: BackupFile; name: stri
         ? <button className="btn primary" onClick={() => location.replace(location.pathname + '#/teacher')}>Mở Thư viện</button>
         : <>
           <button className="btn ghost" onClick={onClose} disabled={!!prog}>Hủy</button>
-          <button className="btn primary" onClick={go} disabled={!!prog}><Upload size={18} /> {prog ? 'Đang khôi phục…' : 'Khôi phục'}</button>
+          <button className="btn primary" onClick={go} disabled={!!prog || !connected}><Upload size={18} /> {prog ? 'Đang khôi phục…' : 'Khôi phục'}</button>
         </>}>
       <div className="stack">
         <div className="restore-file">
@@ -161,19 +158,9 @@ function RestoreDialog({ file, onClose }: { file: { data: BackupFile; name: stri
         {file.data.version === 1 && !sum.media && <div className="alert warn"><TriangleAlert size={18} /> Tệp sao lưu kiểu cũ: không kèm ảnh/âm thanh. Câu hỏi vẫn mở ảnh từ Drive cũ chừng nào Drive cũ còn giữ tệp.</div>}
 
         {!done && <>
-          <b>Khôi phục vào đâu?</b>
-          <div className="type-grid" role="radiogroup" aria-label="Nơi khôi phục">
-            <button type="button" role="radio" aria-checked={target === 'drive'} className="type-btn" disabled={!connected || !!prog} onClick={() => setTarget('drive')}
-              style={target === 'drive' ? { borderColor: 'var(--primary)', background: '#eff6ff' } : undefined}>
-              <span className="ic" style={{ background: target === 'drive' ? 'var(--primary)' : '#94a3b8' }}><Cloud size={20} /></span>
-              <span><b>Google Drive đang kết nối</b><br /><small className="muted">{connected ? 'Ảnh, âm thanh được tải lên Drive này; mọi link trong câu hỏi tự đổi theo. Dùng khi vừa chuyển sang Drive mới.' : 'Chưa kết nối Google Drive. Làm Trình cài đặt ở mục Nơi lưu dữ liệu trước.'}</small></span>
-            </button>
-            <button type="button" role="radio" aria-checked={target === 'local'} className="type-btn" disabled={!!prog} onClick={() => setTarget('local')}
-              style={target === 'local' ? { borderColor: 'var(--primary)', background: '#eff6ff' } : undefined}>
-              <span className="ic" style={{ background: target === 'local' ? 'var(--primary)' : '#94a3b8' }}><HardDrive size={20} /></span>
-              <span><b>Chỉ máy này (chạy độc lập)</b><br /><small className="muted">Mở và dùng toàn bộ dữ liệu ngay trên máy tính này, không cần Google Drive. Ảnh, âm thanh nằm sẵn trong dữ liệu.</small></span>
-            </button>
-          </div>
+          {connected
+            ? <div className="alert ok" role="status"><div>Dữ liệu được đưa vào <b>Google Drive đang kết nối</b>. Ảnh, âm thanh được tải lên Drive này; mọi link trong câu hỏi tự đổi theo.</div></div>
+            : <div className="alert warn" role="alert"><TriangleAlert size={18} /> Chưa kết nối Google Drive. Hãy làm 5 bước ở mục Nơi lưu dữ liệu trước, rồi khôi phục lại từ tệp này.</div>}
           <small className="muted">Bộ câu hỏi trùng mã được thay bằng bản trong tệp; lớp trùng tên được cập nhật danh sách học sinh; kết quả buổi học đang có không bị xóa.</small>
         </>}
         <ProgressLine prog={prog} />
