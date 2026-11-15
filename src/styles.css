@@ -382,6 +382,17 @@ textarea.input { min-height: 120px; resize: vertical; }
 
 /* ---------- Kho từ & trả lời miệng (học sinh) ---------- */
 .oral-box { background: #fff; border: 1.5px solid var(--border); box-shadow: var(--shadow); border-radius: 24px; padding: 22px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.oral-tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.oral-live { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #991b1b; }
+.oral-dot { width: 12px; height: 12px; border-radius: 50%; background: #dc2626; animation: oral-blink 1s ease-in-out infinite; }
+@keyframes oral-blink { 50% { opacity: 0.25; } }
+.pq-mic.on { background: #fee2e2 !important; color: #dc2626 !important; box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.15); }
+.oral-rec { display: flex; flex-direction: column; gap: 8px; width: 100%; align-items: center; }
+.oral-audio { width: min(100%, 420px); }
+.oral-field { width: 100%; text-align: left; }
+.oral-field textarea { resize: vertical; min-height: 96px; font-size: 1.05rem; }
+.oral-text { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--muted); white-space: pre-wrap; text-align: left; width: 100%; }
+@media (prefers-reduced-motion: reduce) { .oral-dot { animation: none; } }
 
 /* ---------- Tạo nhân vật ---------- */
 .av-builder { width: min(980px, 100%); max-height: calc(100vh - 32px); background: #fff; color: var(--fg); border-radius: 24px; display: grid; grid-template-columns: 260px minmax(0, 1fr); overflow: hidden; box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.45); }
@@ -490,6 +501,10 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .oral-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 14px; border: 1.5px solid var(--border); background: #fff; }
 .oral-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oral-name small { color: var(--muted-fg); }
+.oral-row.has { flex-wrap: wrap; grid-column: 1 / -1; }
+.oral-said { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; padding: 2px 4px 6px; }
+.oral-said audio { width: 100%; max-width: 420px; height: 40px; }
+.oral-said p { margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Điện thoại: câu có hình gọn lại, 4 ô đáp án xếp 2 x 2 để thấy đủ trong một màn hình */
 @media (max-width: 560px) {

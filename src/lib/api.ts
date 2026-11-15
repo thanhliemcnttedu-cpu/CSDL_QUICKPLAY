@@ -149,6 +149,9 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
       }
       case 'reportViolation':
         return mutate(p.pin, (s) => logic.reportViolation(s, p.player_id, p.kind, p.detail, p.q_index));
+      case 'uploadAnswerAudio':
+        // Chạy cục bộ: giữ thẳng bản ghi âm trong câu trả lời (dạng data URL)
+        return { url: `data:${p.mime};base64,${p.base64}` };
       case 'finishPlayer':
         return mutate(p.pin, (s) => {
           const pl = s.players.find((x) => x.player_id === p.player_id);
@@ -246,6 +249,9 @@ export const api = {
   getProgress: (pin: string, player_id: string) =>
     call<{ current_index: number; draft: unknown; answers: AnswerRecord[] }>('getProgress', { pin, player_id }),
   finishPlayer: (pin: string, player_id: string) => call('finishPlayer', { pin, player_id }),
+  /** Học sinh gửi bản ghi âm câu trả lời miệng (lưu vào Drive của giáo viên, cần Apps Script 1.5.0 trở lên). */
+  uploadAnswerAudio: (pin: string, player_id: string, q_index: number, mime: string, base64: string) =>
+    call<{ url: string; file_id?: string }>('uploadAnswerAudio', { pin, player_id, q_index, mime, base64 }),
   reportViolation: (pin: string, player_id: string, kind: import('./types').ViolationKind, detail: string, q_index?: number) =>
     call<{ violations: number; locked: boolean }>('reportViolation', { pin, player_id, kind, detail, q_index }),
   getCatalog: () => call<Catalog>('getCatalog'),

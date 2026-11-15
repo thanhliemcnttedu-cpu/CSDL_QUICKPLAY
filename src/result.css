@@ -31,3 +31,8 @@
 .qnav-no.done { background: var(--primary-grad); border-color: transparent; color: #fff; }
 .qnav-no.cur { box-shadow: 0 0 0 3px #0a1730; }
 .qnav-no:disabled { cursor: default; opacity: 0.7; }
+
+/* Lưu phiếu kết quả trong Zalo / Facebook (không tải tệp được): ảnh để nhấn giữ lưu + hướng dẫn mở trình duyệt */
+.sr-sheet { max-width: 520px; display: flex; flex-direction: column; gap: 12px; max-height: calc(100dvh - 32px); overflow: auto; }
+.sr-sheet-img { width: 100%; height: auto; border-radius: 12px; border: 1.5px solid var(--border); -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
+.sr-sheet .alert { text-align: left; }

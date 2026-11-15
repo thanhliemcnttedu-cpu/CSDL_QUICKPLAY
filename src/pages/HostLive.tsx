@@ -409,14 +409,25 @@ function OralGrading({ s, quiz, busy, onGrade }: {
             <span className="small muted">hoặc chấm từng em bên dưới</span>
           </div>
           <div className="oral-grid">
-            {g.rows.map(({ a, p }) => (
-              <div key={a.player_id} className="oral-row">
+            {g.rows.map(({ a, p }) => {
+              const ans = a.answer as { text?: string; audio_url?: string } | null;
+              const has = !!(ans?.text || ans?.audio_url);
+              return (
+              <div key={a.player_id} className={`oral-row${has ? ' has' : ''}`}>
                 <Avatar value={p.avatar} size={32} />
                 <span className="oral-name"><b>{p.name}</b>{p.class_name ? <small> · {p.class_name}</small> : null}</span>
                 <button className="btn icon sm success" disabled={busy} aria-label={`Chấm đúng cho ${p.name}`} title="Đúng" onClick={() => onGrade(a.player_id, a.q_index, true, g.q?.points ?? 10, 0)}><Check size={18} /></button>
                 <button className="btn icon sm danger" disabled={busy} aria-label={`Chấm sai cho ${p.name}`} title="Sai" onClick={() => onGrade(a.player_id, a.q_index, false, 0, 0)}><X size={18} /></button>
+                {/* Em gõ chữ / ghi âm: thầy cô đọc, nghe ngay tại đây trước khi chấm */}
+                {has && (
+                  <div className="oral-said">
+                    {ans?.audio_url && <audio src={ans.audio_url} controls preload="none" aria-label={`Bản ghi âm của ${p.name}`} />}
+                    {ans?.text && <p>{ans.text}</p>}
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}

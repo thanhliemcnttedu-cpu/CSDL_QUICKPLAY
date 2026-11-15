@@ -1,11 +1,12 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, Check, GripVertical, Mic, Send, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, GripVertical, Send, X } from 'lucide-react';
 import type { Option, Question } from '../lib/types';
 import type { Answer } from '../lib/grading';
 import { OPTION_LABELS, sanitizeHtml, shuffle } from '../lib/util';
 import { OptImage, StemMedia } from './MediaView';
 import { SHAPES, optColor } from './shapes';
 import { sfx } from '../lib/sound';
+import { OralAnswer } from './OralAnswer';
 import '../playq.css';
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   onSubmit: (a: Answer) => void;
   draft?: Answer | null;
   onDraft?: (a: Answer) => void; // lưu nháp (giao bài về nhà)
+  uploadAudio?: (blob: Blob) => Promise<string>; // câu trả lời miệng: gửi bản ghi âm lên máy chủ
 }
 
 const Html = ({ html }: { html: string }) => <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />;
@@ -386,20 +388,9 @@ function Drag({ q, seed, disabled, reveal, chosen, onSubmit, draft, onDraft }: P
   );
 }
 
-// ---------- Trả lời miệng ----------
-function Oral({ disabled, reveal, onSubmit }: Props) {
-  return (
-    <div className="oral-box">
-      <span className="pq-mic" aria-hidden><Mic size={34} /></span>
-      <h2 style={{ margin: 0 }}>Câu trả lời miệng</h2>
-      <p style={{ margin: 0 }}>Học sinh nói, giáo viên chấm. Em hãy giơ tay và trả lời bằng lời, rồi bấm nút dưới đây.</p>
-      {!reveal && (
-        <button className="btn primary lg" disabled={disabled} onClick={() => onSubmit({ kind: 'oral' })}>
-          <Check size={20} /> Em đã trả lời xong
-        </button>
-      )}
-    </div>
-  );
+// ---------- Trả lời miệng: ghi âm / gõ chữ (xem OralAnswer.tsx) ----------
+function Oral(p: Props) {
+  return <OralAnswer disabled={p.disabled} reveal={p.reveal} chosen={p.chosen} draft={p.draft} onSubmit={p.onSubmit} onDraft={p.onDraft} uploadAudio={p.uploadAudio} />;
 }
 
 // ---------- 6: sắp xếp thứ tự – bấm lần lượt từ cột trái sang cột "Thứ tự của em" ----------

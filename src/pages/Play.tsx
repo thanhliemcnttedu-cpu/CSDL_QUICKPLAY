@@ -29,6 +29,19 @@ const Shell = ({ children }: { children: React.ReactNode }) => (
   <div className="play-bg"><div className="play-wrap">{children}</div><AppFooter compact /></div>
 );
 
+// Ảnh đã tải trước (giữ tham chiếu để trình duyệt không bỏ giữa chừng)
+const preloaded = new Map<string, HTMLImageElement>();
+function preloadMedia(q: Question) {
+  const urls = [q.stem.image_url, ...q.options.map((o) => o.image_url), ...[...q.stem.text.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1])];
+  for (const u of urls) {
+    if (!u || preloaded.has(u) || u.startsWith('data:')) continue;
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = u;
+    preloaded.set(u, img);
+  }
+}
+
 const fmtDeadline = (iso: string) => new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
 export default function Play() {
@@ -106,10 +119,12 @@ export default function Play() {
     if (!me) return;
     (async () => {
       try {
+        // Gọi đề và tiến độ CÙNG LÚC (mỗi lần gọi Apps Script mất 1–3 giây, gọi nối tiếp thì cộng dồn)
+        const progP = api.getProgress(pin, me.player_id).catch(() => null);
         const r = await api.getSessionQuiz(pin);
         setQuiz(r.quiz);
         setSettings(r.settings);
-        const prog = await api.getProgress(pin, me.player_id).catch(() => null);
+        const prog = await progP;
         if (prog) {
           const done = new Set(prog.answers.map((a) => a.q_index));
           setAnswered(done);
@@ -152,18 +167,21 @@ export default function Play() {
     }
   }, [pin, me]);
 
+  const modeRef = useRef<string | undefined>(undefined);
+  modeRef.current = settings?.mode;
   useEffect(() => {
-    if (!settings) return;
+    // Hỏi trạng thái phòng NGAY, song song với lúc tải đề (không chờ tải đề xong mới hỏi → vào phòng nhanh hơn).
     // Nhịp hỏi theo tình huống để lớp đông không làm nghẽn máy chủ:
     // bài về nhà 20 giây; giáo viên điều khiển 2 giây (cần theo kịp giáo viên);
     // trực tiếp tự do: 2 giây khi chờ bắt đầu, 5 giây khi đang tự làm bài, 15 giây khi phiên đã kết thúc.
-    const mode = settings.mode;
-    return startPolling(doPoll, () =>
-      mode === 'homework' ? 20000
+    return startPolling(doPoll, () => {
+      const mode = modeRef.current;
+      return mode === 'homework' ? 20000
         : pollState.current === 'COMPLETED' ? 15000
         : mode === 'instructor_paced' ? 2000
-        : pollState.current === 'IN_PROGRESS' ? 5000 : 2000);
-  }, [settings, doPoll]);
+        : pollState.current === 'IN_PROGRESS' ? 5000 : 2000;
+    });
+  }, [doPoll]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 250);
@@ -204,6 +222,11 @@ export default function Play() {
   // Nhịp độ giáo viên: câu hiện tại do giáo viên mở
   const curIndex = paced ? poll?.current_index ?? 0 : idx;
   const q = order[curIndex];
+
+  // Tải trước ảnh của câu đang làm và 2 câu kế tiếp: sang câu mới là ảnh hiện ngay, không chờ tải từ Google Drive
+  useEffect(() => {
+    for (const x of order.slice(curIndex, curIndex + 3)) preloadMedia(x);
+  }, [order, curIndex]);
 
   useEffect(() => {
     if (paced) {
@@ -312,11 +335,11 @@ export default function Play() {
           if (wait) window.setTimeout(() => send(tries + 1), wait);
         }
       };
-      try {
-        await send(0);
-      } finally {
-        submitting.current = false;
-      }
+      // Gửi ở nền, KHÔNG chờ máy chủ trả lời mới cho chuyển câu: đúng/sai đã chấm ngay trên máy em,
+      // nên nút "Câu tiếp theo" và đồng hồ tự chuyển chạy ngay (trước đây phải chờ Apps Script 1–3 giây, lớp đông còn lâu hơn).
+      void send(0);
+      // Mở khóa sau khi giao diện đã cập nhật xong (tránh bấm hai lần liền vào cùng một câu)
+      window.setTimeout(() => { submitting.current = false; }, 0);
       if (!paced) {
         const go = () => {
           clearTimeout(advanceTimer.current);
@@ -358,8 +381,12 @@ export default function Play() {
   const running = !!q && !untimed && poll?.state === 'IN_PROGRESS' && countdown === null && !feedback && !answered.has(curIndex) && !(paced && poll?.question_locked) && !held;
   const remain = Math.max(0, limitMs - elapsed());
   useEffect(() => {
-    if (running && remain <= 0) submit({ kind: 'none' });
-  }, [running, remain, submit]);
+    if (!(running && remain <= 0)) return;
+    // Câu trả lời miệng: hết giờ mà em đã gõ chữ / ghi âm xong thì nộp phần đó, không coi là bỏ trống
+    const d = liveDraft.current;
+    const oral = q?.type === 'oral' && d?.i === curIndex && d.a.kind === 'oral' && (!!d.a.text?.trim() || !!d.a.audio_url) ? d.a : null;
+    submit(oral ?? { kind: 'none' });
+  }, [running, remain, submit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Giáo viên điều khiển: chỉ cho biết đúng/sai khi hết giờ hoặc giáo viên khóa câu. Trước đó em còn được chọn lại đáp án.
   const pacedReveal = paced && (!!poll?.question_locked || (answered.has(curIndex) && remain <= 0));
@@ -429,7 +456,21 @@ export default function Play() {
 
   // Lưu nháp tự động (giao bài về nhà)
   const draftTimer = useRef<number>();
+  // Câu trả lời miệng: gửi bản ghi âm (đã nén Opus) lên Drive của giáo viên
+  const uploadAudio = async (blob: Blob) => {
+    if (!me) throw new Error('Chưa vào phòng.');
+    const b64 = await new Promise<string>((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result).split(',')[1] ?? '');
+      fr.onerror = () => rej(fr.error);
+      fr.readAsDataURL(blob);
+    });
+    const r = await api.uploadAnswerAudio(pin, me.player_id, curIndex, blob.type || 'audio/webm', b64);
+    return r.url;
+  };
+  const liveDraft = useRef<{ i: number; a: Answer } | null>(null); // nháp đang có trên máy (dùng khi hết giờ)
   const onDraft = (a: Answer) => {
+    liveDraft.current = { i: curIndex, a };
     if (!homework || !me) return;
     clearTimeout(draftTimer.current);
     draftTimer.current = window.setTimeout(() => api.saveProgress(pin, me.player_id, curIndex, { i: curIndex, a }).catch(() => {}), 1200);
@@ -698,6 +739,7 @@ export default function Play() {
           onSubmit={submit}
           draft={draft?.i === curIndex ? draft.a : null}
           onDraft={onDraft}
+          uploadAudio={uploadAudio}
         />
       )}
       {free && !retry && !feedback && answered.has(curIndex) && <div className="alert ok" role="status"><div>Em đã trả lời câu này rồi (đáp án của em và đáp án đúng đang hiện ở trên). Chọn câu khác trong bảng số câu bên dưới.</div></div>}

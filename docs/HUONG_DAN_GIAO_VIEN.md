@@ -70,7 +70,8 @@ số bạn hiện trên **bảng xếp hạng** (3/5/10/15/tất cả).
 ## Trong và sau buổi học
 
 - Màn hình giáo viên có 4 thẻ: **Bảng điều khiển · Thống kê · Giám sát gian lận · Bảng xếp hạng**.
-- Câu **trả lời miệng**: chấm ở thẻ "Chấm trả lời miệng" (từng em hoặc "Tất cả đúng").
+- Câu **trả lời miệng**: chấm ở thẻ "Chấm trả lời miệng" (từng em hoặc "Tất cả đúng"). Từ bản 1.5.0, em có thể **ghi âm** (tối đa 90 giây) hoặc **gõ chữ**; thầy cô nghe bản ghi và đọc chữ ngay dưới tên em trước khi chấm. Em vẫn có thể bấm "Em đã giơ tay trả lời trực tiếp" khi trả lời trên lớp.
+- Học sinh vào bằng **Zalo / Facebook** (quét mã QR trong ứng dụng): bấm "Tải phiếu kết quả" sẽ hiện ảnh phiếu để em **nhấn giữ → Lưu hình ảnh**, kèm hướng dẫn "⋯ → Mở bằng trình duyệt" (trình duyệt mở đúng phiếu của em, tải được bình thường). Micro trong Zalo có thể bị chặn: em gõ chữ thay thế.
 - Bấm **Kết thúc** bất cứ lúc nào để xem bục vinh danh và báo cáo; **Xuất PDF (A4 ngang)** hoặc **Excel chi tiết**.
 - Xem lại các buổi cũ ở mục **Báo cáo**.
 

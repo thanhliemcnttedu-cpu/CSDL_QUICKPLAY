@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.4.0';
+var APP_VERSION = '1.5.0';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -48,6 +48,8 @@ var MAX_DRAFT_JSON = 50000;       // bản nháp bài về nhà
 var MAX_RECORD_SCORE = 100000;
 var MAX_COINS = 100000;           // điểm thưởng tối đa của 1 câu (thưởng tốc độ + thưởng chuỗi)
 var MAX_UPLOAD_BYTES = 45 * 1024 * 1024; // 45 MB — giới hạn thực tế của Apps Script
+var MAX_ANSWER_AUDIO_BYTES = 1600000;    // bản ghi âm trả lời miệng của học sinh (~90 giây Opus 24 kbit/s ≈ 270 KB, dư cho iPhone AAC)
+var ANSWER_AUDIO_FOLDER = 'tra_loi_mieng'; // thư mục con trong media
 var COMPLETED_CACHE_KEEP_MS = 60 * 60 * 1000;      // giữ cache phiên đã kết thúc 1 giờ
 var STALE_LIVE_SESSION_MS = 12 * 60 * 60 * 1000;   // phiên trực tiếp bỏ quên > 12 giờ → kết thúc
 
@@ -147,6 +149,7 @@ function getRoutes_() {
     saveProgress: { teacher: false, fn: actSaveProgress_ },
     getProgress: { teacher: false, fn: actGetProgress_ },
     finishPlayer: { teacher: false, fn: actFinishPlayer_ },
+    uploadAnswerAudio: { teacher: false, fn: actUploadAnswerAudio_ }, // xác thực bằng mã phòng + player_id của em
     reportViolation: { teacher: false, fn: actReportViolation_ },
 
     setRootFolder: { teacher: true, fn: actSetRootFolder_ },
@@ -437,6 +440,57 @@ function actUploadMedia_(req) {
     ? 'https://lh3.googleusercontent.com/d/' + id
     : 'https://drive.google.com/uc?export=download&id=' + id;
   return { url: url, file_id: id, name: fileName, mime: mime, size: bytes.length };
+}
+
+/**
+ * Học sinh gửi bản ghi âm câu trả lời miệng (1.5.0). Không cần khóa giáo viên nhưng phải là em đang có trong phòng
+ * đang diễn ra; chỉ nhận tệp âm thanh nhỏ; mỗi em mỗi câu giữ MỘT tệp (ghi lại thì thay tệp cũ); giới hạn số lần gửi.
+ */
+function actUploadAnswerAudio_(req) {
+  var pin = normalizePin_(req.pin);
+  var pid = String(req.player_id || '');
+  if (!pid) throw userError_('Thiếu player_id.');
+  var qi = Number(req.q_index);
+  if (!isFinite(qi) || Math.floor(qi) !== qi || qi < 0) throw userError_('Chỉ số câu hỏi (q_index) không hợp lệ.');
+  var mime = String(req.mime || '').toLowerCase().split(';')[0].trim();
+  var EXT = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' };
+  if (!EXT[mime]) throw userError_('Chỉ nhận tệp ghi âm (kiểu nhận được: "' + (mime || 'không rõ') + '").');
+  var b64 = String(req.base64 || '').replace(/\s+/g, '');
+  if (!b64) throw userError_('Thiếu nội dung bản ghi âm.');
+  if (Math.floor(b64.length * 3 / 4) > MAX_ANSWER_AUDIO_BYTES) throw userError_('Bản ghi âm quá dài. Em hãy nói ngắn gọn hơn (tối đa khoảng 90 giây).');
+
+  var s = loadSession_(pin, false);
+  var p = findPlayer_(s, pid);
+  if (!p) throw userError_('Không tìm thấy bạn trong phòng. Hãy vào lại phòng bằng mã PIN.');
+  if (p.kicked) throw userError_('Bạn đã được giáo viên mời ra khỏi phòng này.');
+  if (s.state === 'LOBBY_WAITING') throw userError_('Trò chơi chưa bắt đầu.');
+  if (s.state === 'COMPLETED') throw userError_('Phòng đã kết thúc, không nhận thêm câu trả lời.');
+  if (qi >= s.question_count) throw userError_('Câu hỏi không tồn tại trong bộ đề.');
+
+  // Chống gửi dồn: mỗi em tối đa (số câu × 3) lần gửi trong một phòng
+  var cache = CacheService.getScriptCache();
+  var ck = 'AU_' + pin + '_' + pid;
+  var n = Number(cache.get(ck) || 0);
+  if (n >= Math.max(10, s.question_count * 3)) throw userError_('Em đã gửi quá nhiều bản ghi âm trong phòng này.');
+  cache.put(ck, String(n + 1), CACHE_TTL_S);
+
+  var bytes;
+  try { bytes = Utilities.base64Decode(b64); } catch (e) { throw userError_('Không giải mã được bản ghi âm.'); }
+  var folder = getOrCreateSubfolder_(folder_('media'), ANSWER_AUDIO_FOLDER);
+  var name = pin + '_' + pid.replace(/[^A-Za-z0-9_-]/g, '') + '_cau' + (qi + 1) + '.' + EXT[mime];
+  var olds = folder.getFilesByName(name); // em ghi lại: bỏ bản cũ vào thùng rác
+  while (olds.hasNext()) {
+    try { olds.next().setTrashed(true); } catch (e) { /* bỏ qua */ }
+  }
+  var file = folder.createFile(Utilities.newBlob(bytes, mime, name));
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); // để trang chấm của giáo viên phát được
+  } catch (e) {
+    try { file.setTrashed(true); } catch (ignore) { /* bỏ qua */ }
+    throw userError_('Drive của thầy cô không cho chia sẻ tệp ghi âm. Em hãy gõ câu trả lời bằng chữ.');
+  }
+  var id = file.getId();
+  return { url: 'https://drive.google.com/uc?export=download&id=' + id, file_id: id, size: bytes.length };
 }
 
 function sanitizeFileName_(name) {

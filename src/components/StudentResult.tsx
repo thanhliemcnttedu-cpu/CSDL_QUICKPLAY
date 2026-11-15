@@ -1,7 +1,8 @@
 // Bảng tổng kết của học sinh khi làm xong: kết quả, mức đánh giá, cúp cho Top 3 và ảnh khen thưởng tải về máy.
 import { useEffect, useState } from 'react';
-import { Crown, Download, Trophy } from 'lucide-react';
+import { Check, Copy, Crown, Download, Globe, Hand, Share2, Trophy, X } from 'lucide-react';
 import { api } from '../lib/api';
+import { inAppBrowser, openInBrowserHint, toB64Url, withHashParam } from '../lib/inApp';
 import { LEVEL_LABEL, summarize, type ResultSummary } from '../lib/cheer';
 import { formatDuration } from '../lib/util';
 import { Avatar } from './Avatar';
@@ -114,16 +115,56 @@ export function StudentResult(p: Props) {
   }, [p.pin, p.playerId, p.total]);
 
   const top3 = p.rank >= 1 && p.rank <= 3;
+  const app = inAppBrowser();
+  // Đường dẫn mở lại đúng phiếu này ở trình duyệt khác (mang theo thông tin em, chỉ gắn khi đã làm xong bài)
+  const browserLink = withHashParam(location.href, 'me', toB64Url({ pin: p.pin, player_id: p.playerId, name: p.name, avatar: p.avatar, class_name: p.className }));
+  useEffect(() => {
+    // Gắn sẵn vào thanh địa chỉ: em chọn "Mở bằng trình duyệt" trong menu Zalo là sang thẳng phiếu kết quả
+    if (app) try { history.replaceState(history.state, '', browserLink); } catch { /* bỏ qua */ }
+  }, [app, browserLink]);
+  const [sheet, setSheet] = useState<{ url: string; file: File } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const fileName = `Quickplay-${top3 && p.final ? 'khen-thuong' : 'phieu-ket-qua'}-${p.name.replace(/[\\/:*?"<>|]+/g, ' ').trim()}.png`;
   const save = async () => {
-    if (!r) return;
-    const blob = await awardImage(p, r);
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Quickplay-khen-thuong-${p.name.replace(/[\\/:*?"<>|]+/g, ' ').trim()}.png`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    if (!r || busy) return;
+    setBusy(true);
+    try {
+      const blob = await awardImage(p, r);
+      if (!blob) return;
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if (app) {
+        // Trình duyệt trong Zalo/Facebook không tải tệp được: hiện ảnh để em nhấn giữ lưu, hoặc chia sẻ / mở trình duyệt
+        setSheet({ url: await blobToDataUrl(blob), file });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const canShare = !!sheet && typeof navigator.canShare === 'function' && navigator.canShare({ files: [sheet.file] });
+  const share = async () => {
+    if (!sheet) return;
+    try {
+      await navigator.share({ files: [sheet.file], title: 'Phiếu kết quả Quickplay' });
+    } catch { /* em bấm hủy */ }
+  };
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(browserLink);
+    } catch {
+      // Ứng dụng chặn bộ nhớ tạm: chọn sẵn chữ trong ô để em tự sao chép
+      (document.getElementById('sr-link') as HTMLInputElement | null)?.select();
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   return (
@@ -160,11 +201,49 @@ export function StudentResult(p: Props) {
             {r.blank > 0 && ` Có ${r.blank} câu chưa trả lời.`}
             {p.pending > 0 && ` ${p.pending} câu trả lời miệng đang chờ thầy cô chấm.`}
           </p>
-          <button className="btn primary" onClick={save}><Download size={18} /> {top3 && p.final ? 'Tải ảnh khen thưởng' : 'Tải phiếu kết quả'}</button>
+          <button className="btn primary" onClick={save} disabled={busy}><Download size={18} /> {busy ? 'Đang tạo ảnh…' : top3 && p.final ? 'Tải ảnh khen thưởng' : 'Tải phiếu kết quả'}</button>
         </>
       ) : (
         <p className="muted">Đang tổng hợp kết quả…</p>
       )}
+      {sheet && app && (
+        <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && setSheet(null)}>
+          <div className="modal sr-sheet" role="dialog" aria-label="Lưu phiếu kết quả">
+            <div className="row between">
+              <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Lưu phiếu kết quả</h2>
+              <button className="btn icon ghost" onClick={() => setSheet(null)} aria-label="Đóng"><X size={20} /></button>
+            </div>
+            <img src={sheet.url} alt={`Phiếu kết quả của ${p.name}`} className="sr-sheet-img" />
+            <div className="alert">
+              <Hand size={20} style={{ flex: 'none' }} />
+              <div><b>Cách 1:</b> nhấn giữ vào ảnh ở trên, rồi chọn <b>Lưu hình ảnh</b> (hoặc <b>Tải ảnh xuống</b>).</div>
+            </div>
+            {canShare && (
+              <button className="btn primary" onClick={share}><Share2 size={18} /> Chia sẻ hoặc lưu ảnh</button>
+            )}
+            <div className="alert warn">
+              <Globe size={20} style={{ flex: 'none' }} />
+              <div>
+                <b>Cách {canShare ? 3 : 2}:</b> {app} không cho tải tệp trực tiếp. {openInBrowserHint(app)} Trình duyệt sẽ mở đúng phiếu này, em bấm <b>Tải phiếu kết quả</b> lần nữa.
+              </div>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
+              <input id="sr-link" className="input" readOnly value={browserLink} onFocus={(e) => e.currentTarget.select()} aria-label="Liên kết mở phiếu kết quả" style={{ minWidth: 0 }} />
+              <button className="btn ghost" onClick={copyLink}>{copied ? <><Check size={18} /> Đã chép</> : <><Copy size={18} /> Sao chép</>}</button>
+            </div>
+            <p className="small muted" style={{ margin: 0 }}>Hoặc sao chép liên kết rồi dán vào Chrome / Safari.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function blobToDataUrl(b: Blob): Promise<string> {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result));
+    fr.onerror = () => rej(fr.error);
+    fr.readAsDataURL(b);
+  });
 }

@@ -27,6 +27,10 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 Apps Script ghi một tệp `.json` duy nhất vào thư mục lưu trữ, tên theo tên đăng nhập và thời điểm lưu, ví dụ `035091005725_15_11_2026_12h45.json`.
 Tệp gộp cũ của cùng tài khoản được chuyển vào Thùng rác. Nếu đã chọn thư mục trên máy tính (Cài đặt → Sao lưu và khôi phục), tệp này cũng được ghi vào đó.
 
+**Bản 1.5.0:** học sinh ghi âm câu trả lời miệng. Bản ghi (đã nén, khoảng 180 KB mỗi phút) lưu vào
+`QUICKPLAY_DATA/media/tra_loi_mieng/`, tên tệp `<mã phòng>_<mã học sinh>_cau<số câu>`. Chỉ em đang có trong phòng đang chạy
+mới gửi được; tối đa khoảng 90 giây mỗi bản; em ghi lại thì bản cũ vào Thùng rác. Apps Script 1.4.0 tự cập nhật lên 1.5.0, không cần cấp quyền mới.
+
 **Tự cập nhật (từ bản 1.4.0):** khi Quickplay phát hành bản mới, Apps Script tự tải mã mới từ trang Quickplay
 (`https://quickplay-delta.vercel.app/apps-script/`), kiểm tra mã băm SHA-256, ghi đè mã của chính nó, tạo phiên bản mới
 và chuyển link `/exec` đang dùng sang phiên bản đó. Link, khóa giáo viên và dữ liệu giữ nguyên; không cập nhật khi đang có buổi học trực tiếp.

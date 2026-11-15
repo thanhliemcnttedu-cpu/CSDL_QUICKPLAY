@@ -10,12 +10,24 @@ import { Avatar } from '../components/Avatar';
 import { AppFooter } from '../components/AppFooter';
 import { AvatarBuilder } from '../components/AvatarBuilder';
 import { Palette, Shuffle } from 'lucide-react';
+import { fromB64Url } from '../lib/inApp';
 
 const BAD_PIN = 'Bạn chưa nhập đúng mã, hãy kiểm tra lại.';
 
 export interface SavedPlayer { pin: string; player_id: string; name: string; avatar: string; class_name?: string }
 export const playerKey = (pin: string) => `quizzi.player.${pin}`;
 export function loadPlayer(pin: string): SavedPlayer | null {
+  // Mở từ Zalo sang trình duyệt của máy: đường dẫn mang theo "me=" (chỉ gắn khi em đã làm xong bài)
+  // để trình duyệt mới nhận ra em và hiện đúng phiếu kết quả, không bắt vào phòng lại.
+  try {
+    if (!localStorage.getItem(playerKey(pin))) {
+      const m = location.hash.match(/[?&]me=([^&]+)/);
+      const sp = m ? fromB64Url<SavedPlayer>(decodeURIComponent(m[1])) : null;
+      if (sp && sp.pin === pin && typeof sp.player_id === 'string' && sp.player_id) {
+        localStorage.setItem(playerKey(pin), JSON.stringify({ pin, player_id: sp.player_id, name: String(sp.name || ''), avatar: String(sp.avatar || ''), class_name: sp.class_name }));
+      }
+    }
+  } catch { /* bỏ qua */ }
   try {
     return JSON.parse(localStorage.getItem(playerKey(pin)) || 'null');
   } catch {

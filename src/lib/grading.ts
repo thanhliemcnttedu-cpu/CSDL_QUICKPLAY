@@ -7,7 +7,7 @@ export type Answer =
   | { kind: 'drag'; placement: Record<string, string> } // zone(blank_id) -> option_id
   | { kind: 'order'; option_ids: string[] } // thứ tự học sinh sắp
   | { kind: 'match'; pairs: Record<string, string> } // left option_id -> right option_id
-  | { kind: 'oral' } // trả lời miệng – giáo viên chấm
+  | { kind: 'oral'; text?: string; audio_url?: string; audio_ms?: number } // trả lời miệng – giáo viên chấm (em có thể gõ chữ và/hoặc ghi âm)
   | { kind: 'none' }; // hết giờ không trả lời
 
 export function normalizeText(s: string, rule: 'exact' | 'ignore_case', noAccents = false): string {
