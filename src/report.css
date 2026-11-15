@@ -1,0 +1,54 @@
+/* Báo cáo trực tuyến chi tiết */
+.rp { color: var(--fg); }
+select.input.rp-select { width: auto; min-height: 40px; padding: 4px 10px; }
+.rp-tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.rp-tile { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 20px; background: #fff; border: 1.5px solid var(--border); box-shadow: var(--shadow); }
+.rp-tile small { color: var(--muted-fg); font-weight: 600; }
+.rp-tile b { font-size: 2rem; line-height: 1.1; letter-spacing: -0.02em; color: var(--primary-ink); }
+.rp-tile span { font-size: 0.85rem; color: var(--muted-fg); }
+.rp-bar, .rp-split { display: flex; gap: 2px; border-radius: 999px; overflow: hidden; }
+.rp-bar { height: 34px; }
+.rp-bar i, .rp-split i { display: grid; place-items: center; min-width: 26px; font-style: normal; font-weight: 800; font-size: 0.85rem; color: #fff; }
+.rp .excellent { background: #129a4b; }
+.rp .good { background: #1668f2; }
+.rp .pass { background: #b45309; }
+.rp .effort, .rp .bad { background: #dc2626; }
+.rp-tile b.t-ok { color: #0f7a3c; }
+.rp-tile b.t-part { color: #b45309; }
+.rp-tile b.t-bad { color: #b91c1c; }
+.rp .none { background: var(--muted); color: var(--muted-fg); font-weight: 600; }
+.rp-key { display: inline-flex; gap: 6px; align-items: center; }
+.rp-key i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.rp-two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+.rp-person { display: flex; gap: 8px; align-items: center; }
+.rp-qs { display: flex; flex-direction: column; gap: 8px; }
+.rp-q { display: grid; grid-template-columns: 64px minmax(0, 1.4fr) minmax(90px, 1fr) 48px; gap: 10px; align-items: center; }
+.rp-qtext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-fg); font-size: 0.9rem; }
+.rp-split { height: 24px; }
+.rp-pct { font-weight: 800; text-align: right; }
+.rp-grade { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+@media (max-width: 560px) {
+  .rp-q { grid-template-columns: 56px minmax(0, 1fr) 44px; }
+  .rp-qtext { display: none; }
+}
+
+.rp tr.rp-old td { background: var(--muted); color: var(--muted-fg); }
+
+/* Xuất PDF: in riêng phần báo cáo, khổ A4 ngang, lề tối thiểu */
+.rp-print-head { display: none; }
+@media print {
+  @page { size: A4 landscape; margin: 6mm; }
+  html.print-report body { background: #fff !important; }
+  html.print-report body * { visibility: hidden; }
+  html.print-report .rp, html.print-report .rp * { visibility: visible; }
+  html.print-report .rp { position: absolute; left: 0; top: 0; width: 100%; font-size: 10.5pt; gap: 8px !important; }
+  html.print-report .rp-tools, html.print-report .rp .btn, html.print-report .rp select { display: none !important; }
+  html.print-report .rp-print-head { display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px; border-bottom: 1.5px solid #1668f2; }
+  html.print-report .rp-print-head b { font-size: 14pt; }
+  html.print-report .rp .card, html.print-report .rp-tile { box-shadow: none; padding: 8px 10px; break-inside: avoid; }
+  html.print-report .rp .table-wrap { overflow: visible; }
+  html.print-report .rp .table th, html.print-report .rp .table td { padding: 3px 6px; }
+  html.print-report .rp tr, html.print-report .rp-q { break-inside: avoid; }
+  html.print-report .rp-qtext { display: block; }
+  html.print-report .rp * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

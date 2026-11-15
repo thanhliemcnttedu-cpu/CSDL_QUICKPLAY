@@ -1,0 +1,16 @@
+/* Ảnh bìa bộ câu hỏi */
+.cover-pick { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.cover-frame { flex: none; width: 200px; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; display: grid; place-items: center; background: linear-gradient(135deg, #2f80ff, #0b4fd0); color: #fff; font-family: var(--font-head); font-weight: 800; font-size: 2.4rem; border: 1.5px solid var(--border); }
+.cover-frame img { width: 100%; height: 100%; object-fit: cover; }
+.cover-frame:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+.cover-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.cover-item { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 14px; border: 2px solid var(--border); background: #fff; cursor: pointer; text-align: left; color: var(--fg); }
+.cover-item img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; }
+.cover-item small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-fg); }
+.cover-item:hover, .cover-item.on { border-color: var(--primary); background: var(--primary-soft); }
+
+/* Ô chọn nhanh thời gian trên từng câu trong trang soạn đề */
+.qtime { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink); font-size: 0.82rem; font-weight: 700; border: 1.5px solid transparent; cursor: pointer; }
+.qtime select { border: 0; background: transparent; color: inherit; font: inherit; padding: 2px 2px; cursor: pointer; min-height: 28px; }
+.qtime:hover, .qtime:focus-within { border-color: var(--primary); }
+.qtime select:focus { outline: none; }

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+*.log
+.vercel
+.env*
+!.env.example
+*.tsbuildinfo
+.claude-flow/
+.swarm/
+.DS_Store
+Thumbs.db
+.claude/

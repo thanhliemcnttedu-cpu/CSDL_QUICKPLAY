@@ -1,0 +1,17 @@
+/* Bảng xếp hạng nhảy thứ hạng trực quan */
+.lb-row { grid-template-columns: 40px 40px minmax(0, 1fr) 44px auto; transition: background-color 400ms ease, border-color 400ms ease; }
+.lb-row.me { outline: 4px solid var(--accent); }
+.lb-row.up { background: #e9f9ef; border-color: #2fb866; }
+.lb-row.down { background: #fdecec; border-color: #ef6b6b; }
+.lb-name b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-move { display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; min-height: 20px; }
+.lb-row.up .lb-move { color: #0f7a3c; }
+.lb-row.down .lb-move { color: #b91c1c; }
+.lb-score { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.lb-score b { font-size: 1.15rem; }
+.lb-score small { color: var(--muted-fg); font-size: 0.72rem; white-space: nowrap; }
+@media (max-width: 480px) {
+  .lb-row { grid-template-columns: 30px 34px minmax(0, 1fr) 30px auto; gap: 6px; padding: 8px; }
+  .lb-score small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .lb-row { transition: none; } }

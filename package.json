@@ -1,0 +1,44 @@
+{
+  "name": "quickplay",
+  "productName": "Quickplay",
+  "version": "1.0.0",
+  "description": "Phần mềm kiểm tra đánh giá tương tác miễn phí cho giáo viên – dữ liệu lưu trên Google Drive",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "electron:dev": "vite build --base=./ && electron .",
+    "dist:win": "vite build --base=./ && electron-builder --win nsis --config electron-builder.yml"
+  },
+  "dependencies": {
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/be-vietnam-pro": "^5.3.0",
+    "@types/qrcode": "^1.5.5",
+    "dompurify": "^3.2.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.460.0",
+    "mammoth": "^1.8.0",
+    "pdfjs-dist": "^4.8.69",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "read-excel-file": "^5.8.6"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "~5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.5"
+  }
+}

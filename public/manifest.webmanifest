@@ -1,0 +1,16 @@
+{
+  "name": "Quickplay – Trắc nghiệm tương tác",
+  "short_name": "Quickplay",
+  "description": "Phần mềm kiểm tra đánh giá tương tác miễn phí cho giáo viên.",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef5ff",
+  "theme_color": "#1668f2",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

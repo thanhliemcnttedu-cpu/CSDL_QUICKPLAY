@@ -1,0 +1,61 @@
+/* Thư viện: cây danh mục Môn học → Chương/Chủ đề → Bài */
+.lib-layout { display: grid; gap: 20px; grid-template-columns: 290px minmax(0, 1fr); align-items: start; }
+.lib-layout.single { grid-template-columns: minmax(0, 1fr); }
+.lib-side { position: sticky; top: 12px; padding: 14px; max-height: calc(100vh - 24px); overflow: auto; }
+.lib-side-toggle { display: none; width: 100%; justify-content: space-between; }
+.lib-side-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+.cat-tree { display: flex; flex-direction: column; gap: 2px; }
+.cat-row { display: flex; align-items: center; gap: 2px; border-radius: 12px; min-height: 40px; }
+.cat-row.d1 { padding-left: 16px; }
+.cat-row.d2 { padding-left: 32px; }
+.cat-row:hover { background: var(--muted); }
+.cat-row.on { background: var(--primary-soft); }
+.cat-tog { flex: none; width: 26px; height: 36px; display: grid; place-items: center; border: 0; background: none; color: var(--muted-fg); cursor: pointer; border-radius: 8px; padding: 0; }
+.cat-tog:disabled { cursor: default; }
+.cat-dot { width: 5px; height: 5px; border-radius: 50%; background: #c3cfe2; }
+.cat-name { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 6px 4px 2px; border: 0; background: none; color: var(--fg); font: inherit; font-weight: 600; text-align: left; cursor: pointer; border-radius: 10px; }
+.cat-name > svg { flex: none; color: var(--primary); }
+.cat-name > span { flex: 1 1 auto; min-width: 0; overflow: hidden; line-height: 1.25; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cat-name > em { flex: none; font-style: normal; font-size: 0.78rem; font-weight: 800; min-width: 24px; padding: 1px 7px; border-radius: 999px; background: #fff; border: 1.5px solid var(--border); color: var(--muted-fg); text-align: center; }
+.cat-row.on .cat-name { color: var(--primary-ink); }
+.cat-row.on .cat-name > em { border-color: #9cc3ff; color: var(--primary-ink); }
+.cat-acts { flex: none; display: none; gap: 1px; padding-right: 4px; }
+.cat-row:hover .cat-acts, .cat-row:focus-within .cat-acts, .cat-row.on .cat-acts { display: flex; }
+.cat-acts button { width: 30px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--muted-fg); cursor: pointer; padding: 0; }
+.cat-acts button:hover { background: #fff; color: var(--primary-ink); }
+.cat-acts button.del:hover { color: #dc2626; }
+.cat-tog:focus-visible, .cat-name:focus-visible, .cat-acts button:focus-visible { outline: 3px solid #9cc3ff; outline-offset: 1px; }
+.cat-sep { display: flex; align-items: center; gap: 8px; margin: 10px 4px 4px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted-fg); }
+.cat-sep::after { content: ''; flex: 1; height: 1.5px; background: var(--border); }
+.cat-empty { margin: 4px 6px 8px; font-size: 0.88rem; color: var(--muted-fg); line-height: 1.45; }
+.cat-add { margin-top: 10px; justify-content: center; }
+.cat-sample { margin-top: 6px; justify-content: center; white-space: normal; line-height: 1.2; text-align: center; }
+
+/* Thẻ bộ đề: đường dẫn Môn › Chương › Bài */
+.quiz-path { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.85rem; font-weight: 600; color: var(--primary-ink); line-height: 1.3; }
+.quiz-path.none { color: var(--muted-fg); font-weight: 500; }
+.quiz-path svg { flex: none; }
+.quiz-path span { min-width: 0; overflow-wrap: anywhere; }
+.quiz-card .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.quiz-card.builtin { border-color: #9cc3ff; background: linear-gradient(180deg, #f3f8ff, #fff 46%); }
+.lib-crumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; font-weight: 700; color: var(--primary-ink); }
+
+/* Ba ô chọn Môn / Chương / Bài */
+.place-pick { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.place-pick .field { flex: 1 1 170px; min-width: 150px; }
+.place-pick .place-note { flex: 1 1 100%; margin: 0; }
+.place-pick select:disabled { opacity: 0.6; }
+
+@media (max-width: 900px) {
+  .lib-layout { grid-template-columns: minmax(0, 1fr); }
+  .lib-side { position: static; max-height: none; }
+  .lib-side-toggle { display: flex; }
+  .lib-side:not(.open) .cat-tree { display: none; }
+  .lib-side.open .cat-tree { margin-top: 10px; }
+  .cat-acts { display: flex; }
+  .cat-acts button { width: 36px; height: 40px; }
+}
+
+/* Trang sửa bộ đề: ba ô chọn nằm cùng hàng với Lớp và Chia sẻ */
+.row > .place-pick { flex: 3 1 520px; }

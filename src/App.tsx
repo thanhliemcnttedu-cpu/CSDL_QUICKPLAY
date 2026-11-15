@@ -1,0 +1,124 @@
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { HashRouter, NavLink, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLine, LogOut, UserRound } from 'lucide-react';
+import { LightboxProvider, Spinner, ToastProvider, askConfirm } from './components/ui';
+import { loadSettings } from './lib/settings';
+import { accountRequired, checkSession, currentAccount, logout } from './lib/account';
+import { Wordmark } from './components/Logo';
+import { AppFooter } from './components/AppFooter';
+import { Home } from './pages/Home';
+import { Join } from './pages/Join';
+
+// Tách gói: học sinh chỉ tải phần làm bài; giáo viên mới tải trình soạn thảo
+const Library = lazy(() => import('./pages/Library'));
+const Editor = lazy(() => import('./pages/Editor'));
+const HostLive = lazy(() => import('./pages/HostLive'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Play = lazy(() => import('./pages/Play'));
+const Demo = lazy(() => import('./pages/Demo'));
+const Paper = lazy(() => import('./pages/Paper'));
+const PaperHost = lazy(() => import('./pages/PaperHost'));
+const PaperScan = lazy(() => import('./pages/PaperScan'));
+const Preview = lazy(() => import('./pages/Preview'));
+const Login = lazy(() => import('./pages/Login'));
+const Admin = lazy(() => import('./pages/Admin'));
+
+export function Brand() {
+  return (
+    <Link to="/" className="brand" aria-label="Quickplay – Trang chủ">
+      <Wordmark />
+    </Link>
+  );
+}
+
+/** Khu giáo viên: có máy chủ tài khoản thì bắt buộc đăng nhập bằng tài khoản quản trị cấp. */
+function RequireTeacher({ children }: { children: ReactNode }) {
+  const nav = useNavigate();
+  const need = accountRequired();
+  const acc = currentAccount();
+  useEffect(() => {
+    if (!need || !acc) return;
+    let live = true;
+    // Tài khoản bị khóa hoặc phiên hết hạn → đăng xuất
+    checkSession().then((ok) => {
+      if (live && !ok) {
+        logout();
+        nav('/teacher/login', { replace: true });
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [need, acc?.token]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (need && !acc) return <Navigate to="/teacher/login" replace />;
+  return <>{children}</>;
+}
+
+function AccountChip() {
+  const nav = useNavigate();
+  const acc = currentAccount();
+  if (!acc) return null;
+  return (
+    <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+      <span className="badge blue" title={`Tài khoản: ${acc.username}`}><UserRound size={14} /> {acc.name}</span>
+      <button className="btn sm ghost" onClick={async () => { if (await askConfirm('Đăng xuất khỏi trình duyệt này? Lần sau cần nhập lại tài khoản và mật khẩu.')) { logout(); nav('/teacher/login', { replace: true }); } }}>
+        <LogOut size={16} /> Đăng xuất
+      </button>
+    </span>
+  );
+}
+
+function TeacherShell({ children }: { children: ReactNode }) {
+  const s = loadSettings();
+  return (
+    <>
+      <header className="topbar">
+        <Brand />
+        <span className={`badge ${s.backend === 'drive' ? 'green' : 'amber'}`} title={s.backend === 'drive' ? 'Dữ liệu lưu trên Google Drive' : 'Dữ liệu chỉ lưu trong trình duyệt này'}>
+          {s.backend === 'drive' ? <Cloud size={14} /> : <HardDrive size={14} />} {s.backend === 'drive' ? 'Google Drive' : 'Máy này'}
+        </span>
+        <nav className="topnav" aria-label="Điều hướng giáo viên">
+          <NavLink to="/teacher" end><BookOpen size={18} /> Thư viện</NavLink>
+          <NavLink to="/teacher/paper"><ScanLine size={18} /> Dạy học trên lớp</NavLink>
+          <NavLink to="/teacher/reports"><BarChart3 size={18} /> Báo cáo</NavLink>
+          <NavLink to="/teacher/settings"><SettingsIcon size={18} /> Cài đặt</NavLink>
+        </nav>
+        <AccountChip />
+      </header>
+      <main className="page">{children}</main>
+      <AppFooter />
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <ToastProvider>
+      <LightboxProvider>
+        <HashRouter>
+          <Suspense fallback={<Spinner />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/join" element={<Join />} />
+              <Route path="/demo" element={<Demo />} />
+              <Route path="/play/:pin" element={<Play />} />
+              <Route path="/teacher" element={<RequireTeacher><TeacherShell><Library /></TeacherShell></RequireTeacher>} />
+              <Route path="/teacher/edit/:id" element={<RequireTeacher><TeacherShell><Editor /></TeacherShell></RequireTeacher>} />
+              <Route path="/teacher/reports" element={<RequireTeacher><TeacherShell><Reports /></TeacherShell></RequireTeacher>} />
+              <Route path="/teacher/settings" element={<RequireTeacher><TeacherShell><Settings /></TeacherShell></RequireTeacher>} />
+              <Route path="/teacher/host/:pin" element={<RequireTeacher><HostLive /></RequireTeacher>} />
+              <Route path="/teacher/paper" element={<RequireTeacher><TeacherShell><Paper /></TeacherShell></RequireTeacher>} />
+              <Route path="/teacher/paper/:pin" element={<RequireTeacher><PaperHost /></RequireTeacher>} />
+              <Route path="/scan" element={<PaperScan />} />
+              <Route path="/teacher/preview/:id" element={<RequireTeacher><Preview /></RequireTeacher>} />
+              <Route path="/teacher/login" element={<Login />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="*" element={<Home />} />
+            </Routes>
+          </Suspense>
+        </HashRouter>
+      </LightboxProvider>
+    </ToastProvider>
+  );
+}

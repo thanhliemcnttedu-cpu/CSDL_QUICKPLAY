@@ -1,0 +1,31 @@
+/* Trang chơi thử /demo */
+.demo-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.demo-nav { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.demo-chip { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 14px 6px 6px; border-radius: 999px; border: 1.5px solid var(--border); background: #fff; color: var(--fg); font-weight: 600; font-size: 0.9rem; cursor: pointer; white-space: nowrap; }
+.demo-chip > b { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-ink); }
+.demo-chip.on { border-color: transparent; background: var(--primary-grad); color: #fff; box-shadow: var(--glow); }
+.demo-chip.on > b { background: #fff; }
+.demo-chip.ok:not(.on) { border-color: #2fb866; background: #e9f9ef; color: #0b6a33; }
+.demo-chip.bad:not(.on) { border-color: #ef6b6b; background: #fdecec; color: #9b1c1c; }
+.demo-progress { height: 8px; border-radius: 999px; background: #dfe9fb; overflow: hidden; }
+.demo-progress i { display: block; height: 100%; border-radius: 999px; background: var(--primary-grad); transition: width 300ms ease; }
+.demo-info { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.demo-use { display: flex; gap: 6px; align-items: flex-start; padding: 8px 14px; border-radius: 16px; background: #fff7df; color: #7a4a05; font-size: 0.95rem; line-height: 1.4; }
+.demo-use svg { flex: none; margin-top: 3px; }
+.demo-fb { border-radius: 24px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; border: 1.5px solid; animation: pop 250ms ease-out; }
+.demo-fb.ok { background: #e9f9ef; border-color: #2fb866; color: #0b5c2d; }
+.demo-fb.bad { background: #fdecec; border-color: #ef6b6b; color: #8f1a1a; }
+.demo-fb-head { display: flex; align-items: center; gap: 8px; font-family: var(--font-head); font-weight: 800; font-size: 1.4rem; }
+.demo-exp { margin: 0; color: var(--fg); font-size: 1.02rem; }
+.demo-oral { display: flex; flex-direction: column; gap: 12px; }
+.demo-end { display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; padding: clamp(24px, 5vw, 48px); }
+.demo-end p { max-width: 560px; }
+.demo-score { font-family: var(--font-head); font-weight: 800; font-size: clamp(3.5rem, 12vw, 6rem); line-height: 1; color: var(--primary); }
+.demo-score span { font-size: 0.45em; color: var(--muted-fg); }
+.demo-end .btn.lg { white-space: normal; text-align: center; line-height: 1.2; }
+.demo-end .btn svg { flex: none; }
+@media (max-width: 520px) {
+  .demo-top .badge { display: none; }
+  .demo-fb .row .btn, .demo-oral .row .btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .demo-progress i { transition: none; } .demo-fb { animation: none; } }

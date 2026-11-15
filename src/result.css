@@ -1,0 +1,33 @@
+/* Bảng tổng kết của học sinh + lời khen trong lúc chơi */
+.sr { width: 100%; display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; color: var(--fg); }
+.sr-head { display: flex; gap: 14px; align-items: center; text-align: left; flex-wrap: wrap; justify-content: center; }
+.sr-cup { display: flex; flex-direction: column; align-items: center; gap: 2px; animation: pop 400ms ease-out; }
+.sr-level { padding: 8px 22px; border-radius: 999px; font-family: var(--font-head); font-weight: 800; font-size: 1.3rem; color: #fff; }
+.sr-level.excellent { background: linear-gradient(180deg, #1fb866, #0f8f45); }
+.sr-level.good { background: var(--primary-grad); }
+.sr-level.pass { background: #b45309; }
+.sr-level.effort { background: #64748b; }
+.sr-grid { width: 100%; display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sr-grid > div { display: flex; flex-direction: column; padding: 10px 6px; border-radius: 16px; background: var(--muted); }
+.sr-grid b { font-size: 1.5rem; line-height: 1.15; }
+.sr-grid span { font-size: 0.82rem; color: var(--muted-fg); }
+.sr-grid .ok b { color: #0f7a3c; }
+.sr-grid .part b { color: #b45309; }
+.sr-grid .bad b { color: #b91c1c; }
+
+.cheer { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 70; width: min(520px, calc(100% - 24px)); display: flex; gap: 10px; align-items: center; padding: 12px 18px; border-radius: 999px; font-weight: 700; color: #fff; box-shadow: 0 16px 32px -14px rgba(10, 23, 48, 0.5); animation: pop 250ms ease-out; }
+.cheer.praise { background: linear-gradient(180deg, #1fb866, #0f8f45); }
+.cheer.gift { background: linear-gradient(180deg, #f59e0b, #d97706); color: #1f1300; }
+.cheer.encourage { background: var(--primary-grad); }
+.cheer svg { flex: none; }
+.retry-box { border-radius: 22px; padding: 16px; text-align: center; background: var(--warn-bg); color: var(--warn-fg); font-weight: 700; border: 1.5px solid #f0b740; }
+@media (prefers-reduced-motion: reduce) { .cheer, .sr-cup { animation: none; } }
+
+/* Bảng số câu (tự do chọn câu) */
+.qnav { display: flex; flex-direction: column; gap: 10px; padding: 14px; color: var(--fg); }
+.qnav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; }
+.qnav-no { min-height: 44px; border-radius: 12px; border: 2px solid var(--border); background: #fff; color: var(--fg); font-weight: 800; cursor: pointer; }
+.qnav-no:hover:not(:disabled) { border-color: var(--primary); }
+.qnav-no.done { background: var(--primary-grad); border-color: transparent; color: #fff; }
+.qnav-no.cur { box-shadow: 0 0 0 3px #0a1730; }
+.qnav-no:disabled { cursor: default; opacity: 0.7; }

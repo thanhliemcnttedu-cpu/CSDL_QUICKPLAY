@@ -1,0 +1,70 @@
+/* Cách chơi từng dạng câu hỏi trên máy học sinh (phong cách Quickplay: nền sáng, thẻ trắng, xanh dương, Be Vietnam Pro) */
+.pq-hint { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--muted-fg); }
+.pq-sub { font-weight: 500; }
+.pq-empty { margin: 0; padding: 22px 14px; border-radius: 18px; border: 2px dashed var(--border); text-align: center; color: var(--muted-fg); font-style: italic; }
+
+/* Đúng / Sai */
+.pq-tf { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 640px; width: 100%; margin: 0 auto; }
+.pq-tf-btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 88px; padding: 14px; border-radius: 22px; border: 2px solid var(--border); background: #fff; color: var(--fg); font-family: var(--font-head); font-weight: 800; font-size: clamp(1.2rem, 3vw, 1.6rem); text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; box-shadow: var(--shadow); transition: transform 120ms ease, border-color 150ms ease, background-color 150ms ease; }
+.pq-tf-btn:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-soft); }
+.pq-tf-btn:active:not(:disabled) { transform: translateY(2px); }
+
+/* Nhiều đáp án */
+.pq-multi { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.pq-opt { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; border-radius: 20px; border: 2px solid var(--border); background: #fff; color: var(--fg); font-weight: 700; font-size: clamp(1rem, 2vw, 1.15rem); text-align: left; cursor: pointer; box-shadow: var(--shadow); transition: border-color 150ms ease, background-color 150ms ease; }
+.pq-opt:hover:not(:disabled) { border-color: #7fb0ff; }
+.pq-opt img { max-height: 110px; border-radius: 10px; display: block; margin-bottom: 4px; }
+.pq-letter { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--muted); color: var(--primary-ink); font-weight: 800; }
+.pq-opt.on { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 3px #bcd5ff; }
+.pq-opt.on .pq-letter { background: var(--primary-grad); color: #fff; }
+
+/* Trạng thái sau khi chấm, dùng chung */
+.pq-tf-btn.right, .pq-opt.right, .match-item.right, .order-item.right, .drop-zone.right { border-color: #129a4b !important; background: #e9f9ef; color: #0b5a2c; }
+.pq-tf-btn.wrong, .pq-opt.wrong, .match-item.wrong, .order-item.wrong, .drop-zone.wrong { border-color: #dc2626 !important; background: #fdecec; color: #8f1b1b; }
+.pq-tf-btn.dim, .pq-opt.dim { opacity: 0.5; }
+.pq-tf-btn:disabled, .pq-opt:disabled { cursor: default; }
+
+/* Điền chỗ trống bằng kho từ / kéo thả */
+.pq-blank-no { color: var(--muted-fg); font-weight: 700; }
+.pq-bank { display: flex; flex-wrap: wrap; gap: 10px; min-height: 52px; align-items: center; }
+.pq-word { min-height: 48px; padding: 10px 18px; border-radius: 14px; border: 0; background: var(--primary-grad); color: #fff; font-weight: 700; font-size: 1.05rem; cursor: pointer; box-shadow: var(--glow); display: inline-flex; align-items: center; gap: 6px; transition: transform 120ms ease, filter 150ms ease; }
+.pq-word:hover:not(:disabled) { filter: brightness(1.08); }
+.pq-word:active:not(:disabled) { transform: translateY(2px); }
+.pq-word:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
+.pq-word img { max-height: 56px; border-radius: 8px; background: #fff; }
+
+.pq-select { display: inline-block; max-width: 100%; min-height: 48px; margin: 2px 4px; padding: 6px 34px 6px 12px; border-radius: 12px; border: 3px dashed #93c5fd; background-color: #eff6ff; color: var(--muted-fg); font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; vertical-align: middle; }
+.pq-select.filled { border-style: solid; border-color: var(--primary); background-color: #dbeafe; color: var(--fg); }
+.pq-select.right { border-style: solid; border-color: #129a4b; background-color: #e9f9ef; color: #0b5a2c; }
+.pq-select.wrong { border-style: solid; border-color: #dc2626; background-color: #fdecec; color: #8f1b1b; }
+.pq-select:disabled { cursor: default; opacity: 1; }
+
+/* Sắp xếp thứ tự */
+.pq-order { display: grid; gap: 16px 20px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
+.pq-step { min-height: 52px; padding: 12px 16px; border-radius: 16px; border: 2px solid var(--border); background: #fff; color: var(--fg); font-weight: 700; font-size: 1.05rem; text-align: left; cursor: pointer; box-shadow: 0 6px 14px -8px rgba(22, 84, 190, 0.45); transition: border-color 150ms ease, background-color 150ms ease; }
+.pq-step:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-soft); }
+.pq-step img { max-height: 70px; border-radius: 8px; }
+.order-item.pq-picked { border: 2px solid #9cc3ff; background: var(--primary-soft); gap: 6px; }
+.pq-no { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--primary-grad); color: #fff; font-weight: 800; }
+
+/* Nối cột */
+.pq-match { gap: 12px clamp(36px, 12vw, 110px); align-items: start; }
+.pq-match .stack { gap: 12px; }
+.pq-col { font-size: 0.8rem; letter-spacing: 0.06em; }
+.pq-col.a { color: #b45309; }
+.pq-col.b { color: #0b4fd0; }
+.pq-match .match-item { display: flex; align-items: center; gap: 10px; width: 100%; border-width: 2px; }
+.pq-match .match-item.sel { outline: none; box-shadow: 0 0 0 4px #bcd5ff; border-color: var(--primary); }
+.pq-tag { flex: none; min-width: 36px; height: 30px; padding: 0 6px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 0.85rem; font-weight: 800; }
+.pq-tag.a { background: #d97706; }
+.pq-tag.b { background: #1668f2; }
+
+/* Trả lời miệng */
+.pq-mic { width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-ink); }
+
+@media (max-width: 520px) {
+  .pq-tf-btn { min-height: 72px; }
+  .pq-match { gap: 10px 30px; }
+  .pq-match .match-item { padding: 10px; min-height: 52px; font-size: 0.95rem; }
+}
+@media (prefers-reduced-motion: reduce) { .pq-tf-btn, .pq-opt, .pq-word, .pq-step { transition: none; } }

@@ -1,0 +1,16 @@
+/* Hộp chọn nhân vật: hai nhóm "Bạn học sinh" và "Con vật" */
+.avx-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px; border-radius: 999px; background: var(--muted); }
+.avx-tabs button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 0; border-radius: 999px; background: transparent; color: var(--muted-fg); font: inherit; font-weight: 800; font-size: 1.05rem; cursor: pointer; }
+.avx-tabs button.on { background: var(--primary-grad); color: #fff; box-shadow: var(--glow); }
+.avx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.avx-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 64px; padding: 10px 4px 8px; border-radius: 18px; border: 3px solid #e2e8f0; background: #fff; color: var(--fg); font: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: transform 120ms ease, border-color 150ms ease; }
+.avx-cell:hover { border-color: #bcd5ff; transform: translateY(-2px); }
+.avx-cell.on { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 3px #bcd5ff; }
+.avx-cell .av-check { color: var(--primary); }
+.avx-more { align-self: flex-start; }
+@media (max-width: 720px) {
+  .avx-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  .avx-cell svg { width: 60px; height: 60px; }
+  .avx-tabs button { font-size: 0.95rem; min-height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) { .avx-cell { transition: none; } .avx-cell:hover { transform: none; } }

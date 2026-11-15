@@ -1,0 +1,56 @@
+# Cấu hình đóng gói Quickplay cho Windows (electron-builder)
+# Dùng: npm run dist:win  ->  release/Quickplay-Setup-<version>.exe
+appId: vn.edu.quizzi
+productName: Quickplay
+copyright: Copyright © Quickplay
+
+directories:
+  output: release
+  buildResources: build
+
+# Chỉ đóng gói bản web đã build + mã Electron. React, mammoth… đã được Vite gói vào dist/,
+# nên không cần node_modules trong bản cài đặt (giảm dung lượng đáng kể).
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  - "!src/**/*"
+  - "!apps-script/**/*"
+  - "!docs/**/*"
+  - "!release/**/*"
+  - "!node_modules/**/*"
+  - "!**/*.map"
+
+asar: true
+# Chỉ giữ gói ngôn ngữ Chromium cần thiết.
+electronLanguages:
+  - vi
+  - en-US
+
+# Không tự xuất bản lên GitHub/server nào.
+publish: null
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Quickplay
+  artifactName: "Quickplay-Setup-${version}.${ext}"
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  installerLanguages:
+    - vi_VN
+  language: "1066"
+  # Giữ lại cài đặt (URL Apps Script…) khi gỡ cài đặt.
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
