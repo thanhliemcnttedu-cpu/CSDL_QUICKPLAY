@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
+import { installStaleBuildGuard } from './lib/staleBuild';
+
+// Trang mở từ trước khi có bản mới: tự tải lại khi không tìm thấy tệp mã cũ (lỗi "Failed to fetch dynamically imported module")
+installStaleBuildGuard();
 
 // Đường dẫn ngắn dễ nhớ: /giao-vien và /hoc-sinh(?pin=123456) → chuyển sang trang tương ứng trong ứng dụng.
 const SHORT_LINKS: Record<string, string> = {
