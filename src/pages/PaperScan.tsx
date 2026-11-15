@@ -4,12 +4,13 @@
 // Bảng mã thẻ là của riêng Quickplay (paperCard.ts); chỉ tham khảo cách bố trí màn hình của các phần mềm khác.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChartColumn, ChevronDown, ChevronUp, FastForward, LogIn, LogOut, ScanLine, Send, Users, ZoomIn, ZoomOut, ArrowRight, X, Play } from 'lucide-react';
+import { ChartColumn, ChevronDown, ChevronUp, FastForward, LogIn, LogOut, ScanLine, Send, Users, ZoomIn, ZoomOut, ArrowRight, X, Play, Camera } from 'lucide-react';
 import type { PaperView, Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperHit, type PaperOp } from '../lib/paper';
 import { detectCards, toGray, type CardHit } from '../lib/paperScan';
 import { currentAccount } from '../lib/account';
+import { inAppBrowser, openInBrowserHint } from '../lib/inApp';
 import { OPTION_LABELS, htmlToText } from '../lib/util';
 import { sfx } from '../lib/sound';
 import { Wordmark } from '../components/Logo';
@@ -17,7 +18,8 @@ import { StemMedia } from '../components/MediaView';
 import { Spinner, askConfirm } from '../components/ui';
 import '../paper.css';
 
-const CONFIRM = 2; // thẻ phải đọc giống nhau ở 2 khung hình liên tiếp mới ghi nhận
+const CONFIRM = 2; // thẻ phải đọc ra cùng một đáp án 2 lần mới ghi nhận
+const CONFIRM_MS = 1500; // …trong vòng 1,5 giây; một khung hình đọc trượt xen giữa không làm đếm lại từ đầu
 const KEEP_MS = 900; // giữ nhãn tên trên thẻ thêm một lúc khi khung hình kế tiếp lỡ không đọc được (đỡ nhấp nháy)
 
 type Stage = 'question' | 'scan' | 'result';
@@ -41,12 +43,16 @@ export default function PaperScan() {
   const [started, setStarted] = useState(false); // đã bấm Bắt đầu (màn chiếu mới chuyển từ mã QR sang câu 1)
   const [klass, setKlass] = useState('');
   const [recent, setRecent] = useState<{ card: number; choice: number; right: boolean }[]>([]); // vừa ghi nhận (hiện dưới ống kính)
-  const video = useRef<HTMLVideoElement>(null);
+  const videoEl = useRef<HTMLVideoElement | null>(null); // ô video ẩn, chỉ để lấy hình
+  const forcedFs = useRef(false);
+  const [fsForced, setFsForced] = useState(false); // trình duyệt nhúng ép camera toàn màn hình
+  const [paused, setPaused] = useState(false);
+  const [copied, setCopied] = useState(false);
   const overlay = useRef<HTMLCanvasElement>(null);
   const work = useRef<HTMLCanvasElement | null>(null);
   const gray = useRef<Uint8Array>();
   const stream = useRef<MediaStream | null>(null);
-  const seen = useRef(new Map<number, { choice: number; n: number }>()); // đang xác nhận
+  const seen = useRef(new Map<number, { choice: number; n: number; t: number }>()); // đang xác nhận
   const sent = useRef(new Map<number, number>()); // đã ghi nhận ở câu hiện tại: thẻ -> phương án
   const shown = useRef(new Map<number, Shown>());
   const queue = useRef<PaperHit[]>([]);
@@ -129,34 +135,63 @@ export default function PaperScan() {
   };
 
   // ---------- Camera ----------
+  // Ô <video> chỉ để LẤY HÌNH và được ẩn đi; hình camera được vẽ vào khung trong trang (canvas) cùng với nhãn tên.
+  // Nhờ vậy camera nằm gọn trong khung, không bung toàn màn hình. Camera mở một lần và giữ suốt buổi (không hỏi quyền lại mỗi câu).
+  const getVideo = () => {
+    if (videoEl.current) return videoEl.current;
+    const v = document.createElement('video');
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
+    v.muted = true;
+    v.autoplay = true;
+    v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1';
+    // Trình duyệt nhúng (Zalo…) vẫn ép toàn màn hình: ghi nhận để hướng dẫn mở bằng Safari, không tự phát lại (tránh bung toàn màn hình liên tục)
+    v.addEventListener('webkitbeginfullscreen', () => { forcedFs.current = true; setFsForced(true); });
+    const resume = () => {
+      setPaused(v.paused);
+      if (!forcedFs.current && v.paused && stream.current?.active) v.play().catch(() => {});
+    };
+    v.addEventListener('webkitendfullscreen', resume);
+    v.addEventListener('pause', resume);
+    v.addEventListener('playing', () => setPaused(false));
+    document.body.appendChild(v);
+    videoEl.current = v;
+    return v;
+  };
   const stopCamera = () => {
     stream.current?.getTracks().forEach((t) => t.stop());
     stream.current = null;
-    if (video.current) video.current.srcObject = null;
+    videoEl.current?.remove();
+    videoEl.current = null;
   };
   useEffect(() => () => stopCamera(), []);
-  useEffect(() => {
-    if (stage !== 'scan') return stopCamera();
-    let cancelled = false;
-    (async () => {
-      setCamErr('');
-      if (!navigator.mediaDevices?.getUserMedia) return setCamErr('Trình duyệt này không mở được camera. Hãy mở trang bằng Chrome hoặc Safari (địa chỉ https).');
-      try {
+  const startCamera = useCallback(async () => {
+    setCamErr('');
+    if (!navigator.mediaDevices?.getUserMedia) return setCamErr('Trình duyệt này không mở được camera. Hãy mở trang bằng Safari hoặc Chrome (địa chỉ https).');
+    try {
+      const v = getVideo();
+      const live = stream.current?.getVideoTracks()[0]?.readyState === 'live';
+      if (!live) {
         const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
-        if (cancelled) return s.getTracks().forEach((t) => t.stop());
         stream.current = s;
-        const v = video.current!;
+        s.getVideoTracks()[0]?.addEventListener('ended', () => setCamErr('Camera vừa bị tắt. Bấm "Mở lại camera" để quét tiếp.'));
         v.srcObject = s;
-        await v.play();
         const caps = (s.getVideoTracks()[0]?.getCapabilities?.() ?? {}) as { zoom?: { min: number; max: number } };
         setZoom(caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: Math.min(caps.zoom.max, 4), v: caps.zoom.min } : null);
         (navigator as Navigator & { wakeLock?: { request(t: string): Promise<unknown> } }).wakeLock?.request('screen').catch(() => {});
-      } catch {
-        setCamErr('Không mở được camera. Hãy cho phép trang này dùng camera rồi bấm Quét phản hồi lại.');
       }
-    })();
-    return () => { cancelled = true; };
-  }, [stage]);
+      await v.play();
+      setPaused(false);
+    } catch {
+      setCamErr('Không mở được camera. Hãy cho phép trang này dùng camera rồi bấm "Mở lại camera".');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (stage === 'scan') startCamera();
+  }, [stage, startCamera]);
+  useEffect(() => {
+    if (view?.state === 'COMPLETED') stopCamera(); // hết buổi: tắt hẳn camera
+  }, [view?.state]);
   const setZoomTo = (z: number) => {
     if (!zoom) return;
     const v = Math.max(zoom.min, Math.min(zoom.max, z));
@@ -164,7 +199,7 @@ export default function PaperScan() {
     setZoom({ ...zoom, v });
   };
 
-  // ---------- Vòng nhận dạng ----------
+  // ---------- Vòng nhận dạng + vẽ hình camera vào khung ----------
   useEffect(() => {
     if (stage !== 'scan') return;
     let raf = 0;
@@ -172,50 +207,52 @@ export default function PaperScan() {
     let maxW = 1600; // tự giảm khi điện thoại xử lý chậm, tăng lại khi nhanh
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
-      const v = video.current, ov = overlay.current, cur = viewRef.current, qq = qRef.current;
-      if (!v || !ov || !v.videoWidth || t - last < 90) return;
-      last = t;
-      const t0 = performance.now();
-      const scale = Math.min(1, maxW / v.videoWidth);
-      const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
-      const cv = (work.current ??= document.createElement('canvas'));
-      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-      const ctx = cv.getContext('2d', { willReadFrequently: true })!;
-      ctx.drawImage(v, 0, 0, w, h);
-      gray.current = toGray(ctx.getImageData(0, 0, w, h).data, gray.current);
-      const hits: CardHit[] = cur?.state === 'IN_PROGRESS' ? detectCards(gray.current, w, h) : [];
-      const took = performance.now() - t0;
-      maxW = took > 220 ? Math.max(960, maxW - 160) : took < 90 ? Math.min(1600, maxW + 80) : maxW;
-
+      const v = videoEl.current, ov = overlay.current, cur = viewRef.current, qq = qRef.current;
+      if (!v || !ov || !v.videoWidth) return;
       const optN = qq?.options.length ?? 0;
       const now = performance.now();
-      const visible = new Set<number>();
-      for (const hit of hits) {
-        if (!cur || hit.card > cur.total) continue; // thẻ không thuộc lớp này
-        visible.add(hit.card);
-        const valid = hit.side < optN;
-        const prev = seen.current.get(hit.card);
-        const n = prev && prev.choice === hit.side ? prev.n + 1 : 1;
-        seen.current.set(hit.card, { choice: hit.side, n });
-        if (valid && n >= CONFIRM && sent.current.get(hit.card) !== hit.side) {
-          sent.current.set(hit.card, hit.side);
-          queue.current = queue.current.filter((x) => x.card !== hit.card).concat({ card: hit.card, choice: hit.side });
-          sfx.pop();
-          const item = { card: hit.card, choice: hit.side, right: !!qq?.options[hit.side]?.is_correct };
-          setRecent((r) => [item, ...r.filter((x) => x.card !== hit.card)].slice(0, 6));
-        }
-        // Tọa độ nhãn tính theo khung hình gốc để không lệch khi đổi độ phân giải xử lý
-        shown.current.set(hit.card, { hit: { ...hit, corners: hit.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })) as CardHit['corners'] }, t: now });
-      }
-      for (const card of [...seen.current.keys()]) if (!visible.has(card)) seen.current.delete(card);
 
-      // Vẽ nhãn: [chữ] Tên học sinh — ô chữ xanh nếu đúng, đỏ nếu sai, xám khi chưa chắc / không có phương án đó
+      // Nhận dạng thẻ: khoảng 10 lần mỗi giây
+      if (t - last >= 90 && !v.paused) {
+        last = t;
+        const t0 = performance.now();
+        const scale = Math.min(1, maxW / v.videoWidth);
+        const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+        const cv = (work.current ??= document.createElement('canvas'));
+        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+        const ctx = cv.getContext('2d', { willReadFrequently: true })!;
+        ctx.drawImage(v, 0, 0, w, h);
+        gray.current = toGray(ctx.getImageData(0, 0, w, h).data, gray.current);
+        const hits: CardHit[] = cur?.state === 'IN_PROGRESS' ? detectCards(gray.current, w, h) : [];
+        const took = performance.now() - t0;
+        maxW = took > 220 ? Math.max(960, maxW - 160) : took < 90 ? Math.min(1600, maxW + 80) : maxW;
+        const visible = new Set<number>();
+        for (const hit of hits) {
+          if (!cur || hit.card > cur.total) continue; // thẻ không thuộc lớp này
+          visible.add(hit.card);
+          const valid = hit.side < optN;
+          const prev = seen.current.get(hit.card);
+          const n = prev && prev.choice === hit.side && now - prev.t < CONFIRM_MS ? prev.n + 1 : 1;
+          seen.current.set(hit.card, { choice: hit.side, n, t: now });
+          if (valid && n >= CONFIRM && sent.current.get(hit.card) !== hit.side) {
+            sent.current.set(hit.card, hit.side);
+            queue.current = queue.current.filter((x) => x.card !== hit.card).concat({ card: hit.card, choice: hit.side });
+            sfx.pop();
+            const item = { card: hit.card, choice: hit.side, right: !!qq?.options[hit.side]?.is_correct };
+            setRecent((r) => [item, ...r.filter((x) => x.card !== hit.card)].slice(0, 6));
+          }
+          // Tọa độ nhãn tính theo khung hình gốc để không lệch khi đổi độ phân giải xử lý
+          shown.current.set(hit.card, { hit: { ...hit, corners: hit.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })) as CardHit['corners'] }, t: now });
+        }
+        for (const [card, e] of [...seen.current]) if (!visible.has(card) && now - e.t > CONFIRM_MS) seen.current.delete(card);
+      }
+
+      // Vẽ hình camera vào khung, rồi vẽ nhãn: [chữ] Tên học sinh — xanh = đúng, đỏ = sai, xám = đang đọc / không có phương án đó
       const W = v.videoWidth, H = v.videoHeight;
       if (ov.width !== W || ov.height !== H) { ov.width = W; ov.height = H; }
       const g = ov.getContext('2d')!;
-      g.clearRect(0, 0, W, H);
-      // Cỡ chữ, nét khung tính theo kích thước ĐANG HIỂN THỊ trên màn hình (camera 1080 điểm ảnh thu vào khung ~350 điểm ảnh
-      // thì chữ phải to gấp 3 mới đọc được): chữ cao ~15 điểm ảnh, khung dày ~3 điểm ảnh trên màn hình điện thoại
+      g.drawImage(v, 0, 0, W, H);
+      // Cỡ chữ, nét khung tính theo kích thước ĐANG HIỂN THỊ trên màn hình: chữ cao ~15 điểm ảnh, khung dày ~3 điểm ảnh
       const disp = Math.min((ov.clientWidth || W) / W, (ov.clientHeight || H) / H) || 1;
       const fs = 15 / disp;
       g.font = `800 ${fs}px 'Be Vietnam Pro', system-ui, sans-serif`;
@@ -227,14 +264,12 @@ export default function PaperScan() {
         const recorded = sent.current.get(card) === hit.side;
         const right = valid && !!qq?.options[hit.side]?.is_correct;
         const color = !valid || !recorded ? '#64748b' : right ? '#16a34a' : '#dc2626';
-        // Khung quanh thẻ
         g.lineWidth = 3.5 / disp;
         g.strokeStyle = color;
         g.beginPath();
         hit.corners.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
         g.closePath();
         g.stroke();
-        // Nhãn phía trên thẻ
         const cx = hit.corners.reduce((a, p) => a + p.x, 0) / 4;
         const top = Math.min(...hit.corners.map((p) => p.y));
         const name = (namesRef.current[card - 1] || `Thẻ ${card}`).slice(0, 18);
@@ -387,11 +422,14 @@ export default function PaperScan() {
   );
 
   if (stage === 'scan') {
+    const app = inAppBrowser();
+    const copyLink = async () => {
+      try { await navigator.clipboard.writeText(location.href); setCopied(true); setTimeout(() => setCopied(false), 2500); } catch { /* ứng dụng chặn bộ nhớ tạm */ }
+    };
     return (
       <div className="ps-wrap ps-scan">
         {top}
         <div className="ps-cam">
-          <video ref={video} playsInline muted />
           <canvas ref={overlay} />
           <span className="ps-corner tl" /><span className="ps-corner tr" /><span className="ps-corner bl" /><span className="ps-corner br" />
           {zoom && (
@@ -401,7 +439,24 @@ export default function PaperScan() {
               <button type="button" onClick={() => setZoomTo(zoom.v - 0.5)} aria-label="Thu nhỏ"><ZoomOut size={22} /></button>
             </div>
           )}
-          {camErr && <div className="ps-start"><div className="alert error"><div>{camErr}</div></div></div>}
+          {camErr && (
+            <div className="ps-start">
+              <div className="alert error"><div>{camErr}</div></div>
+              <button className="btn primary" onClick={startCamera}><Camera size={18} /> Mở lại camera</button>
+            </div>
+          )}
+          {!camErr && fsForced && paused && (
+            <div className="ps-start">
+              <div className="alert warn" style={{ textAlign: 'left' }}>
+                <div>
+                  <b>Trình duyệt trong {app ?? 'ứng dụng này'} chỉ cho camera chạy toàn màn hình</b>, nên không hiện được tên học sinh trên hình.
+                  {' '}{openInBrowserHint(app ?? 'ứng dụng')} Ở Safari / Chrome, camera nằm gọn trong khung này.
+                </div>
+              </div>
+              <button className="btn primary" onClick={copyLink}>{copied ? 'Đã chép liên kết' : 'Sao chép liên kết để mở bằng Safari'}</button>
+              <button className="btn ghost" onClick={startCamera}><Camera size={18} /> Vẫn quét toàn màn hình</button>
+            </div>
+          )}
         </div>
         {/* Vừa quét: tên + chữ đáp án, xanh = đúng, đỏ = sai (giáo viên biết chắc đã nhận thẻ của em nào) */}
         <div className="ps-recent" aria-live="polite">
