@@ -31,16 +31,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 // ---------- Hộp thoại ----------
 export function Modal({ title, onClose, children, wide, footer }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; footer?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Giữ hàm đóng mới nhất trong ref: nơi gọi thường truyền hàm viết tại chỗ (mỗi lần gõ phím là một hàm mới).
+  // Nếu để hàm đó làm điều kiện chạy lại, hộp thoại sẽ đặt con trỏ về ô đầu tiên sau mỗi ký tự gõ ở ô khác.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
+    // chỉ đặt con trỏ một lần khi mở hộp thoại
     ref.current?.querySelector<HTMLElement>('input, select, textarea, button:not(.modal-x)')?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current();
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
       prev?.focus?.();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
