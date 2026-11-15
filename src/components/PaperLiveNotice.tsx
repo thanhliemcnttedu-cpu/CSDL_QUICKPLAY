@@ -1,7 +1,8 @@
 // Điện thoại của giáo viên (đã đăng nhập cùng tài khoản với máy tính): ba cách vào điều khiển buổi học thẻ giấy
 //  1. Tự phát hiện buổi đang chạy → nút "Điều khiển trên điện thoại này".
 //  2. Nhập mã PIN 6 số hiện trên màn chiếu.
-//  3. Quét mã QR trên màn chiếu ngay trong trang (trình duyệt có sẵn bộ đọc mã: Chrome trên Android).
+//  3. Quét mã QR trên màn chiếu ngay trong trang: dùng bộ đọc mã của trình duyệt nếu có (Chrome trên Android),
+//     không có (iPhone) thì dùng thư viện jsqr, chỉ tải khi mở khung quét. Hình được đọc ngay trên máy, không gửi đi đâu.
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QrCode, ScanLine, X } from 'lucide-react';
@@ -34,7 +35,7 @@ export function PaperLiveNotice() {
   const [busy, setBusy] = useState('');
   const [pin, setPin] = useState('');
   const [qrOpen, setQrOpen] = useState(false);
-  const canQr = useRef(!!makeDetector()).current;
+  const canQr = !!navigator.mediaDevices?.getUserMedia; // có camera là quét được (iPhone dùng thư viện jsqr)
 
   useEffect(() => {
     if (!phone) return; // máy tính là màn chiếu, không cần báo
@@ -100,6 +101,15 @@ function QrDialog({ onClose, onFound }: { onClose: () => void; onFound: (l: { pi
   const [err, setErr] = useState('');
   useEffect(() => {
     const det = makeDetector();
+    // Trình duyệt không có bộ đọc mã (iPhone): tải thư viện jsqr
+    type JsQR = (data: Uint8ClampedArray, w: number, h: number, o?: { inversionAttempts?: 'dontInvert' | 'attemptBoth' }) => { data: string } | null;
+    let jsqr: JsQR | null = null;
+    if (!det) import('jsqr').then((m) => { jsqr = m.default as unknown as JsQR; }).catch(() => setErr('Không tải được bộ đọc mã QR. Hãy nhập mã PIN 6 số trên màn chiếu.'));
+    const small = document.createElement('canvas'); // ảnh thu nhỏ đem đi đọc mã (nhanh hơn nhiều so với ảnh gốc)
+    const found = (text: string) => {
+      const link = parseScanLink(text);
+      if (link && !done) { done = true; onFound(link); } else if (!done) setErr('Mã này không phải mã QR điều khiển của Quickplay. Hãy quét mã trên màn chiếu.');
+    };
     const v = document.createElement('video');
     v.setAttribute('playsinline', '');
     v.muted = true;
@@ -123,16 +133,20 @@ function QrDialog({ onClose, onFound }: { onClose: () => void; onFound: (l: { pi
       if (!c || !v.videoWidth) return;
       if (c.width !== v.videoWidth) { c.width = v.videoWidth; c.height = v.videoHeight; }
       c.getContext('2d')!.drawImage(v, 0, 0);
-      if (!det || working || t - last < 200) return;
+      if (done || working || t - last < 200) return;
       last = t;
-      working = true;
-      det.detect(c).then((codes) => {
-        for (const code of codes) {
-          const link = parseScanLink(code.rawValue);
-          if (link && !done) { done = true; onFound(link); return; }
-        }
-        if (codes.length && !done) setErr('Mã này không phải mã QR điều khiển của Quickplay. Hãy quét mã trên màn chiếu.');
-      }).catch(() => {}).finally(() => { working = false; });
+      if (det) {
+        working = true;
+        det.detect(c).then((codes) => { if (codes.length) found(codes[0].rawValue); }).catch(() => {}).finally(() => { working = false; });
+      } else if (jsqr) {
+        const k = Math.min(1, 720 / Math.max(c.width, c.height));
+        small.width = Math.round(c.width * k);
+        small.height = Math.round(c.height * k);
+        const g = small.getContext('2d', { willReadFrequently: true })!;
+        g.drawImage(c, 0, 0, small.width, small.height);
+        const code = jsqr(g.getImageData(0, 0, small.width, small.height).data, small.width, small.height, { inversionAttempts: 'dontInvert' });
+        if (code?.data) found(code.data);
+      }
     };
     raf = requestAnimationFrame(loop);
     return () => {
