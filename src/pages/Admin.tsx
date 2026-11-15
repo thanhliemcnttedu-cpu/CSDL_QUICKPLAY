@@ -75,7 +75,7 @@ export default function Admin() {
   const copy = (text: string, ok: string) => navigator.clipboard.writeText(text).then(() => toast(ok, 'ok')).catch(() => toast('Trình duyệt không cho sao chép. Hãy bôi đen rồi nhấn Ctrl + C.', 'error'));
   const site = location.origin;
   // Bước đang làm trong bảng hướng dẫn
-  const guideAt = step === 'server' || step === 'checking' ? 1 : step === 'init' ? 2 : step === 'login' ? 2 : defaultPw ? 2 : !myEmail ? 3 : !envUrl ? 4 : rows && rows.length ? 6 : 5;
+  const guideAt = step === 'server' || step === 'checking' ? 1 : step === 'init' ? 2 : step === 'login' ? 2 : !myEmail ? 3 : !envUrl ? 4 : rows && rows.length ? 6 : 5;
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -202,7 +202,7 @@ export default function Admin() {
               await adminAuth.init(r.key, DEFAULT_ADMIN_USER, first);
               markDefaultAdminPassword(true);
               setDefaultPw(true);
-              toast('Đã kết nối máy chủ tài khoản. Hãy đổi mật khẩu quản trị ngay.', 'ok');
+              toast('Đã kết nối máy chủ tài khoản. Tài khoản mặc định giờ là tài khoản quản trị.', 'ok');
               await load();
               return;
             }
@@ -259,10 +259,13 @@ export default function Admin() {
         )
       )}
       {step === 'in' && defaultPw && (
-        <div className="alert warn" role="alert">
+        <div className="alert ok" role="status">
           <div>
-            <b>Thầy/cô đang dùng mật khẩu quản trị mặc định.</b> Mật khẩu mặc định chỉ để thiết lập lần đầu; hãy đổi sang mật khẩu riêng ngay để không ai khác vào được trang quản trị.
-            <div style={{ marginTop: 8 }}><button className="btn primary sm" onClick={() => setPw({ password: '', next: '', again: '' })}><KeyRound size={16} /> Đổi mật khẩu quản trị ngay</button></div>
+            Đang dùng <b>mật khẩu quản trị mặc định</b>. Có thể giữ nguyên, hoặc đổi sang mật khẩu riêng bất cứ lúc nào.
+            <div className="row" style={{ marginTop: 8, gap: 6 }}>
+              <button className="btn sm" onClick={() => { markDefaultAdminPassword(false); setDefaultPw(false); }}>Giữ mật khẩu hiện tại</button>
+              <button className="btn sm ghost" onClick={() => setPw({ password: '', next: '', again: '' })}><KeyRound size={16} /> Đổi mật khẩu quản trị</button>
+            </div>
           </div>
         </div>
       )}

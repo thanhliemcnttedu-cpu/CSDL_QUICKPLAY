@@ -31,10 +31,10 @@ export function AdminGuide({ at, site, linked, serverUrl, copy }: Props) {
       actions: <small className="muted">Làm ngay ở <b>Trình cài đặt Apps Script</b> bên dưới.</small>,
     },
     {
-      icon: KeyRound, label: 'Mật khẩu', title: 'Đổi mật khẩu quản trị', time: 'Bắt buộc',
+      icon: KeyRound, label: 'Mật khẩu', title: 'Mật khẩu quản trị', time: 'Tùy chọn',
       body: <>
         <Line>Tài khoản mặc định vừa đăng nhập trở thành tài khoản quản trị.</Line>
-        <Line>Bấm <b>Đổi mật khẩu quản trị ngay</b>, đặt mật khẩu riêng (8–72 ký tự).</Line>
+        <Line><b>Có thể giữ nguyên mật khẩu hiện tại.</b> Muốn đổi thì bấm <b>Đổi mật khẩu quản trị</b> và đặt mật khẩu riêng (8–72 ký tự).</Line>
         <Line>Lần sau: trang chủ → <b>Dành cho giáo viên</b> → vai trò <b>Quản trị</b>.</Line>
       </>,
     },
