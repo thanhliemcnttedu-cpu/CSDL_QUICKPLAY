@@ -17,6 +17,8 @@ var MAX_VAULT = 6000;          // ký tự – một thuộc tính Script Proper
 var MAX_FAILS = 8;             // sai mật khẩu quá số lần này thì tạm khóa đăng nhập
 var FAIL_WINDOW_MS = 15 * 60 * 1000;
 var MAX_ACCOUNTS = 400;
+var ADMIN_SESSION_MS = 12 * 60 * 60 * 1000; // phiên đăng nhập của quản trị: 12 giờ
+var ADMIN_MIN_PASSWORD = 8;
 
 function doGet() {
   return out_({ ok: true, data: { name: ADMIN_APP, version: ADMIN_VERSION } });
@@ -31,6 +33,11 @@ function doPost(e) {
       check: actCheck_,
       saveVault: actSaveVault_,
       changePassword: actChangePassword_,
+      adminStatus: actAdminStatus_,
+      adminInit: actAdminInit_,
+      adminLogin: actAdminLogin_,
+      adminLogout: admin_(actAdminLogout_),
+      adminChangePassword: admin_(actAdminChangePassword_),
       adminList: admin_(actAdminList_),
       adminCreate: admin_(actAdminCreate_),
       adminSetLocked: admin_(actAdminSetLocked_),
@@ -128,11 +135,103 @@ function actChangePassword_(req) {
 }
 
 // ---------------------------------------------------------------- quản trị
+// Quản trị cao nhất đăng nhập bằng TÊN TÀI KHOẢN + MẬT KHẨU (trang /adminquantri).
+// Mật khẩu không nằm trong mã nguồn: quản trị tự đặt ở lần thiết lập đầu tiên, có ADMIN_KEY mới đặt được.
+// Máy chủ chỉ lưu bản băm có muối. Quên mật khẩu: dùng ADMIN_KEY (hàm setup() in ra) để đặt lại.
+function adminAcc_() {
+  var raw = PropertiesService.getScriptProperties().getProperty('ADMIN_ACC');
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+function saveAdminAcc_(acc) {
+  PropertiesService.getScriptProperties().setProperty('ADMIN_ACC', JSON.stringify(acc));
+}
+function checkAdminKey_(key) {
+  var expected = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
+  if (!expected) throw err_('Máy chủ chưa có ADMIN_KEY. Hãy chạy hàm setup() trong trình soạn thảo Apps Script.');
+  return !!key && safeEq_(String(key), expected);
+}
+function checkAdminPassword_(p) {
+  if (p.length < ADMIN_MIN_PASSWORD || p.length > 72) throw err_('Mật khẩu quản trị phải có từ ' + ADMIN_MIN_PASSWORD + ' đến 72 ký tự.');
+}
+
+/** Ai cũng gọi được: chỉ cho biết đã thiết lập tài khoản quản trị hay chưa (không lộ tên tài khoản). */
+function actAdminStatus_() {
+  return { has_admin: !!adminAcc_() };
+}
+
+/** Thiết lập (hoặc đặt lại) tài khoản quản trị. Bắt buộc có ADMIN_KEY. */
+function actAdminInit_(req) {
+  if (!checkAdminKey_(req.admin_key)) throw err_('Khóa quản trị (ADMIN_KEY) không đúng.');
+  var username = normUser_(req.username);
+  var password = String(req.password || '');
+  checkAdminPassword_(password);
+  return lock_(function () {
+    var salt = randomKey_(16);
+    var token = randomKey_(40);
+    saveAdminAcc_({ username: username, salt: salt, hash: hash_(salt, password), token_hash: sha_(token), token_at: Date.now(), fails: 0 });
+    return { username: username, token: token };
+  });
+}
+
+function actAdminLogin_(req) {
+  var username = String(req.username || '').trim().toLowerCase();
+  var password = String(req.password || '');
+  return lock_(function () {
+    var acc = adminAcc_();
+    if (!acc) throw err_('Chưa thiết lập tài khoản quản trị. Hãy thiết lập lần đầu bằng ADMIN_KEY.');
+    var now = Date.now();
+    if ((acc.fails || 0) >= MAX_FAILS && now - (acc.fail_at || 0) < FAIL_WINDOW_MS) {
+      throw err_('Nhập sai quá nhiều lần. Hãy thử lại sau 15 phút, hoặc đặt lại mật khẩu bằng ADMIN_KEY.');
+    }
+    // so cả tên lẫn mật khẩu, luôn tính băm để thời gian trả lời không lộ tên đúng hay sai
+    var okPass = safeEq_(hash_(acc.salt, password), acc.hash);
+    if (!safeEq_(username, acc.username) || !okPass) {
+      acc.fails = now - (acc.fail_at || 0) < FAIL_WINDOW_MS ? (acc.fails || 0) + 1 : 1;
+      acc.fail_at = now;
+      saveAdminAcc_(acc);
+      throw err_('Tên tài khoản hoặc mật khẩu quản trị không đúng.');
+    }
+    var token = randomKey_(40);
+    acc.token_hash = sha_(token);
+    acc.token_at = now;
+    acc.fails = 0;
+    saveAdminAcc_(acc);
+    return { username: acc.username, token: token };
+  });
+}
+
+function actAdminLogout_() {
+  return lock_(function () {
+    var acc = adminAcc_();
+    if (acc) { delete acc.token_hash; saveAdminAcc_(acc); }
+    return { ok: true };
+  });
+}
+
+function actAdminChangePassword_(req) {
+  var next = String(req.new_password || '');
+  checkAdminPassword_(next);
+  return lock_(function () {
+    var acc = adminAcc_();
+    if (!acc) throw err_('Chưa thiết lập tài khoản quản trị.');
+    if (!safeEq_(hash_(acc.salt, String(req.password || '')), acc.hash)) throw err_('Mật khẩu hiện tại không đúng.');
+    acc.salt = randomKey_(16);
+    acc.hash = hash_(acc.salt, next);
+    saveAdminAcc_(acc);
+    return { changed: true };
+  });
+}
+
+/** Chỉ quản trị: phiên đăng nhập còn hạn (admin_token) hoặc khóa ADMIN_KEY. */
 function admin_(fn) {
   return function (req) {
-    var expected = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
-    if (!expected) throw err_('Máy chủ chưa có ADMIN_KEY. Hãy chạy hàm setup() trong trình soạn thảo Apps Script.');
-    if (!safeEq_(String(req.admin_key || ''), expected)) throw err_('Khóa quản trị không đúng.');
+    var token = String(req.admin_token || '');
+    var acc = token ? adminAcc_() : null;
+    var byToken = !!(acc && acc.token_hash && safeEq_(sha_(token), acc.token_hash) && Date.now() - (acc.token_at || 0) < ADMIN_SESSION_MS);
+    if (!byToken && !(req.admin_key && checkAdminKey_(req.admin_key))) {
+      throw err_(token ? 'Phiên quản trị đã hết hạn. Hãy đăng nhập lại.' : 'Khóa quản trị không đúng.');
+    }
     return fn(req);
   };
 }

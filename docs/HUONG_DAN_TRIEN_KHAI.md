@@ -22,7 +22,7 @@ Lần đầu, cửa sổ đăng nhập GitHub sẽ hiện ra.
 
 1. Vào <https://vercel.com/new>, đăng nhập bằng GitHub, chọn kho `CSDL_QUICKPLAY` → **Import**.
 2. Vercel tự nhận cấu hình từ `vercel.json` (Vite, thư mục `dist`). Bấm **Deploy**.
-3. Sau khi xong, chép địa chỉ trang (ví dụ `https://quickplay-abc.vercel.app`).
+3. Sau khi xong, chép địa chỉ trang (trang hiện tại: `https://quickplay-delta.vercel.app`).
 4. Vào **Settings → Environment Variables**, thêm các biến cần dùng rồi **Redeploy**:
 
 | Biến | Bắt buộc? | Ý nghĩa |
@@ -36,7 +36,7 @@ Từ đây, mỗi lần `git push` Vercel tự dựng lại trang.
 ## C. Máy chủ tài khoản (quản trị cài một lần)
 
 Làm theo `apps-script-admin/HUONG_DAN_QUAN_TRI.md`, lấy địa chỉ `/exec` và `ADMIN_KEY`, đặt `VITE_ADMIN_URL` ở phần B rồi
-mở `<địa chỉ trang>/#/admin` để cấp tài khoản.
+mở `<địa chỉ trang>/adminquantri` để cấp tài khoản.
 
 ## D. Máy chủ dữ liệu của giáo viên (mỗi giáo viên cài một lần)
 

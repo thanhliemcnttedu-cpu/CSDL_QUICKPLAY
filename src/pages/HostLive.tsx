@@ -30,7 +30,7 @@ export function joinUrl(pin: string): string {
     : ((import.meta.env.VITE_PUBLIC_URL as string | undefined) ?? '');
   if (!base) return '';
   const script = s.backend === 'drive' && s.scriptUrl ? `&s=${encodeURIComponent(s.scriptUrl)}` : '';
-  return `${base.replace(/\/+$/, '')}/hoc-sinh?pin=${pin}${script}`;
+  return `${base.replace(/\/+$/, '')}/join?pin=${pin}${script}`;
 }
 
 export default function HostLive() {
@@ -193,7 +193,7 @@ export default function HostLive() {
           <div className="stack" style={{ gap: 20 }}>
             <div className="lobby-head">
               <div className="stack">
-                <span style={{ fontSize: '1.2rem' }}>Vào <b>{link ? `${new URL(link).host}/hoc-sinh` : 'trang Quickplay'}</b> và nhập mã:</span>
+                <span style={{ fontSize: '1.2rem' }}>Vào <b>{link ? `${new URL(link).host}/join` : 'trang Quickplay'}</b> và nhập mã:</span>
                 <div className="pin-display" aria-label={`Mã PIN ${pin.split('').join(' ')}`}>{pin.slice(0, 3)} {pin.slice(3)}</div>
                 {link && (
                   <div className="row">

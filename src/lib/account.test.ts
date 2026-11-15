@@ -64,4 +64,40 @@ describe('máy chủ tài khoản', () => {
     expect(await decryptVault(await deriveKey('lan.nguyen', 'mat-khau-khac'), sealed)).toBeNull();
     expect(await decryptVault(await deriveKey('nguoi.khac', 'matkhau1'), sealed)).toBeNull();
   });
+
+  it('quản trị đăng nhập bằng tên tài khoản và mật khẩu tự đặt', () => {
+    const a = createAdmin();
+    expect(a.post({ action: 'adminStatus' }).data).toEqual({ has_admin: false });
+    // chưa thiết lập thì không đăng nhập được; thiết lập phải có ADMIN_KEY đúng và mật khẩu đủ dài
+    expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'bat-ky-123' }).error).toMatch(/Chưa thiết lập/);
+    expect(a.post({ action: 'adminInit', admin_key: 'sai', username: 'adminquantri', password: 'mat-khau-dai' }).error).toMatch(/ADMIN_KEY/);
+    expect(a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'adminquantri', password: 'ngan' }).error).toMatch(/8 đến 72/);
+    const first = a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'AdminQuanTri', password: 'mat-khau-dai' });
+    expect(first.data.username).toBe('adminquantri');
+    expect(a.post({ action: 'adminStatus' }).data).toEqual({ has_admin: true });
+    // mật khẩu không được lưu dạng rõ
+    expect([...a.store.values()].join('|')).not.toContain('mat-khau-dai');
+
+    // đăng nhập: sai tên hoặc sai mật khẩu đều báo cùng một câu
+    expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'sai-mat-khau' }).error).toMatch(/không đúng/);
+    expect(a.post({ action: 'adminLogin', username: 'nguoikhac', password: 'mat-khau-dai' }).error).toMatch(/không đúng/);
+    const t = a.post({ action: 'adminLogin', username: 'adminquantri', password: 'mat-khau-dai' }).data.token;
+    expect(a.post({ action: 'adminList', admin_token: t }).ok).toBe(true);
+    expect(a.post({ action: 'adminList', admin_token: 'gia-mao' }).error).toMatch(/hết hạn/);
+    expect(a.post({ action: 'adminList', admin_token: first.data.token }).ok).toBe(false); // đăng nhập mới thay phiên cũ
+
+    // đổi mật khẩu, đăng xuất
+    expect(a.post({ action: 'adminChangePassword', admin_token: t, password: 'sai', new_password: 'mat-khau-moi-1' }).error).toMatch(/hiện tại/);
+    expect(a.post({ action: 'adminChangePassword', admin_token: t, password: 'mat-khau-dai', new_password: 'mat-khau-moi-1' }).data.changed).toBe(true);
+    a.post({ action: 'adminLogout', admin_token: t });
+    expect(a.post({ action: 'adminList', admin_token: t }).ok).toBe(false);
+    expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'mat-khau-dai' }).ok).toBe(false);
+    expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'mat-khau-moi-1' }).ok).toBe(true);
+
+    // sai quá 8 lần thì tạm khóa, kể cả khi sau đó nhập đúng; ADMIN_KEY vẫn đặt lại được
+    for (let i = 0; i < 8; i++) a.post({ action: 'adminLogin', username: 'adminquantri', password: 'sai-' + i });
+    expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'mat-khau-moi-1' }).error).toMatch(/quá nhiều lần/);
+    expect(a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'adminquantri', password: 'dat-lai-bang-khoa' }).ok).toBe(true);
+    expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'dat-lai-bang-khoa' }).ok).toBe(true);
+  });
 });

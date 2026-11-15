@@ -5,12 +5,12 @@ import { Brand } from '../App';
 import { AppFooter } from '../components/AppFooter';
 
 const FEATURES = [
-  { ic: Shapes, t: '7 dạng câu hỏi', d: 'Một/nhiều đáp án, Đúng/Sai, điền khuyết, kéo thả, sắp xếp, nối cột.' },
+  { ic: Shapes, t: '7 dạng câu hỏi', d: 'Một/nhiều đáp án, Đúng/Sai, điền chỗ trống, sắp xếp, nối cột, trả lời miệng.' },
   { ic: Mic, t: 'Soạn bằng giọng nói', d: 'Nói để nhập câu hỏi và từng đáp án; Ctrl+V dán ảnh chụp màn hình.' },
   { ic: Sparkles, t: 'AI sinh đề', d: 'Từ giáo án Word/PDF: sinh câu hỏi mới hoặc số hóa nguyên văn đề có sẵn.' },
   { ic: Cloud, t: 'Lưu trên Google Drive', d: 'Miễn phí, dữ liệu là tệp .json của chính thầy cô.' },
   { ic: MonitorSmartphone, t: 'Web + bản cài .exe', d: 'Dùng chung một kho dữ liệu trên mọi thiết bị.' },
-  { ic: FileText, t: 'Báo cáo Excel', d: 'Bục vinh danh Top 3, phân tích từng câu, xuất CSV.' },
+  { ic: FileText, t: 'Báo cáo Excel', d: 'Bục vinh danh, thống kê từng câu và từng lớp, xuất Excel và PDF.' },
 ];
 
 export function Home() {
@@ -41,7 +41,7 @@ export function Home() {
               <span className="btn success icon" aria-hidden style={{ flex: 'none', pointerEvents: 'none' }}><Gamepad2 size={22} /></span>
               <span className="grow">
                 <b style={{ display: 'block' }}>Chơi thử tất cả dạng câu hỏi</b>
-                <span className="muted small">8 câu mẫu, đủ 7 dạng. Không cần đăng nhập, bấm là chơi ngay.</span>
+                <span className="muted small">Đủ các dạng câu hỏi. Không cần đăng nhập, bấm là chơi ngay.</span>
               </span>
               <ArrowRight size={20} aria-hidden />
             </Link>

@@ -141,7 +141,33 @@ export async function changePassword(password: string, newPassword: string): Pro
 // ---------- quản trị ----------
 export const getAdminKey = () => sessionStorage.getItem(ADMIN_KEY) || '';
 export const setAdminKey = (k: string) => (k ? sessionStorage.setItem(ADMIN_KEY, k) : sessionStorage.removeItem(ADMIN_KEY));
-const adminCall = <T>(action: string, params: Record<string, unknown> = {}) => call<T>(action, { admin_key: getAdminKey(), ...params });
+// Phiên đăng nhập của quản trị (tên tài khoản + mật khẩu): chỉ giữ tới khi đóng thẻ trình duyệt
+const ADMIN_TOKEN = 'quickplay.adminToken';
+const ADMIN_USER = 'quickplay.adminUser';
+export const DEFAULT_ADMIN_USER = 'adminquantri';
+export const adminSignedIn = () => !!sessionStorage.getItem(ADMIN_TOKEN) || !!getAdminKey();
+export const adminUser = () => sessionStorage.getItem(ADMIN_USER) || '';
+function keepAdmin(r: { username: string; token: string }) {
+  sessionStorage.setItem(ADMIN_TOKEN, r.token);
+  sessionStorage.setItem(ADMIN_USER, r.username);
+  sessionStorage.removeItem(ADMIN_KEY); // đã có phiên đăng nhập thì không giữ khóa ADMIN_KEY trong trình duyệt nữa
+}
+const adminCall = <T>(action: string, params: Record<string, unknown> = {}) =>
+  call<T>(action, { admin_token: sessionStorage.getItem(ADMIN_TOKEN) || undefined, admin_key: getAdminKey() || undefined, ...params });
+export const adminAuth = {
+  /** Máy chủ đã có tài khoản quản trị chưa */
+  status: () => call<{ has_admin: boolean }>('adminStatus'),
+  /** Thiết lập lần đầu hoặc đặt lại mật khẩu quản trị (cần ADMIN_KEY) */
+  init: async (adminKey: string, username: string, password: string) => keepAdmin(await call<{ username: string; token: string }>('adminInit', { admin_key: adminKey.trim(), username, password })),
+  login: async (username: string, password: string) => keepAdmin(await call<{ username: string; token: string }>('adminLogin', { username, password })),
+  changePassword: (password: string, new_password: string) => adminCall<{ changed: boolean }>('adminChangePassword', { password, new_password }),
+  logout: async () => {
+    try { await adminCall('adminLogout'); } catch { /* máy chủ không tới được: vẫn xóa phiên trên máy */ }
+    sessionStorage.removeItem(ADMIN_TOKEN);
+    sessionStorage.removeItem(ADMIN_USER);
+    sessionStorage.removeItem(ADMIN_KEY);
+  },
+};
 export const adminApi = {
   list: () => adminCall<AccountRow[]>('adminList'),
   create: (username: string, name: string, password: string) => adminCall<AccountRow>('adminCreate', { username, name, password }),

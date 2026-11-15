@@ -5,8 +5,15 @@ import './styles.css';
 
 // Đường dẫn ngắn dễ nhớ: /giao-vien và /hoc-sinh(?pin=123456) → chuyển sang trang tương ứng trong ứng dụng.
 const SHORT_LINKS: Record<string, string> = {
+  // Giáo viên
+  '/teacher': '/teacher',
   '/giao-vien': '/teacher',
   '/giaovien': '/teacher',
+  // Quản trị cao nhất của toàn hệ thống (cấp, khóa tài khoản giáo viên)
+  '/adminquantri': '/admin',
+  // Học sinh tham gia trò chơi
+  '/join': '/join',
+  '/jon': '/join',
   '/hoc-sinh': '/join',
   '/hocsinh': '/join',
   '/quet': '/scan', // máy quét thẻ giấy trên điện thoại (mở từ mã QR trên màn chiếu)

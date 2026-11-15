@@ -1,8 +1,8 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { KeyRound, Lock, LockOpen, Plus, RefreshCw, Trash2, UserPlus } from 'lucide-react';
-import { adminApi, adminUrl, getAdminKey, setAdminKey, setAdminUrl, type AccountRow } from '../lib/account';
+import { KeyRound, Lock, LockOpen, LogIn, LogOut, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminSignedIn, adminUrl, adminUser, setAdminUrl, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Field, Modal, useToast, askConfirm } from '../components/ui';
@@ -16,29 +16,81 @@ const randomPassword = () => {
 export default function Admin() {
   const toast = useToast();
   const [url, setUrl] = useState(adminUrl());
-  const [key, setKey] = useState(getAdminKey());
   const [rows, setRows] = useState<AccountRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [add, setAdd] = useState<null | { username: string; name: string; password: string }>(null);
   const [issued, setIssued] = useState<null | { username: string; password: string }>(null);
+  // Bước đăng nhập của quản trị: chưa có địa chỉ máy chủ → 'server'; máy chủ chưa có tài khoản quản trị → 'init';
+  // đã có → 'login'; đăng nhập xong → 'in'
+  const [step, setStep] = useState<'server' | 'checking' | 'init' | 'login' | 'in'>(adminUrl() ? 'checking' : 'server');
+  const [form, setForm] = useState({ key: '', username: DEFAULT_ADMIN_USER, password: '', again: '' });
+  const [pw, setPw] = useState<null | { password: string; next: string; again: string }>(null);
 
   const load = useCallback(async () => {
     setBusy(true);
     try {
       setRows(await adminApi.list());
+      setStep('in');
     } catch (e) {
       toast((e as Error).message, 'error');
       setRows(null);
+      setStep('login'); // phiên hết hạn: đăng nhập lại
     } finally {
       setBusy(false);
     }
   }, [toast]);
 
-  const connect = async () => {
+  const check = useCallback(async () => {
+    setStep('checking');
+    try {
+      const st = await adminAuth.status();
+      if (!st.has_admin) setStep('init');
+      else if (adminSignedIn()) await load();
+      else setStep('login');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+      setStep('server');
+    }
+  }, [load, toast]);
+  useEffect(() => {
+    if (adminUrl()) check();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveServer = async () => {
     if (!/^https?:\/\//.test(url.trim())) return toast('Hãy dán địa chỉ Web App của máy chủ tài khoản.', 'error');
     setAdminUrl(url);
-    setAdminKey(key.trim());
-    await load();
+    await check();
+  };
+  const submit = async (kind: 'init' | 'login') => {
+    if (kind === 'init' && form.password !== form.again) return toast('Hai lần nhập mật khẩu chưa giống nhau.', 'error');
+    setBusy(true);
+    try {
+      if (kind === 'init') await adminAuth.init(form.key, form.username, form.password);
+      else await adminAuth.login(form.username, form.password);
+      setForm({ key: '', username: form.username, password: '', again: '' });
+      toast(kind === 'init' ? 'Đã thiết lập tài khoản quản trị.' : 'Đăng nhập quản trị thành công.', 'ok');
+      await load();
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const signOut = async () => {
+    await adminAuth.logout();
+    setRows(null);
+    setStep('login');
+  };
+  const changePw = async () => {
+    if (!pw) return;
+    if (pw.next !== pw.again) return toast('Hai lần nhập mật khẩu mới chưa giống nhau.', 'error');
+    try {
+      await adminAuth.changePassword(pw.password, pw.next);
+      setPw(null);
+      toast('Đã đổi mật khẩu quản trị.', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   };
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     try {
@@ -70,24 +122,62 @@ export default function Admin() {
     <div className="page stack" style={{ gap: 18, maxWidth: 980 }}>
       <div className="row between">
         <Link to="/" aria-label="Quickplay – Trang chủ"><Wordmark /></Link>
-        <span className="badge blue">Quản trị tài khoản giáo viên</span>
+        <span className="badge blue">Quản trị toàn hệ thống</span>
       </div>
 
-      <section className="card stack">
-        <h2 style={{ margin: 0 }}>Kết nối máy chủ tài khoản</h2>
-        <Field label="Địa chỉ Web App của máy chủ tài khoản" help="Lấy sau khi triển khai apps-script-admin/Code.gs. Khi đưa lên Vercel, đặt địa chỉ này vào biến VITE_ADMIN_URL để mọi giáo viên đều phải đăng nhập.">
-          <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" />
-        </Field>
-        <Field label="Khóa quản trị (ADMIN_KEY)" help="In ra khi chạy hàm setup() của máy chủ tài khoản. Khóa chỉ được nhớ đến khi đóng tab này.">
-          <input className="input" type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" />
-        </Field>
-        <div className="row">
-          <button className="btn primary" onClick={connect} disabled={busy}><KeyRound size={18} /> Kết nối và xem danh sách</button>
-          {adminUrl() && <button className="btn ghost" onClick={async () => { if (await askConfirm('Bỏ địa chỉ máy chủ tài khoản khỏi trình duyệt này?')) { setAdminUrl(''); setAdminKey(''); setUrl(''); setKey(''); setRows(null); } }}>Bỏ kết nối trên máy này</button>}
-        </div>
-      </section>
+      {step === 'server' && (
+        <section className="card stack">
+          <h2 style={{ margin: 0 }}>Kết nối máy chủ tài khoản</h2>
+          <Field label="Địa chỉ Web App của máy chủ tài khoản" help="Lấy sau khi triển khai apps-script-admin/Code.gs. Khi đưa lên Vercel, đặt địa chỉ này vào biến VITE_ADMIN_URL thì không phải dán ở đây nữa và mọi giáo viên đều phải đăng nhập.">
+            <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" />
+          </Field>
+          <div className="row"><button className="btn primary" onClick={saveServer}><KeyRound size={18} /> Kết nối</button></div>
+        </section>
+      )}
+      {step === 'checking' && <section className="card"><p className="muted" style={{ margin: 0 }}>Đang kết nối máy chủ tài khoản…</p></section>}
 
-      {rows && (
+      {(step === 'init' || step === 'login') && (
+        <form className="card stack" style={{ maxWidth: 520, width: '100%', margin: '0 auto' }} onSubmit={(e) => { e.preventDefault(); submit(step); }}>
+          <h2 className="row" style={{ margin: 0, gap: 8 }}><ShieldCheck size={24} color="var(--primary)" /> {step === 'init' ? 'Thiết lập tài khoản quản trị' : 'Đăng nhập quản trị'}</h2>
+          {step === 'init' && (
+            <>
+              <p className="muted" style={{ margin: 0 }}>Làm một lần. Mật khẩu do quản trị tự đặt ở đây và chỉ được lưu trên máy chủ dưới dạng đã băm, không nằm trong mã nguồn phần mềm.</p>
+              <Field label="Khóa quản trị (ADMIN_KEY)" help="In ra trong Nhật ký thực thi khi chạy hàm setup() của máy chủ tài khoản. Chỉ cần ở bước này và khi quên mật khẩu.">
+                <input className="input" type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} autoComplete="off" required />
+              </Field>
+            </>
+          )}
+          <Field label="Tên tài khoản quản trị">
+            <input className="input" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoCapitalize="none" spellCheck={false} autoComplete="username" required />
+          </Field>
+          <Field label="Mật khẩu" help={step === 'init' ? 'Từ 8 đến 72 ký tự.' : undefined}>
+            <input className="input" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete={step === 'init' ? 'new-password' : 'current-password'} required />
+          </Field>
+          {step === 'init' && (
+            <Field label="Nhập lại mật khẩu">
+              <input className="input" type="password" value={form.again} onChange={(e) => setForm({ ...form, again: e.target.value })} autoComplete="new-password" required />
+            </Field>
+          )}
+          <div className="row">
+            <button className="btn primary" type="submit" disabled={busy}>{step === 'init' ? <><ShieldCheck size={18} /> Lưu tài khoản quản trị</> : <><LogIn size={18} /> Đăng nhập</>}</button>
+            {step === 'login' && <button type="button" className="btn ghost" onClick={() => setStep('init')}>Quên mật khẩu? Đặt lại bằng ADMIN_KEY</button>}
+            {step === 'init' && <button type="button" className="btn ghost" onClick={check}>Quay lại đăng nhập</button>}
+          </div>
+          <small className="muted">Máy chủ: {adminUrl().replace(/^https?:\/\//, '').slice(0, 44)}… <button type="button" className="btn sm ghost" onClick={async () => { if (await askConfirm('Bỏ địa chỉ máy chủ tài khoản khỏi trình duyệt này?')) { setAdminUrl(''); setUrl(''); setStep('server'); } }}>Đổi máy chủ</button></small>
+        </form>
+      )}
+
+      {step === 'in' && (
+        <div className="row between">
+          <span className="badge green"><ShieldCheck size={14} /> Đang đăng nhập: {adminUser() || 'quản trị'}</span>
+          <div className="row">
+            <button className="btn sm" onClick={() => setPw({ password: '', next: '', again: '' })}><KeyRound size={16} /> Đổi mật khẩu quản trị</button>
+            <button className="btn sm ghost" onClick={signOut}><LogOut size={16} /> Đăng xuất</button>
+          </div>
+        </div>
+      )}
+
+      {step === 'in' && rows && (
         <section className="card stack">
           <div className="row between">
             <h2 style={{ margin: 0 }}>Tài khoản giáo viên ({rows.length})</h2>
@@ -141,6 +231,15 @@ export default function Admin() {
                 <button type="button" className="btn" onClick={() => setAdd({ ...add, password: randomPassword() })}>Tạo ngẫu nhiên</button>
               </div>
             </Field>
+          </div>
+        </Modal>
+      )}
+      {pw && (
+        <Modal title="Đổi mật khẩu quản trị" onClose={() => setPw(null)} footer={<button className="btn primary" onClick={changePw}>Lưu mật khẩu mới</button>}>
+          <div className="stack">
+            <Field label="Mật khẩu hiện tại"><input className="input" type="password" value={pw.password} onChange={(e) => setPw({ ...pw, password: e.target.value })} autoComplete="current-password" /></Field>
+            <Field label="Mật khẩu mới" help="Từ 8 đến 72 ký tự."><input className="input" type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" /></Field>
+            <Field label="Nhập lại mật khẩu mới"><input className="input" type="password" value={pw.again} onChange={(e) => setPw({ ...pw, again: e.target.value })} autoComplete="new-password" /></Field>
           </div>
         </Modal>
       )}

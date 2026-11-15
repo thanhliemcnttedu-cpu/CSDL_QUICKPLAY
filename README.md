@@ -29,9 +29,9 @@ Hai đường dẫn chạy thử:
 
 | Vai trò | Đường dẫn |
 |---|---|
-| Giáo viên (soạn đề, tổ chức, giám sát) | http://localhost:5180/giao-vien |
-| Học sinh (nhập mã PIN) | http://localhost:5180/hoc-sinh |
-| Học sinh vào thẳng phòng | http://localhost:5180/hoc-sinh?pin=123456 |
+| Giáo viên (soạn đề, tổ chức, giám sát) | http://localhost:5180/teacher |
+| Học sinh (nhập mã PIN) | http://localhost:5180/join |
+| Học sinh vào thẳng phòng | http://localhost:5180/join?pin=123456 |
 
 Ở chế độ "Chỉ máy này", học sinh mở link ở một tab/cửa sổ khác **của cùng trình duyệt**. Muốn thử bằng
 trình duyệt khác hoặc điện thoại thì cần kết nối Google Drive.
@@ -81,7 +81,7 @@ xóa bộ đề: các bộ đề bên trong trở về "Chưa phân loại". Nú
 ## Tài khoản giáo viên (do quản trị cấp)
 
 - Quản trị cài **máy chủ tài khoản** một lần (`apps-script-admin/`, xem `apps-script-admin/HUONG_DAN_QUAN_TRI.md`), đặt `VITE_ADMIN_URL` trên Vercel
-  và cấp tài khoản ở trang `/#/admin`. Khi có biến này, khu giáo viên bắt buộc đăng nhập; học sinh không cần tài khoản.
+  và cấp tài khoản ở trang `/adminquantri`. Khi có biến này, khu giáo viên bắt buộc đăng nhập; học sinh không cần tài khoản.
 - Mỗi giáo viên tự cài Apps Script riêng **một lần**, rồi dán link thư mục Drive + link Apps Script + khóa giáo viên trong Cài đặt. Cấu hình được
   mã hóa bằng mật khẩu của giáo viên và cất theo tài khoản, nên đăng nhập ở máy nào phần mềm cũng tự nhớ. Đăng xuất thì phải đăng nhập lại.
 - Dữ liệu (bộ câu hỏi, kết quả) nằm hoàn toàn trong Drive của từng giáo viên; máy chủ tài khoản không lưu và quản trị không xem được.

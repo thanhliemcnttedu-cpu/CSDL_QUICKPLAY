@@ -21,11 +21,27 @@ VITE_ADMIN_URL = <địa chỉ /exec ở bước 1>
 rồi triển khai lại. Từ đó, khu giáo viên của trang web yêu cầu đăng nhập. Học sinh vào phòng chơi không cần tài khoản.
 Nếu không đặt biến này, phần mềm chạy ở chế độ dùng thử: không cần đăng nhập.
 
-## 3. Cấp tài khoản cho giáo viên
+## 3. Đăng nhập quản trị và cấp tài khoản cho giáo viên
 
-1. Mở `<địa chỉ trang web>/#/admin`.
-2. Dán địa chỉ máy chủ tài khoản và `ADMIN_KEY` → **Kết nối và xem danh sách**.
-3. **Cấp tài khoản**: nhập tên tài khoản, họ tên, mật khẩu ban đầu → gửi cho giáo viên (nút *Chép để gửi*).
+Ba địa chỉ theo vai trò:
+
+| Vai trò | Địa chỉ |
+|---|---|
+| Quản trị cao nhất của toàn hệ thống | `<địa chỉ trang web>/adminquantri` |
+| Giáo viên | `<địa chỉ trang web>/teacher` |
+| Học sinh tham gia | `<địa chỉ trang web>/join` (gõ `/jon` cũng vào được) |
+
+**Lần đầu (một lần):** mở `/adminquantri`. Nếu chưa đặt biến `VITE_ADMIN_URL` thì dán địa chỉ `/exec` của máy chủ tài khoản.
+Trang hiện mục **Thiết lập tài khoản quản trị**: nhập `ADMIN_KEY`, tên tài khoản (mặc định `adminquantri`) và mật khẩu do quản trị tự đặt
+(8–72 ký tự) → **Lưu tài khoản quản trị**.
+
+**Từ lần sau:** mở `/adminquantri`, nhập tên tài khoản và mật khẩu → **Đăng nhập**. Phiên đăng nhập hết hạn sau 12 giờ hoặc khi đóng thẻ.
+
+> Mật khẩu quản trị **không nằm trong mã nguồn** (mã của trang web ai cũng đọc được). Máy chủ chỉ lưu bản băm có muối.
+> Quên mật khẩu: bấm **Quên mật khẩu? Đặt lại bằng ADMIN_KEY**. Nhập sai quá 8 lần thì bị tạm khóa 15 phút.
+> Đổi mật khẩu: nút **Đổi mật khẩu quản trị** sau khi đăng nhập.
+
+**Cấp tài khoản**: bấm **Cấp tài khoản**, nhập tên tài khoản, họ tên, mật khẩu ban đầu → gửi cho giáo viên (nút *Chép để gửi*).
 
 Tại đây quản trị cũng **khóa / mở khóa**, **đặt lại mật khẩu** và **xóa** tài khoản. Khóa tài khoản làm giáo viên bị đăng xuất ở mọi thiết bị.
 
