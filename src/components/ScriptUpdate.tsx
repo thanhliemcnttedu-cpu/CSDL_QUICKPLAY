@@ -1,7 +1,7 @@
 // Giao diện tự cập nhật Apps Script của giáo viên: thông báo ở khung giáo viên + khối trạng thái trong Cài đặt.
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { CheckCircle2, Copy, ExternalLink, RefreshCw, TriangleAlert, X, Zap } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { CheckCircle2, Copy, ExternalLink, RefreshCw, TriangleAlert, X } from 'lucide-react';
 import { API_SETTINGS_URL, autoUpdateScript, checkSelfUpdateReady, scriptUpdateStatus, type UpdateStatus } from '../lib/scriptUpdate';
 import { SCRIPT_VERSION } from '../lib/installer';
 import { loadSettings } from '../lib/settings';
@@ -47,7 +47,9 @@ export function ScriptUpdateNotice() {
       }
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  if (hide || loadSettings().backend !== 'drive' || !st || !['old', 'api_off', 'scopes', 'manual'].includes(st.state)) return null;
+  // Ở trang Cài đặt đã có sẵn hộp cập nhật, không nhắc hai lần
+  const onSettings = useLocation().pathname.startsWith('/teacher/settings');
+  if (hide || onSettings || loadSettings().backend !== 'drive' || !st || !['old', 'api_off', 'scopes', 'manual'].includes(st.state)) return null;
   const text = st.state === 'api_off'
     ? <>Apps Script của thầy cô chưa tự cập nhật được vì <b>chưa bật Google Apps Script API</b> (bật một lần, mất 10 giây).</>
     : st.state === 'old'
@@ -70,9 +72,6 @@ export function ScriptUpdatePanel() {
   const copyManifest = useCopyManifest();
   const [busy, setBusy] = useState('');
   const [ready, setReady] = useState<{ ready: boolean; message?: string } | null>(st?.ready ? { ready: true } : null);
-  useEffect(() => {
-    if (location.hash.includes('tu-cap-nhat')) setTimeout(() => document.getElementById('tu-cap-nhat')?.scrollIntoView({ behavior: 'smooth' }), 300);
-  }, []);
   const check = async () => {
     setBusy('check');
     const r = await checkSelfUpdateReady();
@@ -80,22 +79,11 @@ export function ScriptUpdatePanel() {
     setBusy('');
     toast(r.ready ? 'Apps Script đã sẵn sàng tự cập nhật.' : r.message ?? 'Chưa sẵn sàng tự cập nhật.', r.ready ? 'ok' : 'error');
   };
-  const now = async () => {
-    setBusy('update');
-    const r = await autoUpdateScript(true);
-    setBusy('');
-    if (!r) return;
-    if (r.state === 'updated') toast(`Đã cập nhật Apps Script lên ${r.to}.`, 'ok');
-    else if (r.state === 'current') toast(`Apps Script đang chạy bản mới nhất (${r.server}).`, 'ok');
-    else toast(r.message ?? 'Chưa cập nhật được.', 'error');
-  };
   const ok = ready?.ready || st?.state === 'updated';
   return (
-    <div className="folder-box" id="tu-cap-nhat">
-      <b className="row" style={{ gap: 8 }}><Zap size={20} color="var(--primary)" /> Tự cập nhật Apps Script</b>
+    <div className="folder-box">
       <p className="muted" style={{ margin: 0 }}>
-        Khi Quickplay có bản mới, Apps Script của thầy cô <b>tự tải mã mới và tự cập nhật</b> (giữ nguyên link, khóa và dữ liệu), không phải dán lại mã.
-        Không cập nhật khi đang có buổi học trực tiếp. Cần hai điều kiện, mỗi điều làm <b>một lần</b>:
+        Khi Quickplay có bản mới, Apps Script của thầy cô <b>tự cập nhật</b> (giữ nguyên link, khóa và dữ liệu). Cần hai điều kiện, mỗi điều làm <b>một lần</b>:
       </p>
       <ol className="move-steps">
         <li>
@@ -112,14 +100,13 @@ export function ScriptUpdatePanel() {
       <div className={`snap-card ${ok ? 'ok' : st && ['api_off', 'scopes', 'manual', 'old', 'error'].includes(st.state) ? 'bad' : ''}`}>
         <small>Trạng thái</small>
         {ok ? <span><CheckCircle2 size={16} /> Sẵn sàng tự cập nhật{st?.server ? ` · đang chạy ${st.server}` : ''}{st?.state === 'updated' && st.from ? ` (vừa cập nhật từ ${st.from})` : ''}</span>
-          : st?.state === 'current' ? <span>Đang chạy bản mới nhất {st.server}. Bấm "Kiểm tra điều kiện" để chắc lần sau tự cập nhật được.</span>
+          : st?.state === 'current' ? <span>Đang chạy bản mới nhất {st.server}. Bấm "Kiểm tra" để biết lần sau có tự cập nhật được không.</span>
           : st?.message || ready?.message ? <span><TriangleAlert size={16} /> {ready?.message ?? st?.message}</span>
           : st?.state === 'old' ? <span><TriangleAlert size={16} /> Bản {st.server} chưa có chức năng tự cập nhật: cập nhật tay một lần bằng Trình cài đặt (thẻ Cập nhật bản mới).</span>
           : <span>Chưa kiểm tra</span>}
       </div>
       <div className="row">
-        <button className="btn" onClick={check} disabled={!!busy}><RefreshCw size={16} /> {busy === 'check' ? 'Đang kiểm tra…' : 'Kiểm tra điều kiện'}</button>
-        <button className="btn primary" onClick={now} disabled={!!busy}><Zap size={16} /> {busy === 'update' ? 'Đang cập nhật…' : 'Cập nhật ngay'}</button>
+        <button className="btn" onClick={check} disabled={!!busy}><RefreshCw size={16} /> {busy === 'check' ? 'Đang kiểm tra…' : 'Kiểm tra'}</button>
       </div>
     </div>
   );
