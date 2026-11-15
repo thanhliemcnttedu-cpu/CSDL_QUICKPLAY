@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
-import { ArrowRight, BellRing, ChartColumn, Download, Eye, EyeOff, Home, QrCode, Square } from 'lucide-react';
+import { ArrowRight, BellRing, ChartColumn, Download, Home, QrCode, Square } from 'lucide-react';
 import type { Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperOp } from '../lib/paper';
@@ -13,6 +13,7 @@ import { StemMedia } from '../components/MediaView';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Spinner, useToast, askConfirm } from '../components/ui';
+import { sfx } from '../lib/sound';
 import { LiveReport } from '../components/LiveReport';
 import '../paper.css';
 
@@ -44,9 +45,16 @@ export default function PaperHost() {
     for (const a of s.answers) if (a.q_index === s.current_index) next.set(a.player_id, a.at);
     known.current = next;
   }, [s]);
-  // Hiện đúng/sai ngay khi quét (mặc định). Tắt đi khi thầy cô muốn giữ bí mật đáp án tới lúc bấm "Hiện kết quả".
-  const [live, setLive] = useState(() => { try { return localStorage.getItem('quickplay.paperLive') !== '0'; } catch { return true; } });
-  const toggleLive = () => setLive((v) => { try { localStorage.setItem('quickplay.paperLive', v ? '0' : '1'); } catch { /* bỏ qua */ } return !v; });
+  // Đang quét: màn chiếu chỉ cho biết em nào ĐÃ ĐƯỢC QUÉT, không lộ đáp án đúng và không lộ ai đúng ai sai.
+  // Giáo viên bấm Nộp trên điện thoại (hoặc "Hiện kết quả" ở đây) thì mới hiện đáp án, tô xanh/đỏ và phát nhạc chúc mừng.
+  const wasReveal = useRef<{ q: number; on: boolean } | null>(null);
+  useEffect(() => {
+    if (!s?.paper || s.state !== 'IN_PROGRESS') return;
+    const now = { q: s.current_index, on: !!s.paper.reveal };
+    const prev = wasReveal.current;
+    wasReveal.current = now;
+    if (prev && prev.q === now.q && !prev.on && now.on) sfx.cheer(); // vừa hiện kết quả của câu này
+  }, [s]);
 
   const refresh = useCallback(async () => {
     try {
@@ -198,12 +206,12 @@ export default function PaperHost() {
   const byPlayer = new Map(answers.map((a) => [a.player_id, a]));
   const done = answers.length;
   const total = s.players.length;
-  const reveal = !!s.paper.reveal || (total > 0 && done >= total);
+  const reveal = !!s.paper.reveal;
   const waiting = s.players.filter((p) => !byPlayer.has(p.player_id));
   const counts = q.options.map((_, i) => answers.filter((a) => choiceOf(a) === i).length);
   const max = Math.max(1, ...counts);
   const last = s.current_index >= s.question_count - 1;
-  const showMark = reveal || live; // tô xanh / đỏ trên ô tên học sinh
+  const showMark = reveal; // chỉ tô xanh / đỏ trên ô tên học sinh sau khi hiện kết quả
   const nRight = answers.filter((a) => a.correct).length;
   // Em vừa được quét (hoặc vừa xoay sang đáp án khác) so với lần cập nhật trước trên máy chiếu → ô tên nháy sáng
   const isFresh = (pid: string, at: number) => known.current.size > 0 && known.current.get(pid) !== at;
@@ -216,10 +224,9 @@ export default function PaperHost() {
         <span className="pp-count">Đã quét <b>{done}</b>/{total} thẻ</span>
         {showMark && done > 0 && <span className="pp-count ok">Đúng <b>{nRight}</b> · Sai <b>{done - nRight}</b></span>}
         <span className="grow" />
-        <button className="btn ghost" onClick={toggleLive} aria-pressed={live} title="Tô xanh/đỏ tên học sinh ngay khi quét, hay giấu tới lúc bấm Hiện kết quả">{live ? <Eye size={18} /> : <EyeOff size={18} />} {live ? 'Đang hiện đúng/sai' : 'Đang giấu đúng/sai'}</button>
         <button className="btn ghost" onClick={() => setShowQr((v) => !v)}><QrCode size={18} /> Mã QR</button>
         <button className={`btn ${s.paper.remind ? 'accent' : 'ghost'}`} onClick={() => act('remind')} disabled={!waiting.length}><BellRing size={18} /> Nhắc</button>
-        <button className="btn ghost" onClick={() => act('reveal')} disabled={total > 0 && done >= total}><ChartColumn size={18} /> {s.paper.reveal ? 'Ẩn kết quả' : 'Hiện kết quả'}</button>
+        <button className="btn ghost" onClick={() => act('reveal')}><ChartColumn size={18} /> {s.paper.reveal ? 'Ẩn kết quả' : 'Hiện kết quả'}</button>
         <button className="btn primary" onClick={() => act('next')}>{last ? 'Xem tổng kết' : 'Câu tiếp'} <ArrowRight size={18} /></button>
         <button className="btn danger" onClick={async () => (await askConfirm('Kết thúc buổi học và xem bảng tổng kết?')) && act('end')}><Square size={16} /> Kết thúc</button>
       </div>
@@ -250,8 +257,7 @@ export default function PaperHost() {
             <div className="alert warn" role="status"><div><b>Các em chưa giơ thẻ:</b> {waiting.map((p) => `${cardOf(p.player_id)}. ${p.name}`).join(' · ')}</div></div>
           )}
           {reveal ? <div className="ok-strip">Đã hiện kết quả: xanh là đúng, đỏ là sai. Đúng {nRight}/{done} em.</div>
-            : live ? <p className="muted small" style={{ margin: 0 }}>Em nào vừa được quét sẽ sáng lên: <b style={{ color: '#0b6a33' }}>xanh là đúng</b>, <b style={{ color: '#9b1c1c' }}>đỏ là sai</b>.</p>
-            : <p className="muted small" style={{ margin: 0 }}>Ô xanh dương: em đã được quét (đang giấu đúng/sai).</p>}
+            : <p className="muted small" style={{ margin: 0 }}>Ô xanh dương: em đã được quét. Đáp án đúng và kết quả từng em sẽ hiện khi thầy cô bấm <b>Nộp</b> trên điện thoại.</p>}
           <div className="pp-grid" aria-label="Trạng thái thẻ của từng học sinh">
             {s.players.map((p) => {
               const a = byPlayer.get(p.player_id);

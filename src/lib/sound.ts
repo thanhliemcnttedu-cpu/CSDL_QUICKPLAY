@@ -77,6 +77,12 @@ export const sfx = {
     [523, 523, 523, 659, 784].forEach((f, i) => tone(f, [0, 0.12, 0.24, 0.36, 0.52][i], i === 4 ? 0.5 : 0.11, 'triangle', 0.1));
     tone(1047, 0.52, 0.5, 'sine', 0.05);
   }),
+  /** Cả lớp trả lời xong, hiện kết quả: giai điệu chúc mừng vui nhộn (kèn đi lên + lấp lánh + nốt kết) */
+  cheer: play(() => {
+    [392, 523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.11, i === 6 ? 0.55 : 0.13, 'triangle', 0.11));
+    [1319, 1568, 2093, 1568, 2093].forEach((f, i) => tone(f, 0.8 + i * 0.07, 0.14, 'sine', 0.06));
+    [523, 659, 784].forEach((f) => tone(f, 1.2, 0.7, 'sine', 0.05)); // hợp âm kết
+  }),
   /** Cảnh báo vi phạm: hai nốt báo động ngắn */
   warn: play(() => {
     tone(880, 0, 0.14, 'square', 0.05);
