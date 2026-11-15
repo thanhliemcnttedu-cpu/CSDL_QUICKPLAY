@@ -23,6 +23,10 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 Ở máy tính khác, bấm **Nạp tệp kết nối (.json)** ở đầu Trình cài đặt là nối lại ngay. Tệp của giáo viên có khóa giáo viên, hãy giữ kín.
 (Đăng nhập bằng tài khoản được cấp thì phần mềm cũng tự nhớ kết nối, tệp này là cách dự phòng.)
 
+**Tệp gộp tự lưu (từ bản 1.2.0):** mỗi khi thầy cô thêm, sửa, xóa bộ câu hỏi, môn học – chương – bài, lớp, hay tổ chức một buổi,
+Apps Script ghi một tệp `.json` duy nhất vào thư mục lưu trữ, tên theo tên đăng nhập và thời điểm lưu, ví dụ `035091005725_15_11_2026_12h45.json`.
+Tệp gộp cũ của cùng tài khoản được chuyển vào Thùng rác. Nếu đã chọn thư mục trên máy tính (Cài đặt → Sao lưu và khôi phục), tệp này cũng được ghi vào đó.
+
 Khi phần mềm báo "Apps Script đang chạy mã cũ": chọn thẻ **Cập nhật bản mới** trong Trình cài đặt và làm lại 5 bước; link và dữ liệu giữ nguyên.
 
 Phần dưới đây là cách cài **thủ công**, chỉ cần khi không dùng được Trình cài đặt.

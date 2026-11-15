@@ -73,3 +73,12 @@
 .ins-linked dt { font-size: 0.78rem; color: var(--muted-fg); font-weight: 700; }
 .ins-linked dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
 .ins-top .btn.sm { margin-left: auto; }
+
+/* Trạng thái tệp gộp ở hai nơi lưu */
+.snap-grid { width: 100%; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.snap-card { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--border); background: #fff; }
+.snap-card small { font-weight: 700; color: var(--muted-fg); }
+.snap-card span { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; overflow-wrap: anywhere; flex-wrap: wrap; }
+.snap-card.ok { border-color: #86d9a8; background: #f0fbf4; color: #0b6a33; }
+.snap-card.bad { border-color: #f0b740; background: var(--warn-bg); color: var(--warn-fg); }
+.snap-card.off { color: var(--muted-fg); }

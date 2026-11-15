@@ -2,13 +2,9 @@
 // Dùng File System Access API: chỉ có trên Chrome / Edge / Cốc Cốc cho máy tính và bản cài .exe. Trình duyệt chỉ cho ghi vào
 // đúng thư mục thầy cô đã chọn và sẽ hỏi lại quyền sau khi mở lại trình duyệt.
 //
-// Trong thư mục:
-//   bo-cau-hoi/<tên>__<mã>.json      mỗi bộ câu hỏi một tệp, tự ghi đè mỗi khi lưu
-//   lop-hoc/<tên>__<mã>.json         mỗi lớp một tệp
-//   danh-muc-mon-hoc.json            môn học – chương – bài
-//   quickplay-toan-bo.json           một tệp chứa tất cả (ghi khi bấm "Lưu toàn bộ"), dùng được để khôi phục
+// Trong thư mục chỉ có MỘT tệp gộp của tài khoản: <tên đăng nhập>_<ngày>_<tháng>_<năm>_<giờ>h<phút>.json
+// (xem autoSnapshot.ts). Tệp cũ hơn của cùng tài khoản bị xóa sau mỗi lần ghi.
 import { kvDel, kvGet, kvSet } from './idb';
-import type { BackupFile } from './backup';
 
 type Dir = FileSystemDirectoryHandle & {
   queryPermission?: (o: { mode: 'readwrite' }) => Promise<PermissionState>;
@@ -98,21 +94,7 @@ export function fileSlug(name: string): string {
     .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
   return s || 'khong-ten';
 }
-const fileFor = (title: string, id: string) => `${fileSlug(title)}__${fileSlug(id)}.json`;
 
-async function writeJson(dir: Dir, name: string, data: unknown) {
-  const f = await dir.getFileHandle(name, { create: true });
-  const w = await f.createWritable();
-  await w.write(JSON.stringify(data, null, 1));
-  await w.close();
-}
-/** Xóa các tệp cũ của cùng một mã (khi đổi tên bộ câu hỏi thì tên tệp đổi theo), trừ tệp `keep`. */
-async function removeById(dir: Dir, id: string, keep?: string) {
-  const tail = `__${fileSlug(id)}.json`;
-  const names: string[] = [];
-  if (dir.entries) for await (const [n] of dir.entries()) if (n.endsWith(tail) && n !== keep) names.push(n);
-  for (const n of names) await dir.removeEntry(n).catch(() => {});
-}
 
 // Các lần ghi nối đuôi nhau để không ghi chồng lên cùng một tệp
 let queue: Promise<void> = Promise.resolve();
@@ -135,56 +117,20 @@ function enqueue(job: (root: Dir) => Promise<void>): Promise<void> {
   return queue;
 }
 
-/** Gọi sau mỗi lần lưu / xóa thành công: ghi ngay tệp tương ứng vào thư mục đã chọn (nếu có và đang được phép). */
-export function mirrorChange(action: string, params: Record<string, any>, result: any): void {
-  if (!folderSupported() || !folderMeta()) return;
-  switch (action) {
-    case 'saveQuiz': {
-      const q = result?.id ? result : params.quiz;
-      if (!q?.id) return;
-      enqueue(async (root) => {
-        const dir = (await root.getDirectoryHandle('bo-cau-hoi', { create: true })) as Dir;
-        const name = fileFor(q.title ?? 'bo-cau-hoi', q.id);
-        await writeJson(dir, name, q);
-        await removeById(dir, q.id, name);
-      });
-      return;
-    }
-    case 'deleteQuiz':
-      enqueue(async (root) => removeById((await root.getDirectoryHandle('bo-cau-hoi', { create: true })) as Dir, String(params.id)));
-      return;
-    case 'saveCatalog':
-      enqueue((root) => writeJson(root, 'danh-muc-mon-hoc.json', result ?? params.catalog));
-      return;
-    case 'saveClass': {
-      const c = result?.id ? result : null;
-      if (!c) return;
-      enqueue(async (root) => {
-        const dir = (await root.getDirectoryHandle('lop-hoc', { create: true })) as Dir;
-        const name = fileFor(c.name ?? 'lop', c.id);
-        await writeJson(dir, name, c);
-        await removeById(dir, c.id, name);
-      });
-      return;
-    }
-    case 'deleteClass':
-      enqueue(async (root) => removeById((await root.getDirectoryHandle('lop-hoc', { create: true })) as Dir, String(params.id)));
-      return;
-  }
-}
-
-/** Ghi toàn bộ dữ liệu vào thư mục: một tệp tổng (khôi phục được) và từng tệp riêng. */
-export async function saveEverything(b: BackupFile): Promise<void> {
+/** Ghi tệp gộp `name` vào thư mục đã chọn và xóa các tệp gộp cũ của cùng tài khoản (chỉ giữ tệp mới nhất). */
+export async function writeSnapshotFile(name: string, text: string, owner: string): Promise<void> {
+  const { isSnapshotOf } = await import('./autoSnapshot');
   let failed = '';
   await enqueue(async (root) => {
-    await writeJson(root, FULL_FILE, b);
-    const quizzes = (await root.getDirectoryHandle('bo-cau-hoi', { create: true })) as Dir;
-    for (const q of b.quizzes) await writeJson(quizzes, fileFor(q.title, q.id), q);
-    const classes = (await root.getDirectoryHandle('lop-hoc', { create: true })) as Dir;
-    for (const c of b.classes) await writeJson(classes, fileFor(c.name, c.id), c);
-    if (b.catalog) await writeJson(root, 'danh-muc-mon-hoc.json', b.catalog);
+    const f = await root.getFileHandle(name, { create: true });
+    const w = await f.createWritable();
+    await w.write(text);
+    await w.close();
+    const old: string[] = [];
+    if (root.entries) for await (const [n] of root.entries()) if (n !== name && isSnapshotOf(n, owner)) old.push(n);
+    for (const n of old) await root.removeEntry(n).catch(() => {});
   });
   const m = folderMeta();
-  if (m?.error) failed = m.error === 'permission' ? 'Trình duyệt chưa cho phép ghi vào thư mục. Hãy bấm "Cho phép ghi lại".' : m.error;
+  if (m?.error) failed = m.error === 'permission' ? 'Trình duyệt chưa cho phép ghi vào thư mục trên máy. Hãy bấm "Cho phép ghi lại".' : m.error;
   if (failed) throw new Error(failed);
 }

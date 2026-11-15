@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION, buildLinkFile, parseLinkFile, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, randomKey } from './installer';
 import { parseBackup } from './backup';
 import { fileSlug } from './localFolder';
+import { isSnapshotOf, snapshotName, snapshotOwner, snapshotStamp } from './autoSnapshot';
 
 const teacherCode = readFileSync('apps-script/Code.gs', 'utf8');
 const adminCode = readFileSync('apps-script-admin/Code.gs', 'utf8');
@@ -84,5 +85,25 @@ describe('tệp kết nối', () => {
     expect(() => parseLinkFile('xyz', 'teacher')).toThrow(/không phải tệp .json/);
     expect(() => parseLinkFile(buildLinkFile({ role: 'teacher', key: 'k', ...base, script_url: 'https://example.com/exec' }), 'teacher')).toThrow(/không đúng dạng/);
     expect(() => parseLinkFile(JSON.stringify({ app: 'Quickplay', kind: 'connection', role: 'teacher', script_url: base.script_url, key: "a'; evil()" }), 'teacher')).toThrow(/ký tự không hợp lệ/);
+  });
+});
+
+describe('tên tệp gộp của giáo viên', () => {
+  it('đặt theo tên đăng nhập và thời điểm lưu', () => {
+    const stamp = snapshotStamp(new Date(2026, 10, 15, 12, 45));
+    expect(stamp).toBe('15_11_2026_12h45');
+    expect(snapshotName(snapshotOwner('035091005725'), stamp)).toBe('035091005725_15_11_2026_12h45.json');
+    expect(snapshotStamp(new Date(2026, 0, 5, 7, 3))).toBe('05_01_2026_07h03');
+  });
+  it('ký tự không dùng được trong tên tệp thành gạch nối; chưa đăng nhập thì là quickplay', () => {
+    expect(snapshotOwner('gv#02?th1')).toBe('gv-02-th1');
+    expect(snapshotOwner('lan.nguyen@th1')).toBe('lan.nguyen@th1');
+    expect(snapshotOwner(undefined)).toBe('quickplay');
+  });
+  it('chỉ nhận ra tệp gộp của đúng tài khoản', () => {
+    expect(isSnapshotOf('035091005725_15_11_2026_12h45.json', '035091005725')).toBe(true);
+    expect(isSnapshotOf('035091005725_15_11_2026_12h45.json', '0350910057')).toBe(false);
+    expect(isSnapshotOf('035091005725_ghi-chu.json', '035091005725')).toBe(false);
+    expect(isSnapshotOf('quickplay-toan-bo.json', 'quickplay')).toBe(false);
   });
 });

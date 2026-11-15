@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.1.0';
+var APP_VERSION = '1.2.0';
 
 // Trình cài đặt trong phần mềm Quickplay điền sẵn hai giá trị này khi thầy cô bấm "Sao chép mã",
 // nhờ đó không phải chạy hàm setup() hay tìm khóa trong nhật ký. Để trống nếu cài thủ công theo hướng dẫn.
@@ -145,6 +145,7 @@ function getRoutes_() {
     reportViolation: { teacher: false, fn: actReportViolation_ },
 
     setRootFolder: { teacher: true, fn: actSetRootFolder_ },
+    saveSnapshot: { teacher: true, fn: actSaveSnapshot_ },
     getCatalog: { teacher: true, fn: actGetCatalog_ },
     saveCatalog: { teacher: true, fn: actSaveCatalog_ },
     listClasses: { teacher: true, fn: actListClasses_ },
@@ -2009,6 +2010,72 @@ function writeText_(folder, name, text) {
   } else {
     folder.createFile(name, text, 'application/json');
   }
+}
+
+// ============================================================================
+// TỆP GỘP CỦA GIÁO VIÊN: một tệp .json duy nhất chứa toàn bộ dữ liệu
+// Tên tệp: <tên đăng nhập>_<ngày>_<tháng>_<năm>_<giờ>h<phút>.json, nằm ở thư mục gốc.
+// Mỗi lần lưu ghi tệp mới và chuyển các tệp gộp cũ của cùng tài khoản vào Thùng rác (khôi phục được trong 30 ngày).
+// ============================================================================
+var SNAPSHOT_MAX_CHARS = 40 * 1000 * 1000; // vượt mức này thì bỏ phần kết quả các buổi (vẫn còn trong thư mục sessions)
+
+function snapshotOwner_(raw) {
+  // giữ chữ, số và . _ - @ + ; ký tự khác (kể cả ký tự Windows không cho dùng trong tên tệp) thành gạch nối
+  var s = String(raw || '').trim().replace(/[^0-9A-Za-z._@+-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return s || 'quickplay';
+}
+
+function readFolderJson_(folder, skip) {
+  var out = [];
+  var it = folder.getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    var name = f.getName();
+    if (f.isTrashed() || !/\.json$/i.test(name) || name === skip) continue;
+    try { out.push(JSON.parse(f.getBlob().getDataAsString('UTF-8'))); } catch (e) { /* bỏ qua tệp hỏng */ }
+  }
+  return out;
+}
+
+function actSaveSnapshot_(req) {
+  var owner = snapshotOwner_(req.owner);
+  var stamp = String(req.stamp || '');
+  if (!/^\d{2}_\d{2}_\d{4}_\d{2}h\d{2}$/.test(stamp)) stamp = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', "dd_MM_yyyy_HH'h'mm");
+  var root = folder_('root');
+  var data = {
+    app: APP_NAME, kind: 'backup', version: 1, owner: owner, server_version: APP_VERSION, exported_at: new Date().toISOString(),
+    quizzes: readFolderJson_(folder_('quizzes'), QUIZ_INDEX_FILE),
+    catalog: readJson_(root, CATALOG_FILE),
+    classes: readClasses_(),
+    sessions: readFolderJson_(folder_('sessions'), SESSION_INDEX_FILE),
+  };
+  var text = JSON.stringify(data);
+  if (text.length > SNAPSHOT_MAX_CHARS) {
+    data.sessions = [];
+    data.sessions_skipped = true;
+    text = JSON.stringify(data);
+  }
+  var name = owner + '_' + stamp + '.json';
+  return withLock_(function () {
+    writeText_(root, name, text);
+    // các tệp gộp cũ của cùng tài khoản → Thùng rác, để thư mục chỉ còn một tệp mới nhất
+    var prefix = owner + '_';
+    var it = root.getFiles();
+    var removed = 0;
+    while (it.hasNext()) {
+      var f = it.next();
+      var n = f.getName();
+      if (n !== name && n.indexOf(prefix) === 0 && /_\d{2}_\d{2}_\d{4}_\d{2}h\d{2}\.json$/.test(n.slice(prefix.length - 1)) && !f.isTrashed()) {
+        try { f.setTrashed(true); removed++; } catch (e) { /* bỏ qua */ }
+      }
+    }
+    var file = findFile_(root, name);
+    return {
+      name: name, size: text.length, removed: removed, url: file ? file.getUrl() : '',
+      counts: { quizzes: data.quizzes.length, classes: data.classes.length, sessions: data.sessions.length, sessions_skipped: !!data.sessions_skipped },
+      content: req.with_content ? text : undefined,
+    };
+  });
 }
 
 // ============================================================================

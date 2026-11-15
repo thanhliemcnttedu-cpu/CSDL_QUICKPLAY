@@ -2,7 +2,7 @@
 //  - 'drive': Google Apps Script Web App -> tệp .json trên Google Drive (dùng chung web + bản .exe)
 //  - 'local': IndexedDB/localStorage trong trình duyệt (chạy thử không cần cấu hình; phiên trực tiếp giữa các tab)
 import type { AnswerRecord, ClassRoom, PaperView, PollResult, Quiz, QuizSummary, Session, SessionSettings } from './types';
-import { mirrorChange } from './localFolder';
+import { SNAPSHOT_TRIGGERS, scheduleSnapshot } from './autoSnapshot';
 import * as paper from './paper';
 import { normalizeCatalog } from './catalog';
 import type { Catalog } from './types';
@@ -206,15 +206,14 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
   return r as T;
 }
 
-const MIRRORED = new Set(['saveQuiz', 'deleteQuiz', 'saveCatalog', 'saveClass', 'deleteClass']);
 export function call<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const s = loadSettings();
   const linked = scriptUrlFromLink();
   const run = s.backend === 'drive' ? callDrive<T>(action, params)
     : linked ? callDrive<T>(action, params, linked) // học sinh mở link tham gia có kèm URL Apps Script
     : callLocal<T>(action, params as Record<string, any>);
-  // Thầy cô đã chọn thư mục trên máy tính: ghi thêm một bản vào đó (không làm chậm, không ảnh hưởng nếu ghi lỗi)
-  if (MIRRORED.has(action)) run.then((r) => mirrorChange(action, params as Record<string, any>, r)).catch(() => {});
+  // Dữ liệu của giáo viên vừa thay đổi: hẹn lưu tệp gộp (Drive + thư mục trên máy), không làm chậm thao tác chính
+  if (SNAPSHOT_TRIGGERS.has(action)) run.then(() => scheduleSnapshot()).catch(() => {});
   return run;
 }
 

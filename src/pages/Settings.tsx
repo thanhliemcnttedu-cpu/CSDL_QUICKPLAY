@@ -12,7 +12,8 @@ import { SCRIPT_VERSION, compareVersion, pingScript } from '../lib/installer';
 import { exportAll, importAll, parseBackup } from '../lib/backup';
 import { pickFile } from '../components/MediaTools';
 import { downloadBlob } from '../lib/xlsx';
-import { FULL_FILE, allowFolder, chooseFolder, folderMeta, folderState, forgetFolder, saveEverything, type FolderState } from '../lib/localFolder';
+import { allowFolder, chooseFolder, folderMeta, folderState, forgetFolder, type FolderState } from '../lib/localFolder';
+import { runSnapshot, snapshotName, snapshotOwner, snapshotStamp, snapshotStatus, type SnapshotStatus } from '../lib/autoSnapshot';
 import '../installer.css';
 
 export default function Settings() {
@@ -65,18 +66,29 @@ export default function Settings() {
   const pickFolder = async () => {
     try {
       const m = await chooseFolder();
-      if (m) toast(`Đã chọn thư mục “${m.name}”. Từ giờ mỗi lần lưu, phần mềm ghi thêm một bản vào đây.`, 'ok');
+      if (m) {
+        toast(`Đã chọn thư mục “${m.name}”. Phần mềm ghi ngay tệp gộp vào đây và tự cập nhật mỗi khi dữ liệu thay đổi.`, 'ok');
+        saveNow();
+      }
     } catch (e) {
       toast((e as Error).message, 'error');
     }
   };
-  const saveAllToFolder = async () => {
+  // Tệp gộp: một tệp .json duy nhất mang tên đăng nhập + ngày giờ, tự lưu lên Drive và vào thư mục trên máy
+  const [snap, setSnap] = useState<SnapshotStatus | null>(snapshotStatus());
+  useEffect(() => {
+    const on = () => setSnap(snapshotStatus());
+    window.addEventListener('quickplay-snapshot', on);
+    return () => window.removeEventListener('quickplay-snapshot', on);
+  }, []);
+  const saveNow = async () => {
     setBusy(true);
+    setProgress('Đang ghi tệp gộp…');
     try {
-      const data = await exportAll((d, t) => setProgress(`Đang đọc ${d}/${t} bộ câu hỏi…`));
-      setProgress('Đang ghi vào thư mục…');
-      await saveEverything(data);
-      toast(`Đã lưu ${data.quizzes.length} bộ câu hỏi, ${data.classes.length} lớp vào thư mục “${folder.name}”.`, 'ok');
+      const r = await runSnapshot();
+      if (!r) return toast('Chưa có nơi nào để lưu: hãy kết nối Google Drive hoặc chọn thư mục trên máy tính.', 'info');
+      if (r.error) toast(r.error, 'error');
+      else toast(`Đã lưu tệp ${r.name}.`, 'ok');
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
@@ -84,6 +96,7 @@ export default function Settings() {
       setBusy(false);
     }
   };
+  const nextName = snapshotName(snapshotOwner(acc?.username), snapshotStamp());
 
   // Trình cài đặt đã kiểm tra xong link /exec: lưu kết nối, gắn thư mục, cất vào tài khoản để máy khác tự nhớ
   const installed = async (r: InstallResult) => {
@@ -317,45 +330,47 @@ export default function Settings() {
         {progress && <div className="alert ok" role="status">{progress}</div>}
 
         <div className="folder-box">
-          <div className="row between">
-            <b className="row" style={{ gap: 8 }}><FolderCog size={20} color="var(--primary)" /> Tự lưu vào thư mục trên máy tính này</b>
-            {folder.state !== 'unsupported' && folder.state !== 'none' && (
-              <div className="row">
-                <button className="btn sm" onClick={pickFolder}>Đổi thư mục</button>
-                <button className="btn sm ghost" onClick={async () => { if (await askConfirm('Ngừng tự lưu vào thư mục này? Các tệp đã ghi vẫn nằm nguyên trong thư mục.')) await forgetFolder(); }}>Ngừng tự lưu</button>
-              </div>
-            )}
+          <b className="row" style={{ gap: 8 }}><FolderCog size={20} color="var(--primary)" /> Tự lưu một tệp gộp mỗi khi dữ liệu thay đổi</b>
+          <p className="muted" style={{ margin: 0 }}>
+            Mỗi lần thầy cô thêm, sửa, xóa bộ câu hỏi, câu hỏi, môn học – chương – bài, lớp và học sinh, hay tổ chức một buổi, phần mềm tự ghi lại
+            <b> một tệp .json duy nhất</b> chứa toàn bộ dữ liệu (sau khoảng 15 giây kể từ thay đổi cuối), đặt tên theo tên đăng nhập và thời điểm lưu, ví dụ <code>{nextName}</code>.
+            Mỗi nơi chỉ giữ tệp mới nhất; tệp này dùng được với nút <b>Khôi phục từ tệp</b>.
+          </p>
+
+          <div className="snap-grid">
+            <div className={`snap-card ${snap?.drive === 'ok' ? 'ok' : connected ? (snap?.drive === 'old' || snap?.drive === 'error' ? 'bad' : '') : 'off'}`}>
+              <small>Thư mục Google Drive</small>
+              {!connected ? <span>Chưa kết nối Google Drive</span>
+                : snap?.drive === 'ok' ? <span><CheckCircle2 size={16} /> Đã lưu {snap.driveUrl ? <a href={snap.driveUrl} target="_blank" rel="noopener noreferrer">{snap.name}</a> : snap.name}</span>
+                : snap?.drive === 'old' ? <span><TriangleAlert size={16} /> Cần cập nhật Apps Script (Trình cài đặt → Cập nhật bản mới)</span>
+                : snap?.drive === 'error' ? <span><TriangleAlert size={16} /> Lần lưu gần nhất bị lỗi</span>
+                : <span>Chưa lưu lần nào</span>}
+            </div>
+            <div className={`snap-card ${snap?.local === 'ok' && folder.state === 'granted' ? 'ok' : folder.state === 'none' || folder.state === 'unsupported' ? 'off' : folder.state !== 'granted' ? 'bad' : ''}`}>
+              <small>Thư mục trên máy tính này</small>
+              {folder.state === 'unsupported' ? <span>Trình duyệt này không ghi được vào thư mục trên máy (dùng Chrome, Edge hoặc Cốc Cốc trên máy tính)</span>
+                : folder.state === 'none' ? <span>Chưa chọn thư mục</span>
+                : folder.state !== 'granted' ? <span><TriangleAlert size={16} /> Cần cho phép ghi lại vào “{folder.name}”</span>
+                : snap?.local === 'ok' ? <span><CheckCircle2 size={16} /> Đã lưu vào “{folder.name}”</span>
+                : <span>Thư mục “{folder.name}”, chưa lưu lần nào</span>}
+            </div>
           </div>
-          {folder.state === 'unsupported' && (
-            <p className="muted" style={{ margin: 0 }}>Trình duyệt này không cho trang web ghi vào thư mục trên máy. Hãy dùng <b>Chrome, Edge hoặc Cốc Cốc trên máy tính</b>; trên điện thoại, máy tính bảng, Safari và Firefox hãy dùng nút <b>Tải về tệp sao lưu</b> ở trên.</p>
-          )}
-          {folder.state === 'none' && (
-            <>
-              <div className="conn-off" style={{ fontWeight: 600 }}>Chưa chọn thư mục: phần mềm chưa ghi tệp nào ra ổ đĩa của máy.</div>
-              <button className="btn accent" onClick={pickFolder}><FolderOpen size={18} /> Chọn thư mục trên máy tính</button>
-            </>
-          )}
-          {(folder.state === 'granted' || folder.state === 'prompt' || folder.state === 'denied') && (
-            <>
-              {folder.state === 'granted' && !folder.error ? (
-                <div className="conn-ok"><CheckCircle2 size={20} /> Đang tự lưu vào thư mục “{folder.name}”{folder.last ? ` · lần ghi gần nhất ${new Date(folder.last).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` : ''}</div>
-              ) : folder.state === 'granted' ? (
-                <div className="alert error" role="alert"><div>Lần ghi gần nhất vào “{folder.name}” bị lỗi: {folder.error}</div></div>
-              ) : (
-                <div className="conn-off"><TriangleAlert size={20} /> Trình duyệt cần thầy cô cho phép ghi lại vào thư mục “{folder.name}” (hỏi lại mỗi lần mở trình duyệt).
-                  <button className="btn sm primary" onClick={async () => { if (!(await allowFolder())) toast('Trình duyệt chưa cho phép. Hãy bấm lại và chọn "Cho phép".', 'error'); }}>Cho phép ghi lại</button>
-                </div>
-              )}
-              <div className="row">
-                <button className="btn primary" onClick={saveAllToFolder} disabled={busy || folder.state !== 'granted'}><HardDriveDownload size={18} /> Lưu toàn bộ vào thư mục này</button>
-                <span className="muted small">Ghi tệp tổng <code>{FULL_FILE}</code> (dùng được để khôi phục) và từng tệp riêng.</span>
-              </div>
-            </>
-          )}
+          {snap && <small className="muted">Lần lưu gần nhất: <b>{snap.name}</b> lúc {new Date(snap.at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}{snap.counts ? ` · ${snap.counts.quizzes} bộ câu hỏi, ${snap.counts.classes} lớp, ${snap.counts.sessions} buổi đã tổ chức` : ''}</small>}
+          {snap?.error && <div className="alert error" role="alert"><div>{snap.error}</div></div>}
+
+          <div className="row">
+            <button className="btn primary" onClick={saveNow} disabled={busy}><HardDriveDownload size={18} /> Lưu ngay</button>
+            {folder.state === 'none' && <button className="btn accent" onClick={pickFolder}><FolderOpen size={18} /> Chọn thư mục trên máy tính</button>}
+            {(folder.state === 'prompt' || folder.state === 'denied') && <button className="btn sm primary" onClick={async () => { if (await allowFolder()) saveNow(); else toast('Trình duyệt chưa cho phép. Hãy bấm lại và chọn "Cho phép".', 'error'); }}>Cho phép ghi lại</button>}
+            {folder.state !== 'unsupported' && folder.state !== 'none' && <>
+              <button className="btn sm" onClick={pickFolder}>Đổi thư mục</button>
+              <button className="btn sm ghost" onClick={async () => { if (await askConfirm('Ngừng tự lưu vào thư mục này trên máy? Tệp đã ghi vẫn nằm nguyên trong thư mục.')) await forgetFolder(); }}>Ngừng lưu vào máy</button>
+            </>}
+          </div>
           <ul className="help" style={{ margin: 0, paddingLeft: 18 }}>
-            <li>Nên chọn thư mục ở <b>ổ D hoặc E</b> (không chọn ổ C chứa Windows): khi cài lại Windows, ổ C thường bị xóa còn ổ D / E vẫn giữ dữ liệu.</li>
-            <li>Sau khi chọn, mỗi lần lưu bộ câu hỏi, lớp hay danh mục, phần mềm ghi đè tệp tương ứng trong thư mục (chỉ trên máy và trình duyệt này). Bấm <b>Lưu toàn bộ</b> một lần để chép hết những gì đã có.</li>
-            <li>Đây là bản dự phòng trên máy. Nơi lưu chính vẫn là {connected ? 'Google Drive của thầy cô' : 'trình duyệt của máy này'}.</li>
+            <li>Trên Google Drive, tệp nằm ở <b>thư mục lưu trữ đã kết nối</b>; tệp cũ được chuyển vào Thùng rác (khôi phục được trong 30 ngày).</li>
+            <li>Trên máy tính, nên chọn thư mục ở <b>ổ D hoặc E</b>: khi cài lại Windows, ổ C thường bị xóa. Mỗi lần mở lại trình duyệt, trình duyệt hỏi lại quyền ghi.</li>
+            <li>Nơi lưu chính vẫn là {connected ? 'Google Drive của thầy cô' : 'trình duyệt của máy này'}; tệp gộp là bản sao lưu để mang đi hoặc khôi phục.</li>
           </ul>
         </div>
       </section>
