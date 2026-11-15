@@ -297,8 +297,13 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
 
           <Step n={5} icon={<Link2 size={18} />} title="Dán link /exec và kiểm tra liên kết" done={result?.tone === 'ok' || (!!link && !checks)}>
             <div className="row" style={{ flexWrap: 'nowrap' }}>
-              <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" aria-label="Link Apps Script đuôi /exec" />
+              <input id="ins-exec-url" className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" aria-label="Link Apps Script đuôi /exec" />
               <button type="button" className="btn primary" onClick={() => verify()} disabled={busy || !url.trim()}><CheckCircle2 size={18} /> {busy ? 'Đang kiểm tra…' : 'Kiểm tra'}</button>
+              {/* Xóa link trong ô để dán link mới (chỉ xóa chữ trong ô; kết nối đang lưu giữ nguyên tới khi kiểm tra link mới thành công) */}
+              <button
+                type="button" className="btn icon ghost" disabled={busy || !url} title="Xóa link để dán link mới" aria-label="Xóa link để dán link mới"
+                onClick={() => { setUrl(''); setChecks(null); setResult(null); document.getElementById('ins-exec-url')?.focus(); }}
+              ><Trash2 size={18} /></button>
             </div>
             {checks && (
               <ul className="ins-checks" aria-live="polite">
