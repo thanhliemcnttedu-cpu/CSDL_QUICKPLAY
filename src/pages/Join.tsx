@@ -11,6 +11,8 @@ import { AppFooter } from '../components/AppFooter';
 import { AvatarBuilder } from '../components/AvatarBuilder';
 import { Palette, Shuffle } from 'lucide-react';
 
+const BAD_PIN = 'Bạn chưa nhập đúng mã, hãy kiểm tra lại.';
+
 export interface SavedPlayer { pin: string; player_id: string; name: string; avatar: string; class_name?: string }
 export const playerKey = (pin: string) => `quizzi.player.${pin}`;
 export function loadPlayer(pin: string): SavedPlayer | null {
@@ -50,7 +52,11 @@ export function Join() {
   }, [pin, name, cls]);
 
   const join = async (resume?: SavedPlayer, reuse = again) => {
-    if (!/^\d{6}$/.test(pin)) return setErr('Mã PIN gồm đúng 6 chữ số.');
+    if (!/^\d{6}$/.test(pin)) {
+      // chưa nhập mã, hoặc mã chưa đủ 6 số
+      setPinLocked(false);
+      return setErr(BAD_PIN);
+    }
     if (!resume && !name.trim()) return setErr('Hãy nhập tên của em.');
     if (!resume && !cls.trim()) return setErr('Hãy nhập lớp của em (ví dụ: 5A).');
     setBusy(true);
@@ -67,7 +73,11 @@ export function Join() {
     } catch (e) {
       const msg = (e as Error).message;
       if (msg.includes(NAME_USED)) setNameUsed(true);
-      else setErr(msg);
+      else if (/Không tìm thấy phòng/.test(msg)) {
+        // mã đủ 6 số nhưng không có phòng nào dùng mã này: mở lại ô mã để em sửa
+        setPinLocked(false);
+        setErr(BAD_PIN);
+      } else setErr(msg);
       if (resume) localStorage.removeItem(playerKey(pin));
       setBusy(false);
     }
@@ -80,6 +90,7 @@ export function Join() {
         <form
           className="stack"
           style={{ gap: 18 }}
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
             join();

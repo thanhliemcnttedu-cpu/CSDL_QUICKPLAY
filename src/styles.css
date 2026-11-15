@@ -573,3 +573,31 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
   .join-box h2 { font-size: 1.25rem; }
   .join-box .input { min-height: 56px; font-size: 1.45rem; }
 }
+
+/* Hiệu ứng nổi khi rê chuột vào nút: phóng to rất nhẹ, nhấc lên và đổ bóng mềm.
+   Chỉ áp dụng cho thiết bị có chuột; màn hình chạm không bị "dính" trạng thái rê. */
+.btn, .role-btn, .type-btn, .js-chip, .tab, .demo-chip, .pq-opt, .pq-tf-btn, .cover-item, .js-qr {
+  transition: transform 190ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 190ms ease, filter 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  will-change: transform;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:not(:disabled):hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 22px -12px rgba(10, 23, 48, 0.5); }
+  .btn.primary:not(:disabled):hover { box-shadow: 0 16px 30px -12px rgba(22, 104, 242, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+  .btn.accent:not(:disabled):hover { box-shadow: 0 16px 30px -12px rgba(217, 119, 6, 0.7); }
+  .btn.success:not(:disabled):hover { box-shadow: 0 16px 30px -12px rgba(15, 143, 69, 0.7); filter: brightness(1.05); }
+  .btn.danger:not(:disabled):hover { box-shadow: 0 12px 22px -12px rgba(153, 27, 27, 0.5); }
+  .btn.icon:not(:disabled):hover { transform: translateY(-1px) scale(1.1); }
+  .btn.lg:not(:disabled):hover { transform: translateY(-2px) scale(1.03); }
+  .role-btn:hover, .type-btn:not(:disabled):hover, .cover-item:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 12px 24px -14px rgba(10, 23, 48, 0.45); }
+  .js-chip:hover, .tab:not(.on):hover, .demo-chip:hover, .js-qr:hover { transform: translateY(-1px) scale(1.05); }
+  .ans:not(:disabled):hover { transform: translateY(-3px) scale(1.015); box-shadow: 0 16px 28px -14px rgba(10, 23, 48, 0.6); }
+  .pq-opt:not(:disabled):hover, .pq-tf-btn:not(:disabled):hover { transform: translateY(-2px) scale(1.01); }
+}
+.btn:not(:disabled):active, .role-btn:active, .type-btn:active, .js-chip:active { transform: translateY(1px) scale(0.98); box-shadow: none; }
+/* Máy đã tắt hiệu ứng chuyển động trong hệ điều hành: vẫn giữ hiệu ứng nổi của nút (do chính người dùng rê chuột gây ra, rất nhẹ),
+   chỉ rút ngắn thời gian. Các chuyển động tự chạy khác của trang vẫn tắt theo quy tắc chung. */
+@media (prefers-reduced-motion: reduce) {
+  .btn, .role-btn, .type-btn, .js-chip, .tab, .demo-chip, .pq-opt, .pq-tf-btn, .cover-item, .js-qr, .ans {
+    transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease !important;
+  }
+}
