@@ -377,7 +377,7 @@ export default function PaperScan() {
   );
   const respToggle = (
     <button type="button" className="ps-resp" onClick={() => setListOpen((v) => !v)} aria-expanded={listOpen}>
-      <Users size={18} /> <b>{responded}</b> phản hồi {listOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+      <Users size={18} /> <b>{responded}/{view.total}</b> phản hồi {listOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
     </button>
   );
 

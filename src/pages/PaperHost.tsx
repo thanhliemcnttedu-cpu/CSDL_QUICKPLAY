@@ -183,6 +183,8 @@ export default function PaperHost() {
       <div className="stack">
         <div className="step-pill"><b><QrCode size={20} /></b> Quét mã này bằng điện thoại</div>
         <p style={{ margin: 0 }}>Thầy cô mở camera điện thoại, quét mã QR. Quét xong là vào thẳng máy quét thẻ, chạy ngay trên trình duyệt, không cài ứng dụng.</p>
+        <span className="pp-pin">Mã PIN <b>{pin}</b></span>
+        <p className="muted small" style={{ margin: 0 }}>Điện thoại đã đăng nhập Quickplay cùng tài khoản: mở trang giáo viên, bấm <b>Điều khiển trên điện thoại này</b> hoặc nhập mã PIN này, không cần quét mã.</p>
         {loadSettings().backend !== 'drive' && <div className="alert warn"><div>Đang dùng chế độ “Máy này”: máy quét chỉ mở được trên chính trình duyệt này. Để quét bằng điện thoại, hãy kết nối Google Drive trong Cài đặt.</div></div>}
         {link && <a className="small" href={link} target="_blank" rel="noreferrer">Mở máy quét trên thiết bị này</a>}
       </div>
