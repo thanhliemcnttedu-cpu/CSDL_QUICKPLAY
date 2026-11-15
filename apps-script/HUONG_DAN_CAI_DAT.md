@@ -27,20 +27,15 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 Apps Script ghi một tệp `.json` duy nhất vào thư mục lưu trữ, tên theo tên đăng nhập và thời điểm lưu, ví dụ `035091005725_15_11_2026_12h45.json`.
 Tệp gộp cũ của cùng tài khoản được chuyển vào Thùng rác. Nếu đã chọn thư mục trên máy tính (Cài đặt → Sao lưu và khôi phục), tệp này cũng được ghi vào đó.
 
-**Bản 1.5.1:** danh mục có thêm tầng **Khối lớp** (Lớp → Môn → Chủ đề → Bài). Apps Script lưu tên lớp của từng môn và thứ tự các lớp trong `catalog.json`. Apps Script 1.4.0 trở lên tự cập nhật.
+**Bản 1.5.1:** danh mục có thêm tầng **Khối lớp** (Lớp → Môn → Chủ đề → Bài). Apps Script lưu tên lớp của từng môn và thứ tự các lớp trong `catalog.json`. Cập nhật tay bằng 5 bước ở trang Cài đặt.
 
 **Bản 1.5.0:** học sinh ghi âm câu trả lời miệng. Bản ghi (đã nén, khoảng 180 KB mỗi phút) lưu vào
 `QUICKPLAY_DATA/media/tra_loi_mieng/`, tên tệp `<mã phòng>_<mã học sinh>_cau<số câu>`. Chỉ em đang có trong phòng đang chạy
-mới gửi được; tối đa khoảng 90 giây mỗi bản; em ghi lại thì bản cũ vào Thùng rác. Apps Script 1.4.0 tự cập nhật lên 1.5.0, không cần cấp quyền mới.
+mới gửi được; tối đa khoảng 90 giây mỗi bản; em ghi lại thì bản cũ vào Thùng rác. Không cần cấp quyền mới.
 
-**Tự cập nhật (từ bản 1.4.0):** khi Quickplay phát hành bản mới, Apps Script tự tải mã mới từ trang Quickplay
-(`https://quickplay-delta.vercel.app/apps-script/`), kiểm tra mã băm SHA-256, ghi đè mã của chính nó, tạo phiên bản mới
-và chuyển link `/exec` đang dùng sang phiên bản đó. Link, khóa giáo viên và dữ liệu giữ nguyên; không cập nhật khi đang có buổi học trực tiếp.
-Cần làm **một lần**:
-1. Dán tệp cấu hình `appsscript.json` (nút **Sao chép tệp cấu hình** trong Trình cài đặt): **⚙ Cài đặt dự án** → tích *Hiển thị tệp kê khai "appsscript.json"* →
-   mở tệp đó trong Trình chỉnh sửa, xóa hết, dán, lưu → triển khai phiên bản mới, Google hỏi quyền thì **Cho phép** (thêm quyền "quản lý dự án Apps Script").
-2. Bật **Google Apps Script API** tại https://script.google.com/home/usersettings bằng Gmail đang chạy Apps Script.
-Bản mới nào cần thêm quyền Google mới thì không tự cập nhật được (Google bắt chủ dự án tự cấp quyền): phần mềm sẽ báo cập nhật tay.
+**Cập nhật khi có bản mới:** phần mềm nhắc ở đầu trang giáo viên; thầy cô vào **Cài đặt → Nơi lưu dữ liệu → Xem 5 bước cập nhật**
+(sao chép mã mới, dán đè vào dự án đang dùng, triển khai **Phiên bản mới**, bấm Kiểm tra). Link, khóa giáo viên và dữ liệu giữ nguyên.
+Chức năng tự cập nhật đã được gỡ khỏi giao diện vì không chạy ổn định; phần mã `selfUpdate` trong Code.gs còn đó nhưng phần mềm không gọi nữa.
 
 **Sao lưu toàn bộ và chuyển Drive (từ bản 1.3.0):** Apps Script đọc hàng loạt bộ câu hỏi, kết quả buổi học, ảnh và âm thanh để phần mềm đóng gói
 một tệp sao lưu toàn bộ (đọc được cả khi Drive đã đầy), báo dung lượng Drive để cảnh báo khi sắp đầy, nhận khôi phục hàng loạt lên Drive mới,

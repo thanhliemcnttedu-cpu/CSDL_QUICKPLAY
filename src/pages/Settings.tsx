@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, FolderCog, HardDriveDownload, Minimize2, ArrowRightLeft, ChevronRight, Zap, RefreshCw, KeyRound, Mail, Wand2, Wrench, Info } from 'lucide-react';
+import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, FolderCog, HardDriveDownload, Minimize2, ArrowRightLeft, ChevronRight, KeyRound, Mail, Wand2, Wrench, Info } from 'lucide-react';
 import { loadSettings, saveSettings, isDesktop, type AppSettings } from '../lib/settings';
 import { GeminiKeyPanel } from '../components/GeminiKeyPanel';
 import { changePassword, currentAccount, saveVault, setRecoveryEmail } from '../lib/account';
@@ -10,8 +10,7 @@ import type { Quiz } from '../lib/types';
 import { useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller, type InstallResult } from '../components/ScriptInstaller';
 import { SCRIPT_VERSION, compareVersion, pingScript } from '../lib/installer';
-import { ScriptUpdatePanel } from '../components/ScriptUpdate';
-import { API_SETTINGS_URL, autoUpdateScript, scriptUpdateStatus, type UpdateStatus } from '../lib/scriptUpdate';
+import { noteScriptVersion } from '../lib/scriptUpdate';
 import { ProgressLine, lastFullBackup, useFullBackup, useRestore } from '../components/BackupTools';
 import { checkDriveSpace, driveSpace, fmtGB, type DriveSpace } from '../lib/driveFull';
 import { formatBytes } from '../lib/util';
@@ -67,15 +66,15 @@ export default function Settings() {
   const [server, setServer] = useState<{ version: string } | { error: string } | null>(null);
   useEffect(() => {
     if (!connected) return;
-    pingScript(saved.scriptUrl).then((r) => setServer({ version: r.version })).catch((e) => setServer({ error: (e as Error).message }));
+    pingScript(saved.scriptUrl).then((r) => { setServer({ version: r.version }); noteScriptVersion(r.version); }).catch((e) => setServer({ error: (e as Error).message }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const outdated = !!server && 'version' in server && compareVersion(server.version, SCRIPT_VERSION) < 0;
 
-  // Các mục gập đang mở. Mở từ thông báo (…#tu-cap-nhat, …#chuyen-kho) thì mở sẵn đúng mục.
+  // Các mục gập đang mở. Mở từ thông báo (…#cap-nhat, …#chuyen-kho) thì mở sẵn đúng mục.
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     const h = location.hash;
     if (h.includes('chuyen-kho')) return new Set(['chuyen-kho']);
-    if (h.includes('tu-cap-nhat')) return new Set([scriptUpdateStatus()?.state === 'api_off' ? 'tu-cap-nhat' : 'cai-dat-5-buoc']);
+    if (h.includes('cap-nhat')) return new Set(['cai-dat-5-buoc']);
     return new Set();
   });
   const fold = (id: string) => ({
@@ -87,31 +86,10 @@ export default function Settings() {
     setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
   };
   useEffect(() => {
-    const id = location.hash.includes('chuyen-kho') ? 'chuyen-kho' : location.hash.includes('tu-cap-nhat') ? 'ket-noi' : '';
+    const id = location.hash.includes('chuyen-kho') ? 'chuyen-kho' : location.hash.includes('cap-nhat') ? 'ket-noi' : '';
     if (id) setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
   }, []);
 
-  // Cập nhật Apps Script bằng một nút; không tự làm được thì chỉ đúng việc thầy cô cần làm
-  const [upd, setUpd] = useState<UpdateStatus | null>(scriptUpdateStatus());
-  useEffect(() => {
-    const on = () => setUpd(scriptUpdateStatus());
-    window.addEventListener('quickplay-script-update', on);
-    return () => window.removeEventListener('quickplay-script-update', on);
-  }, []);
-  const updateNow = async () => {
-    setBusy(true);
-    const r = await autoUpdateScript(true).catch(() => null);
-    setBusy(false);
-    if (!r) return toast('Không gọi được Apps Script. Hãy kiểm tra mạng Internet rồi bấm lại.', 'error');
-    setUpd(r);
-    if (r.server) setServer({ version: r.server });
-    if (r.state === 'updated') return toast(`Đã cập nhật Apps Script lên phiên bản ${r.to}. Link và dữ liệu giữ nguyên.`, 'ok');
-    if (r.state === 'current') return toast('Apps Script đang chạy bản mới nhất.', 'ok');
-    if (r.state === 'busy') return toast('Đang có buổi học trực tiếp. Hãy cập nhật sau khi buổi học kết thúc.', 'info');
-    if (r.state !== 'api_off') openFold('cai-dat-5-buoc');
-  };
-  const needManual = !!upd && ['old', 'scopes', 'manual', 'error'].includes(upd.state);
-  const needApi = upd?.state === 'api_off';
 
   // Thư mục trên máy tính để tự lưu thêm một bản
   const [folder, setFolder] = useState<{ state: FolderState; name: string; last?: number; error?: string }>({ state: 'none', name: '' });
@@ -173,7 +151,7 @@ export default function Settings() {
       throw e;
     }
     setS(next);
-    pingScript(next.scriptUrl).then((r) => { setServer({ version: r.version }); setUpd(null); }).catch(() => {});
+    pingScript(next.scriptUrl).then((r) => { setServer({ version: r.version }); noteScriptVersion(r.version); }).catch(() => {});
     toast(acc ? 'Đã kết nối Google Drive. Tài khoản của thầy cô sẽ nhớ cấu hình này trên mọi máy.' : 'Đã kết nối Google Drive.', 'ok');
     // để thầy cô kịp thấy tích xanh và tải tệp kết nối rồi mới tải lại trang
     if (first) setTimeout(() => location.replace(location.pathname + '#/teacher'), 6000);
@@ -342,28 +320,18 @@ export default function Settings() {
             {connected && outdated && (
               <div className="upd-box" role="status">
                 <div className="grow">
-                  <b>Có bản cập nhật Apps Script {SCRIPT_VERSION}</b> (đang chạy {(server as { version: string }).version}). Link và dữ liệu giữ nguyên.
-                  {needApi && <small>Chưa tự cập nhật được vì Gmail chạy Apps Script chưa bật <b>Google Apps Script API</b>. Mở trang bật API, gạt sang <b>Bật</b> (làm một lần), rồi bấm <b>Thử lại</b>.</small>}
-                  {needManual && <small>Lần này cần cập nhật tay một lần (5 bước, khoảng 3 phút) ở mục <b>Cài đặt lại hoặc cập nhật tay</b> bên dưới. Từ lần sau phần mềm tự cập nhật.</small>}
+                  <b>Có bản cập nhật Apps Script {SCRIPT_VERSION}</b> (đang chạy {(server as { version: string }).version}).
+                  <small>Làm 5 bước bên dưới, khoảng 3 phút. Link và dữ liệu giữ nguyên.</small>
                 </div>
-                {needApi && <a className="btn" href={API_SETTINGS_URL} target="_blank" rel="noopener noreferrer"><ExternalLink size={16} /> Mở trang bật API</a>}
-                {needManual
-                  ? <button className="btn primary" onClick={() => openFold('cai-dat-5-buoc')}><Wand2 size={18} /> Xem 5 bước</button>
-                  : <button className="btn primary" onClick={updateNow} disabled={busy}><Zap size={18} /> {busy ? 'Đang cập nhật…' : needApi ? 'Thử lại' : 'Cập nhật ngay'}</button>}
+                <button className="btn primary" onClick={() => openFold('cai-dat-5-buoc')}><Wand2 size={18} /> Xem 5 bước cập nhật</button>
               </div>
             )}
 
             <Fold key="cai-dat" {...fold('cai-dat-5-buoc')} locked={!compact} icon={<Wand2 size={18} color="var(--primary)" />}
-              title={compact ? 'Cài đặt lại hoặc cập nhật tay (5 bước)' : 'Kết nối Google Drive (5 bước)'} note={compact ? 'Khi đổi Gmail, đổi thư mục, hoặc không tự cập nhật được' : undefined}>
+              title={compact ? 'Cập nhật hoặc cài đặt lại Apps Script (5 bước)' : 'Kết nối Google Drive (5 bước)'} note={compact ? (outdated ? 'Cần làm: có bản mới' : 'Khi có bản mới, đổi Gmail hoặc đổi thư mục') : undefined}>
               <ScriptInstaller kind="teacher" current={{ scriptUrl: saved.scriptUrl, key: saved.teacherKey, folderUrl: saved.folderUrl }} onDone={installed} />
             </Fold>
 
-            {compact && (
-              <Fold key="tu-cap-nhat" {...fold('tu-cap-nhat')} icon={<RefreshCw size={18} color="var(--primary)" />} title="Tự cập nhật Apps Script"
-                note={upd?.ready || upd?.state === 'updated' ? 'Đã sẵn sàng' : 'Bật một lần, các bản sau tự cập nhật'}>
-                <ScriptUpdatePanel />
-              </Fold>
-            )}
 
             <Fold key="sua-tay" {...fold('sua-tay')} icon={<Wrench size={18} color="var(--primary)" />} title="Sửa tay link và khóa" note="Ít khi cần dùng">
               <label className="field">
@@ -479,7 +447,7 @@ export default function Settings() {
           <ol className="move-steps">
             <li><b>Tải file sao lưu toàn bộ</b> bằng nút ở trên (vẫn tải được khi Drive đã đầy). Cất tệp vào ổ D, USB hoặc gửi vào email của mình.</li>
             <li><b>Tạo thư mục trong Google Drive mới</b> (một Gmail khác còn trống, hoặc tài khoản có dung lượng lớn hơn) và chép link thư mục.</li>
-            <li>Mở mục <b>Cài đặt lại hoặc cập nhật tay (5 bước)</b> ở phần Nơi lưu dữ liệu, chọn <b>Cài mới</b>, đăng nhập Apps Script bằng Gmail mới và dán link thư mục mới.</li>
+            <li>Mở mục <b>Cập nhật hoặc cài đặt lại Apps Script (5 bước)</b> ở phần Nơi lưu dữ liệu, chọn <b>Cài mới</b>, đăng nhập Apps Script bằng Gmail mới và dán link thư mục mới.</li>
             <li><b>Khôi phục từ file .json</b> → chọn tệp vừa tải → <b>Google Drive đang kết nối</b>. Toàn bộ dữ liệu, ảnh và âm thanh được đưa lên Drive mới.</li>
             <li>Kiểm tra Thư viện, Lớp và Báo cáo. Drive cũ có thể giữ lại làm bản lưu trữ hoặc dọn đi.</li>
           </ol>
