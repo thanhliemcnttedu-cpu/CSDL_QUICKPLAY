@@ -121,8 +121,21 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
         return Object.keys(localStorage)
           .filter((k) => k.startsWith('quizzi.session.'))
           .map((k) => JSON.parse(localStorage.getItem(k)!) as Session)
-          .map((s) => ({ pin: s.pin, quiz_title: s.quiz_title, state: s.state, mode: s.settings.mode, created_at: s.created_at, player_count: s.players.length }))
+          .map((s) => ({ pin: s.pin, session_id: s.session_id, quiz_title: s.quiz_title, state: s.state, mode: s.settings.mode, created_at: s.created_at, player_count: s.players.length }))
           .sort((a, b) => b.created_at - a.created_at);
+      case 'deleteSessions': {
+        const ids = new Set<string>(p.session_ids ?? []);
+        let removed = 0;
+        for (const k of Object.keys(localStorage).filter((x) => x.startsWith('quizzi.session.'))) {
+          const s = JSON.parse(localStorage.getItem(k)!) as Session;
+          if (!p.all && !ids.has(s.session_id)) continue;
+          localStorage.removeItem(k);
+          for (const pk of Object.keys(localStorage)) if (pk.startsWith(`quizzi.progress.${s.pin}.`)) localStorage.removeItem(pk);
+          await kvDel('sessionquiz:' + s.pin);
+          removed++;
+        }
+        return { removed, files: removed, audio: 0, left: Object.keys(localStorage).filter((x) => x.startsWith('quizzi.session.')).length };
+      }
       case 'getSessionQuiz': {
         const s = readSession(p.pin);
         const quiz = await kvGet<Quiz>('sessionquiz:' + p.pin);
@@ -239,7 +252,9 @@ export const api = {
   hostState: (pin: string) => call<Session>('hostState', { pin }),
   hostAction: (pin: string, op: logic.HostOp, player_id?: string, extra: { q_index?: number; correct?: boolean; points?: number; coins?: number } = {}) =>
     call<Session>('hostAction', { pin, op, player_id, ...extra }),
-  listSessions: () => call<{ pin: string; quiz_title: string; state: string; mode: string; created_at: number; player_count: number }[]>('listSessions'),
+  listSessions: () => call<{ pin: string; session_id: string; quiz_title: string; state: string; mode: string; created_at: number; player_count: number }[]>('listSessions'),
+  /** Xóa báo cáo: các phiên được chọn, hoặc toàn bộ (all). Trên Drive, tệp vào Thùng rác. */
+  deleteSessions: (session_ids: string[], all = false) => call<{ removed: number; files: number; audio: number; left: number }>('deleteSessions', { session_ids, all }),
   getSessionQuiz: (pin: string) => call<{ quiz: Quiz; settings: SessionSettings; state: string }>('getSessionQuiz', { pin }),
   joinSession: (pin: string, name: string, avatar: string, player_id?: string, class_name?: string, reuse_name?: boolean) =>
     call<{ player_id: string; player: import('./types').Player }>('joinSession', { pin, name, avatar, player_id, class_name, reuse_name }),

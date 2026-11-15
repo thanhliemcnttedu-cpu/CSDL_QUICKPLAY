@@ -27,6 +27,10 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 Apps Script ghi một tệp `.json` duy nhất vào thư mục lưu trữ, tên theo tên đăng nhập và thời điểm lưu, ví dụ `035091005725_15_11_2026_12h45.json`.
 Tệp gộp cũ của cùng tài khoản được chuyển vào Thùng rác. Nếu đã chọn thư mục trên máy tính (Cài đặt → Sao lưu và khôi phục), tệp này cũng được ghi vào đó.
 
+**Bản 1.5.2:** xóa báo cáo. Trang Báo cáo cho chọn các phiên để xóa, hoặc xóa toàn bộ. Apps Script chuyển tệp kết quả của phiên
+(`sessions/<pin>.json`, `<pin>.quiz.json`) và bản ghi âm trả lời miệng của phiên đó vào Thùng rác của Drive (khôi phục được trong 30 ngày), rồi bỏ phiên khỏi chỉ mục.
+Cập nhật tay bằng 5 bước ở trang Cài đặt.
+
 **Bản 1.5.1:** danh mục có thêm tầng **Khối lớp** (Lớp → Môn → Chủ đề → Bài). Apps Script lưu tên lớp của từng môn và thứ tự các lớp trong `catalog.json`. Cập nhật tay bằng 5 bước ở trang Cài đặt.
 
 **Bản 1.5.0:** học sinh ghi âm câu trả lời miệng. Bản ghi (đã nén, khoảng 180 KB mỗi phút) lưu vào

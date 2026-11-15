@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.1';
+var APP_VERSION = '1.5.2';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -141,6 +141,7 @@ function getRoutes_() {
     hostState: { teacher: true, fn: actHostState_ },
     hostAction: { teacher: true, fn: actHostAction_ },
     listSessions: { teacher: true, fn: actListSessions_ },
+    deleteSessions: { teacher: true, fn: actDeleteSessions_ },
 
     getSessionQuiz: { teacher: false, fn: actGetSessionQuiz_ },
     joinSession: { teacher: false, fn: actJoinSession_ },
@@ -944,6 +945,66 @@ function actHostAction_(req) {
 
     saveSession_(s, true);
     return s;
+  });
+}
+
+/**
+ * Xóa báo cáo (1.5.2): xóa các phiên được chọn (session_ids) hoặc toàn bộ (all = true).
+ * Tệp kết quả, đề đã chụp và bản ghi âm trả lời miệng của phiên được chuyển vào Thùng rác của Drive (khôi phục được trong 30 ngày).
+ */
+function actDeleteSessions_(req) {
+  var all = req.all === true;
+  var ids = {};
+  (Array.isArray(req.session_ids) ? req.session_ids : []).forEach(function (id) { if (id) ids[String(id)] = true; });
+  if (!all && !Object.keys(ids).length) throw userError_('Chưa chọn báo cáo nào để xóa.');
+  return withLock_(function () {
+    var folder = folder_('sessions');
+    var index = readSessionIndex_();
+    var keep = [], removed = 0, files = 0, pins = {};
+    var trash = function (name) {
+      var it = folder.getFilesByName(name);
+      while (it.hasNext()) {
+        var tf = it.next();
+        if (tf.isTrashed()) continue;
+        try { tf.setTrashed(true); files++; } catch (e) { /* bỏ qua */ }
+      }
+    };
+    index.forEach(function (e) {
+      if (!all && !ids[e.session_id]) { keep.push(e); return; }
+      removed++;
+      if (e.archived_file) { trash(e.archived_file); return; }
+      trash(e.pin + '.json');
+      trash(e.pin + '.quiz.json');
+      removeSessionCache_(e.pin);
+      pins[e.pin] = true;
+    });
+    if (all) {
+      // Dọn cả tệp lẻ không còn trong chỉ mục
+      var rest = folder.getFiles();
+      while (rest.hasNext()) {
+        var f = rest.next();
+        if (f.getName() === SESSION_INDEX_FILE || f.isTrashed()) continue;
+        try { f.setTrashed(true); files++; } catch (e2) { /* bỏ qua */ }
+      }
+    }
+    // Phiên còn giữ mà dùng lại cùng mã PIN (rất hiếm): không đụng tới bản ghi âm mang mã đó
+    keep.forEach(function (e) { delete pins[e.pin]; });
+    var audio = 0;
+    if (all || Object.keys(pins).length) {
+      var subs = folder_('media').getFoldersByName(ANSWER_AUDIO_FOLDER);
+      while (subs.hasNext()) {
+        var af = subs.next().getFiles();
+        while (af.hasNext()) {
+          var a = af.next();
+          if (a.isTrashed()) continue;
+          if (all || pins[String(a.getName()).split('_')[0]]) {
+            try { a.setTrashed(true); audio++; } catch (e3) { /* bỏ qua */ }
+          }
+        }
+      }
+    }
+    writeJson_(folder, SESSION_INDEX_FILE, keep);
+    return { removed: removed, files: files, audio: audio, left: keep.length };
   });
 }
 

@@ -9,7 +9,7 @@ import { loadSettings } from './settings';
 /** Các thao tác làm thay đổi dữ liệu soạn bài của giáo viên → hẹn lưu tệp gộp.
  *  Không tính các thao tác trong giờ học (mở phòng, chuyển câu, quét thẻ…) để máy chủ dành sức cho học sinh;
  *  kết quả buổi học được lưu một lần khi giáo viên bấm Kết thúc (xem shouldSnapshot). */
-export const SNAPSHOT_TRIGGERS = new Set(['saveQuiz', 'deleteQuiz', 'saveCatalog', 'saveClass', 'deleteClass', 'setRootFolder']);
+export const SNAPSHOT_TRIGGERS = new Set(['saveQuiz', 'deleteQuiz', 'saveCatalog', 'saveClass', 'deleteClass', 'setRootFolder', 'deleteSessions']);
 export const shouldSnapshot = (action: string, params: Record<string, unknown>) =>
   SNAPSHOT_TRIGGERS.has(action) || ((action === 'hostAction' || action === 'paperAction') && params.op === 'end');
 /** Chờ bấy nhiêu sau thay đổi cuối cùng rồi mới lưu, để nhiều thay đổi liên tiếp chỉ ghi một lần */
