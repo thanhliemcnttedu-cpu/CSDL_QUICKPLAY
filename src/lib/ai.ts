@@ -1,9 +1,10 @@
 // Mô-đun AI sinh đề (SRS mục 4.2): Chế độ 1 – sinh câu hỏi mới; Chế độ 2 – trích nguyên văn.
-// Chế độ Drive: gọi qua Apps Script (khóa Gemini cất trong Script Properties, học sinh không thấy).
-// Chế độ cục bộ: gọi thẳng Gemini bằng khóa giáo viên dán trong Cài đặt.
+// Có khóa Gemini trong Cài đặt: gọi thẳng Gemini bằng khóa đó (mọi chế độ lưu).
+// Không có: nhờ Apps Script gọi bằng khóa cất trong Script Properties (nếu giáo viên đã đặt ở đó).
 import type { Question, QuestionType } from './types';
 import { api, ApiError } from './api';
-import { loadSettings } from './settings';
+import { loadSettings, saveSettings } from './settings';
+import { generate, listModels, pickModel, type KeyCheck } from './gemini';
 import { COMPOSER_TYPES, newQuestion, opt, TYPE_LABELS } from './factory';
 import { plainToHtml, uid } from './util';
 
@@ -52,29 +53,43 @@ export function buildPrompt(mode: AiMode, source: string, opts: { count: number;
 async function callGeminiDirect(prompt: string, system: string): Promise<string> {
   const s = loadSettings();
   if (!s.geminiKey)
-    throw new ApiError('Chưa có khóa Gemini. Vào Cài đặt để dán khóa API miễn phí lấy tại aistudio.google.com.');
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(s.geminiModel || 'gemini-2.0-flash')}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': s.geminiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
-      }),
-    },
-  );
-  const j = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError('Gemini báo lỗi: ' + (j?.error?.message ?? res.status));
-  return (j.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('');
+    throw new ApiError('Chưa có khóa Gemini. Vào Cài đặt → Trí tuệ nhân tạo để dán khóa API miễn phí lấy tại aistudio.google.com.');
+  const body = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
+  };
+  const explain = (e: unknown) => new ApiError((e as { check?: KeyCheck }).check?.message ?? 'Không kết nối được tới Google Gemini. Hãy kiểm tra mạng Internet.');
+  try {
+    return await generate(s.geminiKey, s.geminiModel || 'gemini-flash-latest', body);
+  } catch (e) {
+    // Mô hình đã lưu bị Google ngừng (404) hoặc sai tên (400 không phải do khóa): chọn lại mô hình đang dùng được rồi thử lại một lần
+    const http = (e as { httpStatus?: number }).httpStatus;
+    const st = (e as { check?: KeyCheck }).check?.status;
+    if (http === 404 || (http === 400 && st === 'error')) {
+      try {
+        const model = pickModel(await listModels(s.geminiKey));
+        if (model && model !== s.geminiModel) {
+          saveSettings({ ...loadSettings(), geminiModel: model });
+          return await generate(s.geminiKey, model, body);
+        }
+      } catch (e2) {
+        throw explain(e2);
+      }
+    }
+    throw explain(e);
+  }
 }
 
+/** Chạy AI: có khóa trong Cài đặt thì gọi thẳng Gemini bằng khóa đó (mọi chế độ lưu); không có thì nhờ Apps Script (khóa cất trong Apps Script). */
 export async function runAi(prompt: string, system: string): Promise<string> {
+  if (loadSettings().geminiKey) return callGeminiDirect(prompt, system);
   try {
     return (await api.aiGenerate(prompt, system)).text;
   } catch (e) {
-    if ((e as Error).message === 'AI_LOCAL') return callGeminiDirect(prompt, system);
+    const msg = (e as Error).message;
+    if (msg === 'AI_LOCAL') return callGeminiDirect(prompt, system);
+    if (/GEMINI_API_KEY/.test(msg)) throw new ApiError('Chưa có khóa API Gemini. Vào Cài đặt → Trí tuệ nhân tạo, dán khóa rồi bấm Lưu khóa.');
     throw e;
   }
 }

@@ -252,7 +252,7 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions }: Props) {
               </div>
             </div>
           )}
-          {way !== 'exact' && way !== 'gform' && <p className="help" style={{ margin: 0 }}>AI dùng Google Gemini (gói miễn phí). Khóa API cấu hình trong Apps Script hoặc trang Cài đặt. Luôn kiểm tra lại câu hỏi do AI tạo trước khi dùng.</p>}
+          {way !== 'exact' && way !== 'gform' && <p className="help" style={{ margin: 0 }}>AI dùng Google Gemini (gói miễn phí). Khóa API dán ở trang Cài đặt → Trí tuệ nhân tạo (bấm Lưu khóa để kiểm tra). Luôn kiểm tra lại câu hỏi do AI tạo trước khi dùng.</p>}
         </div>
       ) : (
         <div className="stack">

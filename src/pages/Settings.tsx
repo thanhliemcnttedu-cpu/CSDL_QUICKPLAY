@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, FolderCog, HardDriveDownload, Minimize2, ArrowRightLeft } from 'lucide-react';
 import { loadSettings, saveSettings, isDesktop, type AppSettings } from '../lib/settings';
+import { GeminiKeyPanel } from '../components/GeminiKeyPanel';
 import { changePassword, currentAccount, saveVault, setRecoveryEmail } from '../lib/account';
 import { testConnection } from '../lib/api';
 import { kvGet, kvKeys } from '../lib/idb';
@@ -406,25 +407,7 @@ export default function Settings() {
         </div>
       </section>
 
-      <section className="card stack">
-        <h2 style={{ margin: 0 }}>Trí tuệ nhân tạo (Google Gemini – miễn phí)</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          {s.backend === 'drive'
-            ? 'Ở chế độ Google Drive, khóa Gemini được cất an toàn trong Script Properties (GEMINI_API_KEY) của Apps Script. Ô dưới chỉ dùng khi chạy "Chỉ máy này".'
-            : 'Dán khóa API lấy miễn phí tại Google AI Studio. Khóa chỉ lưu trong trình duyệt này.'}
-        </p>
-        <a className="btn ghost sm" style={{ alignSelf: 'flex-start' }} href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer"><ExternalLink size={16} /> Lấy khóa tại aistudio.google.com</a>
-        <div className="row">
-          <label className="field grow">
-            <span>Khóa Gemini API</span>
-            <input className="input" type="password" value={s.geminiKey} onChange={(e) => set({ geminiKey: e.target.value })} autoComplete="off" placeholder="AIza…" />
-          </label>
-          <label className="field">
-            <span>Mô hình</span>
-            <input className="input" value={s.geminiModel} onChange={(e) => set({ geminiModel: e.target.value })} />
-          </label>
-        </div>
-      </section>
+      <GeminiKeyPanel onChange={(k, m) => set({ geminiKey: k, geminiModel: m })} />
 
       {acc && (
         <section className="card stack">

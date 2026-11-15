@@ -4,7 +4,7 @@ export interface AppSettings {
   scriptUrl: string; // URL Web App Apps Script (kết thúc bằng /exec)
   teacherKey: string;
   folderUrl: string; // link thư mục Google Drive riêng của giáo viên (nơi Apps Script lưu dữ liệu)
-  geminiKey: string; // chỉ dùng ở chế độ cục bộ; chế độ Drive dùng khóa lưu trong Apps Script
+  geminiKey: string; // khóa API Gemini của giáo viên, lưu trong trình duyệt này; có khóa thì gọi thẳng Gemini ở mọi chế độ lưu
   geminiModel: string;
 }
 
@@ -15,7 +15,7 @@ const DEFAULTS: AppSettings = {
   teacherKey: '',
   folderUrl: '',
   geminiKey: '',
-  geminiModel: 'gemini-2.0-flash',
+  geminiModel: 'gemini-flash-latest', // khi lưu khóa, phần mềm tự chọn mô hình đang hoạt động
 };
 
 export function loadSettings(): AppSettings {
