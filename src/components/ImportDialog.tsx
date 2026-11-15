@@ -14,7 +14,7 @@ import { htmlToText } from '../lib/util';
 import { Modal, useToast } from './ui';
 import { pickFile } from './MediaTools';
 
-const ACCEPT = '.docx,.pdf,.pptx,.xlsx,.csv,.txt';
+const ACCEPT = '.docx,.pdf,.pptx,.xlsx,.csv,.txt,.doc,.xls,.ppt'; // .doc/.xls/.ppt: nhận để báo cách đổi sang kiểu mới, không âm thầm chặn
 const TYPE_ICON: Record<string, typeof CircleDot> = {
   single_choice: CircleDot, multiple_select: ListChecks, true_false: Eye, fill_blank: TextCursorInput,
   reorder: ListOrdered, matching: Link2, oral: MessageSquareText,

@@ -7,16 +7,58 @@ import { parseVideoUrl } from './media';
 // ---------- 1. Lấy văn bản thô từ tệp ----------
 export async function extractText(file: File): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase();
-  if (ext === 'docx') {
-    const mammoth = await import('mammoth');
-    const { value } = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
-    return docxHtmlToText(value);
+  if (file.name.startsWith('~$')) throw new Error('Đây là tệp tạm do Word/Excel tạo ra khi tài liệu đang mở (tên bắt đầu bằng "~$"). Hãy chọn tệp gốc cùng thư mục, tên không có "~$".');
+  if (!file.size) throw new Error('Tệp rỗng (0 KB). Nếu tệp nằm trên OneDrive / Google Drive, hãy tải về máy trước; nếu đang mở trong Word, hãy bấm Lưu rồi chọn lại.');
+  if (ext === 'doc' || ext === 'xls' || ext === 'ppt') throw new Error(oldOfficeMessage(ext));
+  if (ext === 'docx' || ext === 'pptx' || ext === 'xlsx') {
+    // Tệp Office mới thực chất là tệp nén ZIP (bắt đầu bằng "PK"). Kiểm tra trước để báo lỗi dễ hiểu thay cho lỗi tiếng Anh của bộ giải nén.
+    const kind = await sniff(file);
+    if (kind !== 'zip') {
+      if (kind === 'ole') throw new Error(oldOfficeMessage(ext));
+      if (kind === 'rtf') throw new Error('Tệp này là văn bản RTF mang đuôi .' + ext + '. Hãy mở bằng Word → Tệp → Lưu thành → chọn kiểu "Word Document (*.docx)" rồi tải lên lại.');
+      // Một số phần mềm xuất trang web hoặc văn bản thường nhưng đặt đuôi .docx: vẫn đọc được nội dung
+      if (ext === 'docx' && kind === 'html') return htmlToMarkedText(await file.text());
+      if (ext === 'docx' && kind === 'text') return file.text();
+      throw new Error('Tệp "' + file.name + '" không đúng định dạng .' + ext + ' (có thể bị hỏng khi tải về hoặc bị đổi đuôi). Hãy mở tệp bằng ' +
+        (ext === 'docx' ? 'Word' : ext === 'xlsx' ? 'Excel' : 'PowerPoint') + ' → Lưu thành tệp .' + ext + ' mới rồi tải lên lại.');
+    }
   }
-  if (ext === 'pdf') return extractPdf(file);
-  if (ext === 'pptx') return extractPptx(file);
-  if (ext === 'xlsx') return extractXlsx(file);
+  try {
+    if (ext === 'docx') {
+      const mammoth = await import('mammoth');
+      const { value } = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
+      return docxHtmlToText(value);
+    }
+    if (ext === 'pdf') return await extractPdf(file);
+    if (ext === 'pptx') return await extractPptx(file);
+    if (ext === 'xlsx') return await extractXlsx(file);
+  } catch (e) {
+    const msg = (e as Error)?.message ?? '';
+    if (/NotReadable|could not be read|permission/i.test(msg)) throw new Error('Không đọc được tệp. Hãy đóng tệp trong Word/Excel (hoặc tải tệp về máy nếu đang ở trên mạng) rồi chọn lại.');
+    if (/password|encrypt/i.test(msg)) throw new Error('Tệp có đặt mật khẩu. Hãy bỏ mật khẩu (Tệp → Thông tin → Bảo vệ tài liệu) rồi tải lên lại.');
+    throw new Error('Không đọc được tệp "' + file.name + '": tệp có thể bị hỏng. Hãy mở tệp, Lưu thành một tệp mới rồi thử lại. (Chi tiết: ' + msg.slice(0, 120) + ')');
+  }
   if (ext === 'csv' || ext === 'txt' || ext === 'md') return file.text();
   throw new Error('Định dạng chưa hỗ trợ. Hãy dùng .docx, .pdf, .pptx, .xlsx, .csv hoặc .txt.');
+}
+
+const oldOfficeMessage = (ext: string) => {
+  const app = /doc/.test(ext) ? 'Word' : /xls/.test(ext) ? 'Excel' : 'PowerPoint';
+  const next = /doc/.test(ext) ? '.docx' : /xls/.test(ext) ? '.xlsx' : '.pptx';
+  return `Tệp này là ${app} đời cũ (97–2003) hoặc có đặt mật khẩu nên chưa đọc được. Hãy mở bằng ${app} → Tệp → Lưu thành → chọn kiểu "${next}" (bỏ mật khẩu nếu có) rồi tải lên lại.`;
+};
+
+/** Nhận dạng loại tệp theo vài byte đầu: zip (Office mới) · ole (Office 97–2003 / có mật khẩu) · rtf · html · text · unknown. */
+export async function sniff(file: Blob): Promise<'zip' | 'ole' | 'rtf' | 'html' | 'text' | 'unknown'> {
+  const b = new Uint8Array(await file.slice(0, 512).arrayBuffer());
+  if (b[0] === 0x50 && b[1] === 0x4b) return 'zip';
+  if (b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0) return 'ole';
+  const head = new TextDecoder('utf-8').decode(b).replace(/^\uFEFF/, '').trimStart();
+  if (head.startsWith('{\\rtf')) return 'rtf';
+  if (/^<(!doctype|html|\?xml|head|body|meta|p|div|table)\b/i.test(head)) return 'html';
+  // Văn bản thường: không có byte điều khiển (ngoài tab, xuống dòng)
+  if (b.length && !b.some((x) => x < 9 || (x > 13 && x < 32))) return 'text';
+  return 'unknown';
 }
 
 // Ảnh nhúng trong tệp Word: giữ tạm ở đây, văn bản chỉ chứa dòng đánh dấu [[IMG:n]].

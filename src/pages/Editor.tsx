@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye } from 'lucide-react';
+import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye, Upload } from 'lucide-react';
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { api } from '../lib/api';
 import { COMPOSER_TYPES, TYPE_LABELS } from '../lib/factory';
@@ -185,7 +185,7 @@ export default function Editor() {
         <div className="row between">
           <h2 style={{ margin: 0 }}>{qs.length} câu hỏi</h2>
           <div className="row">
-            <button className="btn" onClick={() => setImporting('file')}>Thêm từ tài liệu</button>
+            <button className="btn" onClick={() => setImporting('file')} title="Tải tệp Word, PDF, PowerPoint, Excel, CSV lên để thêm câu hỏi vào bộ đề này"><Upload size={18} /> Tải tệp lên</button>
             <button className="btn accent" onClick={() => setImporting('ai')}><Sparkles size={18} /> AI sinh thêm</button>
             <button className="btn violet" onClick={() => setComposer({ mode: 'new', type: last?.type && COMPOSER_TYPES.includes(last.type) ? last.type : 'single_choice', at: qs.length })}>
               <Plus size={18} /> Thêm câu hỏi
@@ -233,7 +233,10 @@ export default function Editor() {
         <div className="card empty">
           <h2>Bộ đề đang trống</h2>
           <p className="muted">Soạn câu hỏi đầu tiên, hoặc tải tài liệu lên để tạo câu hỏi tự động.</p>
-          <button className="btn violet lg" onClick={() => setComposer({ mode: 'new', type: 'single_choice', at: 0 })}><Plus size={20} /> Soạn câu hỏi đầu tiên</button>
+          <div className="row" style={{ justifyContent: 'center' }}>
+            <button className="btn violet lg" onClick={() => setComposer({ mode: 'new', type: 'single_choice', at: 0 })}><Plus size={20} /> Soạn câu hỏi đầu tiên</button>
+            <button className="btn lg" onClick={() => setImporting('file')}><Upload size={20} /> Tải tệp lên (Word, PDF, Excel…)</button>
+          </div>
         </div>
       ) : (
         <ol className="stack" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
