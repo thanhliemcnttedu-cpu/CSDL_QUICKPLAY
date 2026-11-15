@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, GraduationCap, KeyRound, LogIn, Mail, ShieldCheck, Upload } from 'lucide-react';
 import {
-  DEFAULT_ADMIN_USER, accountRequired, adminAuth, adminBootLogin, adminUrl, currentAccount, forgotFinish, forgotStart, isDefaultAdminPassword, login, markDefaultAdminPassword, setAdminUrl,
+  DEFAULT_ADMIN_USER, accountRequired, adminAuth, adminBootLogin, adminSignedIn, adminUrl, currentAccount, forgotFinish, forgotStart, isDefaultAdminPassword, login, markDefaultAdminPassword, setAdminUrl,
 } from '../lib/account';
 import { parseLinkFile, pingScript, saveLink } from '../lib/installer';
 import { pickFile } from '../components/MediaTools';
@@ -28,9 +28,17 @@ export default function Login({ role: fixed }: { role?: Role }) {
   // Quên mật khẩu (giáo viên): bước 1 nhập tên tài khoản để nhận mã qua email khôi phục; bước 2 nhập mã và mật khẩu mới
   const [fg, setFg] = useState<null | { username: string; sentTo: string; code: string; next: string; again: string; err: string; busy: boolean; help: boolean }>(null);
 
-  if (role === 'teacher' && currentAccount()) return <Navigate to="/teacher" replace />;
+  // Đã đăng nhập thì vào thẳng, không hỏi lại mật khẩu (chỉ hỏi lại sau khi bấm Đăng xuất)
+  const teacherIn = !!currentAccount();
+  const adminIn = !!adminUrl() && adminSignedIn();
+  if (role === 'teacher' && teacherIn) return <Navigate to="/teacher" replace />;
+  if (role === 'admin' && adminIn) return <Navigate to="/admin" replace />;
+  if (!role && teacherIn && !adminIn) return <Navigate to="/teacher" replace />;
+  if (!role && adminIn && !teacherIn) return <Navigate to="/admin" replace />;
 
   const pick = (r: Role) => {
+    if (r === 'teacher' && teacherIn) return nav('/teacher');
+    if (r === 'admin' && adminIn) return nav('/admin');
     setRole(r);
     setErr('');
     setPassword('');

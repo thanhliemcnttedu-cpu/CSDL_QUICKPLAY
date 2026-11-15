@@ -159,22 +159,30 @@ export const forgotFinish = (username: string, code: string, newPassword: string
 // ---------- quản trị ----------
 export const getAdminKey = () => sessionStorage.getItem(ADMIN_KEY) || '';
 export const setAdminKey = (k: string) => (k ? sessionStorage.setItem(ADMIN_KEY, k) : sessionStorage.removeItem(ADMIN_KEY));
-// Phiên đăng nhập của quản trị (tên tài khoản + mật khẩu): chỉ giữ tới khi đóng thẻ trình duyệt
+// Phiên đăng nhập của quản trị: giữ lại trên máy (kể cả khi đóng trình duyệt, ra trang chủ rồi vào lại) tới khi bấm Đăng xuất
 const ADMIN_TOKEN = 'quickplay.adminToken';
 const ADMIN_USER = 'quickplay.adminUser';
 export const DEFAULT_ADMIN_USER = 'adminquantri';
-export const adminSignedIn = () => !!sessionStorage.getItem(ADMIN_TOKEN) || !!getAdminKey();
-export const adminUser = () => sessionStorage.getItem(ADMIN_USER) || '';
+export const adminSignedIn = () => !!localStorage.getItem(ADMIN_TOKEN) || !!getAdminKey();
+export const adminUser = () => localStorage.getItem(ADMIN_USER) || '';
 const ADMIN_EMAIL = 'quickplay.adminEmail';
-export const adminEmail = () => sessionStorage.getItem(ADMIN_EMAIL) || '';
+// Bản trước giữ phiên quản trị trong sessionStorage: chuyển sang localStorage để không phải đăng nhập lại
+try {
+  for (const k of [ADMIN_TOKEN, ADMIN_USER, ADMIN_EMAIL, 'quickplay.adminDefaultPw']) {
+    const v = sessionStorage.getItem(k);
+    if (v !== null && localStorage.getItem(k) === null) localStorage.setItem(k, v);
+    sessionStorage.removeItem(k);
+  }
+} catch { /* trình duyệt chặn bộ nhớ: bỏ qua */ }
+export const adminEmail = () => localStorage.getItem(ADMIN_EMAIL) || '';
 function keepAdmin(r: { username: string; token: string; recovery_email?: string }) {
-  sessionStorage.setItem(ADMIN_TOKEN, r.token);
-  sessionStorage.setItem(ADMIN_USER, r.username);
-  sessionStorage.setItem(ADMIN_EMAIL, r.recovery_email || '');
+  localStorage.setItem(ADMIN_TOKEN, r.token);
+  localStorage.setItem(ADMIN_USER, r.username);
+  localStorage.setItem(ADMIN_EMAIL, r.recovery_email || '');
   sessionStorage.removeItem(ADMIN_KEY); // đã có phiên đăng nhập thì không giữ khóa ADMIN_KEY trong trình duyệt nữa
 }
 const adminCall = <T>(action: string, params: Record<string, unknown> = {}) =>
-  call<T>(action, { admin_token: sessionStorage.getItem(ADMIN_TOKEN) || undefined, admin_key: getAdminKey() || undefined, ...params });
+  call<T>(action, { admin_token: localStorage.getItem(ADMIN_TOKEN) || undefined, admin_key: getAdminKey() || undefined, ...params });
 // ---------- đăng nhập quản trị ở lần thiết lập đầu tiên ----------
 // Khi trang web chưa biết máy chủ tài khoản thì chưa có nơi nào kiểm tra mật khẩu, nên trang kiểm tra tại chỗ bằng BẢN BĂM
 // của mật khẩu mặc định (PBKDF2, không lưu mật khẩu dạng rõ trong mã). Cổng này chỉ để người lạ không mở được Trình cài đặt;
@@ -210,8 +218,8 @@ export const adminBootOk = () => sessionStorage.getItem(BOOT_FLAG) === '1';
 /** Mật khẩu vừa nhập ở lần đăng nhập đầu (rỗng nếu đã tải lại trang). */
 export const bootAdminPassword = () => bootPassword;
 /** Đánh dấu quản trị đang dùng mật khẩu mặc định (để nhắc đổi ngay). */
-export const markDefaultAdminPassword = (on: boolean) => (on ? sessionStorage.setItem(DEFAULT_PW_FLAG, '1') : sessionStorage.removeItem(DEFAULT_PW_FLAG));
-export const usingDefaultAdminPassword = () => sessionStorage.getItem(DEFAULT_PW_FLAG) === '1';
+export const markDefaultAdminPassword = (on: boolean) => (on ? localStorage.setItem(DEFAULT_PW_FLAG, '1') : localStorage.removeItem(DEFAULT_PW_FLAG));
+export const usingDefaultAdminPassword = () => localStorage.getItem(DEFAULT_PW_FLAG) === '1';
 
 export const adminAuth = {
   /** Máy chủ đã có tài khoản quản trị chưa */
@@ -222,7 +230,7 @@ export const adminAuth = {
   /** Khai báo (hoặc xóa) email khôi phục của quản trị */
   setEmail: async (email: string, password: string) => {
     const r = await adminCall<{ recovery_email: string }>('adminSetEmail', { email: email.trim(), password });
-    sessionStorage.setItem(ADMIN_EMAIL, r.recovery_email);
+    localStorage.setItem(ADMIN_EMAIL, r.recovery_email);
     return r.recovery_email;
   },
   forgotStart: (username: string) => call<{ sent: boolean; email: string }>('adminForgotStart', { username: username.trim().toLowerCase() }),
@@ -231,12 +239,8 @@ export const adminAuth = {
   changePassword: (password: string, new_password: string) => adminCall<{ changed: boolean }>('adminChangePassword', { password, new_password }),
   logout: async () => {
     try { await adminCall('adminLogout'); } catch { /* máy chủ không tới được: vẫn xóa phiên trên máy */ }
-    sessionStorage.removeItem(ADMIN_TOKEN);
-    sessionStorage.removeItem(ADMIN_USER);
-    sessionStorage.removeItem(ADMIN_EMAIL);
-    sessionStorage.removeItem(ADMIN_KEY);
-    sessionStorage.removeItem(BOOT_FLAG);
-    sessionStorage.removeItem(DEFAULT_PW_FLAG);
+    for (const k of [ADMIN_TOKEN, ADMIN_USER, ADMIN_EMAIL, DEFAULT_PW_FLAG]) localStorage.removeItem(k);
+    for (const k of [ADMIN_KEY, BOOT_FLAG, ADMIN_TOKEN, ADMIN_USER, ADMIN_EMAIL, DEFAULT_PW_FLAG]) sessionStorage.removeItem(k); // phiên kiểu cũ
     bootPassword = '';
   },
 };

@@ -11,7 +11,7 @@
  */
 
 var ADMIN_APP = 'QUICKPLAY-ACCOUNTS';
-var ADMIN_VERSION = '1.4.0';
+var ADMIN_VERSION = '1.5.0';
 
 // Trình cài đặt trong phần mềm điền sẵn khóa quản trị vào đây khi bấm "Sao chép mã" (không phải chạy setup()).
 var PRESET_ADMIN_KEY = '';
@@ -27,7 +27,7 @@ var MAX_VAULT = 6000;          // ký tự – một thuộc tính Script Proper
 var MAX_FAILS = 8;             // sai mật khẩu quá số lần này thì tạm khóa đăng nhập
 var FAIL_WINDOW_MS = 15 * 60 * 1000;
 var MAX_ACCOUNTS = 400;
-var ADMIN_SESSION_MS = 12 * 60 * 60 * 1000; // phiên đăng nhập của quản trị: 12 giờ
+var ADMIN_SESSION_MS = 30 * 24 * 60 * 60 * 1000; // phiên đăng nhập của quản trị: 30 ngày (hoặc tới khi bấm Đăng xuất)
 var ADMIN_MIN_PASSWORD = 8;
 var RESET_TTL_MS = 15 * 60 * 1000;   // mã đặt lại mật khẩu có hiệu lực 15 phút
 var RESET_GAP_MS = 60 * 1000;        // gửi lại mã sau ít nhất 1 phút

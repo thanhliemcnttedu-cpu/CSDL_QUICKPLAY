@@ -77,7 +77,7 @@ nên nếu mật khẩu đó dễ đoán thì người khác có thể dò ra; �
 Trang hiện mục **Thiết lập tài khoản quản trị**: nhập `ADMIN_KEY`, tên tài khoản (mặc định `adminquantri`) và mật khẩu do quản trị tự đặt
 (8–72 ký tự) → **Lưu tài khoản quản trị**.
 
-**Từ lần sau:** mở `/adminquantri`, nhập tên tài khoản và mật khẩu → **Đăng nhập**. Phiên đăng nhập hết hạn sau 12 giờ hoặc khi đóng thẻ.
+**Từ lần sau:** mở `/adminquantri`, nhập tên tài khoản và mật khẩu → **Đăng nhập**. Trình duyệt giữ phiên đăng nhập (ra trang chủ, đóng trình duyệt rồi mở lại vẫn vào thẳng) cho tới khi bấm **Đăng xuất**. Máy chủ tài khoản bản 1.5.0 trở lên giữ phiên tối đa 30 ngày; bản cũ hơn chỉ 12 giờ, hết hạn thì trang hỏi lại mật khẩu.
 
 > Mật khẩu quản trị **không nằm trong mã nguồn** (mã của trang web ai cũng đọc được). Máy chủ chỉ lưu bản băm có muối.
 > Nên khai báo **email khôi phục** ngay sau lần đăng nhập đầu (nút **Email khôi phục** phía trên danh sách tài khoản).
