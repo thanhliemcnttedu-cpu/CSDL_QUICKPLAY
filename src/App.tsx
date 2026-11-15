@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { PaperLiveNotice } from './components/PaperLiveNotice';
 import { HashRouter, NavLink, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLine, LogOut, UserRound, Monitor, Tablet, Smartphone } from 'lucide-react';
 import { LightboxProvider, Spinner, ToastProvider, askConfirm } from './components/ui';
@@ -104,7 +105,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
         </nav>
         <AccountChip />
       </header>
-      <main className="page"><ScriptUpdateNotice /><DriveFullBanner />{children}</main>
+      <main className="page"><ScriptUpdateNotice /><DriveFullBanner /><PaperLiveNotice />{children}</main>
       <AppFooter />
     </>
   );

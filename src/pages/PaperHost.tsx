@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
-import { ArrowRight, BellRing, ChartColumn, Download, Eye, EyeOff, QrCode, Square } from 'lucide-react';
+import { ArrowRight, BellRing, ChartColumn, Download, Eye, EyeOff, Home, QrCode, Square } from 'lucide-react';
 import type { Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperOp } from '../lib/paper';
@@ -89,7 +89,7 @@ export default function PaperHost() {
   const qs = quiz.questions;
   const head = (
     <header className="pp-top">
-      <Wordmark size={30} />
+      <Link to="/teacher" className="pp-home" title="Về trang giáo viên" aria-label="Quickplay – về trang giáo viên"><Wordmark size={30} /></Link>
       <span className="badge blue">Lớp {s.paper.class_name}</span>
       <span className="muted small grow">{s.quiz_title}</span>
     </header>
@@ -138,6 +138,7 @@ export default function PaperHost() {
           <div className="row">
             <button className="btn ghost" onClick={exportXlsx}><Download size={18} /> Xuất Excel đáp án từng thẻ</button>
             <Link className="btn ghost" to="/teacher/paper">Buổi học khác</Link>
+            <Link className="btn primary" to="/teacher"><Home size={18} /> Về trang giáo viên</Link>
           </div>
         </div>
         {hard.length > 0 && (

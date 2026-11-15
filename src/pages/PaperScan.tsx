@@ -4,7 +4,7 @@
 // Bảng mã thẻ là của riêng Quickplay (paperCard.ts); chỉ tham khảo cách bố trí màn hình của các phần mềm khác.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChartColumn, ChevronDown, ChevronUp, FastForward, LogIn, LogOut, ScanLine, Send, Users, ZoomIn, ZoomOut, ArrowRight, X, Play, Camera } from 'lucide-react';
+import { ChartColumn, ChevronDown, ChevronUp, FastForward, LogIn, LogOut, ScanLine, Send, Users, ZoomIn, ZoomOut, ArrowRight, X, Play, Camera, Home } from 'lucide-react';
 import type { PaperView, Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperHit, type PaperOp } from '../lib/paper';
@@ -401,6 +401,7 @@ export default function PaperScan() {
             </div>
           )}
           <Link className="btn primary lg" to={`/teacher/paper/${pin}`}><ChartColumn size={20} /> Xem báo cáo chi tiết</Link>
+          <Link className="btn ghost lg" to="/teacher"><Home size={20} /> Về trang giáo viên</Link>
         </div>
       </div>
     );
@@ -449,12 +450,13 @@ export default function PaperScan() {
             <div className="ps-start">
               <div className="alert warn" style={{ textAlign: 'left' }}>
                 <div>
-                  <b>Trình duyệt trong {app ?? 'ứng dụng này'} chỉ cho camera chạy toàn màn hình</b>, nên không hiện được tên học sinh trên hình.
-                  {' '}{openInBrowserHint(app ?? 'ứng dụng')} Ở Safari / Chrome, camera nằm gọn trong khung này.
+                  <b>Trình duyệt trong {app ?? 'ứng dụng này'} bật camera toàn màn hình.</b> Cách quét tiếp ngay: bấm <b>Vẫn quét</b>, khi hình bung ra thì bấm nút
+                  <b> thu nhỏ (hình trong hình)</b> ở góc trên khung video để camera nổi thành ô nhỏ; tên học sinh sẽ hiện trong khung này.
+                  {' '}Cách gọn hơn: {openInBrowserHint(app ?? 'ứng dụng')}
                 </div>
               </div>
               <button className="btn primary" onClick={copyLink}>{copied ? 'Đã chép liên kết' : 'Sao chép liên kết để mở bằng Safari'}</button>
-              <button className="btn ghost" onClick={startCamera}><Camera size={18} /> Vẫn quét toàn màn hình</button>
+              <button className="btn ghost" onClick={startCamera}><Camera size={18} /> Vẫn quét</button>
             </div>
           )}
         </div>
@@ -516,6 +518,7 @@ export default function PaperScan() {
       {responded > 0 && <p className="center muted" style={{ margin: 0 }}>Đã nhận {responded}/{view.total} phản hồi ở câu này.</p>}
       <div className="ps-sheet">
         <button className="btn primary lg ps-wide" onClick={() => setStage('scan')}><ScanLine size={22} /> Quét phản hồi</button>
+        {inAppBrowser() && <p className="ps-foot">Đang mở trong {inAppBrowser()}: lần đầu camera bật toàn màn hình, thầy cô bấm nút thu nhỏ (hình trong hình) ở góc khung video để camera nổi lên rồi quét. Mở bằng Chrome / Safari thì camera nằm sẵn trong khung.</p>}
         <p className="ps-foot">Tác giả: Nguyễn Thanh Liêm – Zalo: 0888358363</p>
       </div>
     </div>
