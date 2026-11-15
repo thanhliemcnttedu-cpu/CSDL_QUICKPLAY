@@ -5,7 +5,7 @@ import { decryptVault, deriveKey, encryptVault } from './account';
 
 const require = createRequire(import.meta.url);
 const { createAdmin } = require('../../apps-script-admin/gas-harness.cjs') as {
-  createAdmin: () => { adminKey: string; post: (b: Record<string, unknown>) => { ok: boolean; data?: any; error?: string }; store: Map<string, string> };
+  createAdmin: () => { adminKey: string; post: (b: Record<string, unknown>) => { ok: boolean; data?: any; error?: string }; store: Map<string, string>; mails: { to: string; subject: string; body: string }[] };
 };
 
 describe('máy chủ tài khoản', () => {
@@ -99,5 +99,61 @@ describe('máy chủ tài khoản', () => {
     expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'mat-khau-moi-1' }).error).toMatch(/quá nhiều lần/);
     expect(a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'adminquantri', password: 'dat-lai-bang-khoa' }).ok).toBe(true);
     expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'dat-lai-bang-khoa' }).ok).toBe(true);
+  });
+
+  it('giáo viên khai báo email khôi phục và tự đặt lại mật khẩu bằng mã gửi qua email', () => {
+    const a = createAdmin();
+    a.post({ action: 'adminCreate', admin_key: a.adminKey, username: 'lan.nguyen', name: 'Nguyễn Thị Lan', password: 'matkhau1' });
+    const s1 = a.post({ action: 'login', username: 'lan.nguyen', password: 'matkhau1' }).data;
+    a.post({ action: 'saveVault', username: 'lan.nguyen', token: s1.token, vault: 'KET-DA-MA-HOA' });
+
+    // chưa khai báo email (hoặc tài khoản không tồn tại): cùng một câu trả lời, không gửi thư
+    const none = a.post({ action: 'forgotStart', username: 'lan.nguyen' }).error;
+    expect(none).toMatch(/chưa khai báo email/);
+    expect(a.post({ action: 'forgotStart', username: 'khong.co' }).error).toBe(none);
+    expect(a.mails).toHaveLength(0);
+
+    // khai báo email: phải đúng mật khẩu hiện tại và đúng dạng email
+    expect(a.post({ action: 'setRecoveryEmail', username: 'lan.nguyen', token: s1.token, email: 'lan@example.com', password: 'sai' }).error).toMatch(/hiện tại không đúng/);
+    expect(a.post({ action: 'setRecoveryEmail', username: 'lan.nguyen', token: s1.token, email: 'khong-phai-email', password: 'matkhau1' }).error).toMatch(/email chưa đúng/);
+    expect(a.post({ action: 'setRecoveryEmail', username: 'lan.nguyen', token: s1.token, email: ' Lan@Example.com ', password: 'matkhau1' }).data.recovery_email).toBe('lan@example.com');
+    expect(a.post({ action: 'adminList', admin_key: a.adminKey }).data[0].has_email).toBe(true);
+
+    // gửi mã: email trả về đã che bớt, thư tới đúng địa chỉ, mã 6 số không lưu dạng rõ, không gửi dồn dập
+    const st = a.post({ action: 'forgotStart', username: 'lan.nguyen' });
+    expect(st.data.email).toBe('l***@example.com'); // tên ngắn: chỉ để lại chữ đầu
+    expect(a.mails).toHaveLength(1);
+    expect(a.mails[0].to).toBe('lan@example.com');
+    const code = a.mails[0].body.match(/là: (\d{6})/)![1];
+    expect([...a.store.values()].join('|')).not.toContain(code);
+    expect(a.post({ action: 'forgotStart', username: 'lan.nguyen' }).error).toMatch(/chờ 1 phút/);
+
+    // sai mã thì bị đếm; đúng mã thì đổi được mật khẩu, mã chỉ dùng một lần
+    const wrong = code === '000000' ? '111111' : '000000';
+    expect(a.post({ action: 'forgotFinish', username: 'lan.nguyen', code: wrong, new_password: 'moi-123456' }).error).toMatch(/còn 4 lần/);
+    expect(a.post({ action: 'forgotFinish', username: 'lan.nguyen', code, new_password: '123' }).error).toMatch(/6 đến 72/);
+    expect(a.post({ action: 'forgotFinish', username: 'lan.nguyen', code, new_password: 'moi-123456' }).data.changed).toBe(true);
+    expect(a.post({ action: 'forgotFinish', username: 'lan.nguyen', code, new_password: 'lan-nua-123' }).ok).toBe(false);
+
+    // mật khẩu cũ và phiên cũ hết hiệu lực; két cũ bị bỏ; email khôi phục vẫn còn
+    expect(a.post({ action: 'login', username: 'lan.nguyen', password: 'matkhau1' }).ok).toBe(false);
+    expect(a.post({ action: 'check', username: 'lan.nguyen', token: s1.token }).ok).toBe(false);
+    const s2 = a.post({ action: 'login', username: 'lan.nguyen', password: 'moi-123456' }).data;
+    expect(s2.vault).toBe('');
+    expect(s2.recovery_email).toBe('lan@example.com');
+
+    // nhập sai mã 5 lần thì mã bị hủy
+    const acc = JSON.parse(a.store.get('U_lan.nguyen')!);
+    acc.reset = undefined;
+    a.store.set('U_lan.nguyen', JSON.stringify(acc));
+    a.post({ action: 'forgotStart', username: 'lan.nguyen' });
+    const code2 = a.mails[1].body.match(/là: (\d{6})/)![1];
+    const bad = code2 === '999999' ? '888888' : '999999';
+    for (let i = 0; i < 5; i++) a.post({ action: 'forgotFinish', username: 'lan.nguyen', code: bad, new_password: 'moi-123456' });
+    expect(a.post({ action: 'forgotFinish', username: 'lan.nguyen', code: code2, new_password: 'moi-654321' }).error).toMatch(/quá nhiều lần|gửi mã/);
+
+    // tài khoản bị khóa thì không xin mã được; không gửi được thư thì báo lỗi rõ
+    a.post({ action: 'adminSetLocked', admin_key: a.adminKey, username: 'lan.nguyen', locked: true });
+    expect(a.post({ action: 'forgotStart', username: 'lan.nguyen' }).error).toMatch(/đang bị khóa/);
   });
 });

@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { Cloud, HardDrive, PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup } from 'lucide-react';
 import { loadSettings, saveSettings, isDesktop, type AppSettings } from '../lib/settings';
-import { changePassword, currentAccount, saveVault } from '../lib/account';
+import { changePassword, currentAccount, saveVault, setRecoveryEmail } from '../lib/account';
 import { testConnection } from '../lib/api';
 import { kvGet, kvKeys } from '../lib/idb';
 import type { Quiz } from '../lib/types';
 import { useToast, askConfirm } from '../components/ui';
+import { ScriptInstaller, type InstallResult } from '../components/ScriptInstaller';
+import { SCRIPT_VERSION, compareVersion, pingScript } from '../lib/installer';
+import { exportAll, importAll, parseBackup } from '../lib/backup';
+import { pickFile } from '../components/MediaTools';
+import { downloadBlob } from '../lib/xlsx';
+import '../installer.css';
 
 export default function Settings() {
   const toast = useToast();
@@ -20,6 +26,80 @@ export default function Settings() {
   const first = params.get('first') === '1';
   const acc = currentAccount();
   const [pw, setPw] = useState({ old: '', next: '' });
+  const [mail, setMail] = useState({ email: acc?.email ?? '', password: '', saved: acc?.email ?? '' });
+  const saveMail = async () => {
+    setBusy(true);
+    try {
+      const e = await setRecoveryEmail(mail.email, mail.password);
+      setMail({ email: e, password: '', saved: e });
+      toast(e ? 'Đã lưu email khôi phục.' : 'Đã xóa email khôi phục.', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saved = loadSettings();
+  const connected = saved.backend === 'drive' && !!saved.scriptUrl;
+  // Máy chủ Apps Script đang chạy phiên bản nào (để nhắc cập nhật khi phần mềm có mã mới)
+  const [server, setServer] = useState<{ version: string } | { error: string } | null>(null);
+  useEffect(() => {
+    if (!connected) return;
+    pingScript(saved.scriptUrl).then((r) => setServer({ version: r.version })).catch((e) => setServer({ error: (e as Error).message }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const outdated = !!server && 'version' in server && compareVersion(server.version, SCRIPT_VERSION) < 0;
+  const [progress, setProgress] = useState('');
+
+  // Trình cài đặt đã kiểm tra xong link /exec: lưu kết nối, gắn thư mục, cất vào tài khoản để máy khác tự nhớ
+  const installed = async (r: InstallResult) => {
+    const prev = loadSettings();
+    const next: AppSettings = { ...prev, backend: 'drive', scriptUrl: r.scriptUrl, teacherKey: r.key || prev.teacherKey, folderUrl: r.folderUrl || prev.folderUrl };
+    saveSettings(next);
+    try {
+      const { api } = await import('../lib/api');
+      if (next.folderUrl) await api.setRootFolder(next.folderUrl);
+      else await testConnection(next.scriptUrl);
+      if (acc) await saveVault({ scriptUrl: next.scriptUrl, teacherKey: next.teacherKey, folderUrl: next.folderUrl });
+    } catch (e) {
+      saveSettings(prev);
+      throw e;
+    }
+    setS(next);
+    toast(acc ? 'Đã kết nối Google Drive. Tài khoản của thầy cô sẽ nhớ cấu hình này trên mọi máy.' : 'Đã kết nối Google Drive.', 'ok');
+    setTimeout(() => (first ? location.replace(location.pathname + '#/teacher') : location.reload()), 1200);
+  };
+
+  const backup = async () => {
+    setBusy(true);
+    try {
+      const data = await exportAll((d, t) => setProgress(`Đang đọc ${d}/${t} bộ câu hỏi…`));
+      const day = new Date().toISOString().slice(0, 10);
+      downloadBlob(`quickplay-sao-luu-${day}.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
+      toast(`Đã tải về ${data.quizzes.length} bộ câu hỏi, ${data.classes.length} lớp.`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setProgress('');
+      setBusy(false);
+    }
+  };
+  const restore = async () => {
+    const f = await pickFile('.json,application/json');
+    if (!f) return;
+    try {
+      const data = parseBackup(await f.text());
+      const where = connected ? 'Google Drive của thầy cô' : 'trình duyệt của máy này';
+      if (!(await askConfirm(`Tệp có ${data.quizzes.length} bộ câu hỏi, ${data.classes.length} lớp${data.catalog ? ' và danh mục môn học' : ''}.\nKhôi phục vào ${where}? Bộ câu hỏi trùng mã sẽ được ghi đè bằng bản trong tệp${data.catalog ? '; danh mục môn học hiện tại được thay bằng danh mục trong tệp' : ''}.`, { okLabel: 'Khôi phục' }))) return;
+      setBusy(true);
+      const r = await importAll(data, (d, t) => setProgress(`Đang ghi ${d}/${t}…`));
+      toast(`Đã khôi phục ${r.quizzes} bộ câu hỏi, ${r.classes} lớp.`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setProgress('');
+      setBusy(false);
+    }
+  };
 
   const test = async () => {
     setStatus(null);
@@ -104,14 +184,13 @@ export default function Settings() {
   };
 
   return (
-    <div className="stack" style={{ gap: 20, maxWidth: 820 }}>
+    <div className="stack" style={{ gap: 20, maxWidth: 1040 }}>
       <h1 style={{ margin: 0 }}>Cài đặt</h1>
       {first && (
         <div className="alert ok" role="status">
           <div>
-            <b>Chào {acc?.name ?? 'thầy cô'}! Đây là lần đầu thầy cô dùng Quickplay.</b> Hãy làm một lần duy nhất: cài Apps Script vào Google Drive của mình
-            (xem <code>apps-script/HUONG_DAN_CAI_DAT.md</code>), rồi dán <b>link thư mục lưu trữ</b>, <b>link Apps Script</b> và <b>khóa giáo viên</b> vào dưới đây và bấm Lưu.
-            Từ lần sau, chỉ cần đăng nhập là phần mềm tự nhớ.
+            <b>Chào {acc?.name ?? 'thầy cô'}! Đây là lần đầu thầy cô dùng Quickplay.</b> Hãy làm một lần duy nhất (khoảng 10 phút): đi hết <b>5 bước của Trình cài đặt</b> bên dưới
+            để dữ liệu được lưu vào Google Drive của chính thầy cô. Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối lại.
           </div>
         </div>
       )}
@@ -133,31 +212,68 @@ export default function Settings() {
 
         {s.backend === 'drive' && (
           <div className="stack">
-            <label className="field">
-              <span>Link thư mục lưu trữ trên Google Drive của thầy cô</span>
-              <input className="input" value={s.folderUrl} onChange={(e) => set({ folderUrl: e.target.value })} placeholder="https://drive.google.com/drive/folders/…" />
-              <small className="help">Tạo một thư mục riêng trên Drive của thầy cô rồi dán link vào đây. Mọi bộ câu hỏi và kết quả được lưu trong thư mục này, chỉ thầy cô quản lý. Để trống thì Apps Script tự tạo thư mục QUICKPLAY_DATA.</small>
-            </label>
-            <label className="field">
-              <span>URL Web App Apps Script</span>
-              <input className="input" value={s.scriptUrl} onChange={(e) => set({ scriptUrl: e.target.value })} placeholder="https://script.google.com/macros/s/AKfy…/exec" />
-              <small className="help">Làm theo tệp <code>apps-script/HUONG_DAN_CAI_DAT.md</code>: dán mã Code.gs, chạy <code>setup()</code>, triển khai Web App (Bất kỳ ai) rồi chép URL vào đây.</small>
-            </label>
-            <label className="field">
-              <span>Khóa giáo viên (TEACHER_KEY)</span>
-              <div className="row" style={{ flexWrap: 'nowrap' }}>
-                <input className="input" type={show ? 'text' : 'password'} value={s.teacherKey} onChange={(e) => set({ teacherKey: e.target.value })} autoComplete="off" />
-                <button type="button" className="btn icon" onClick={() => setShow((x) => !x)} aria-label={show ? 'Ẩn khóa' : 'Hiện khóa'}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+            {connected ? (
+              <div className="conn-ok" role="status"><CheckCircle2 size={22} /> Dữ liệu của thầy cô đã được kết nối với Google Drive{server && 'version' in server ? ` (máy chủ phiên bản ${server.version})` : ''}</div>
+            ) : (
+              <div className="conn-off" role="status"><TriangleAlert size={22} /> Chưa kết nối Google Drive. Làm theo Trình cài đặt 5 bước bên dưới.</div>
+            )}
+            {server && 'error' in server && <div className="alert error" role="alert">Không gọi được Apps Script đang lưu: {server.error}</div>}
+            {outdated && <div className="alert warn" role="status"><div><b>Apps Script của thầy cô đang chạy mã cũ</b> (phiên bản {(server as { version: string }).version}, phần mềm cần {SCRIPT_VERSION}). Chọn thẻ <b>Cập nhật bản mới</b> trong Trình cài đặt bên dưới và làm 5 bước; link và dữ liệu giữ nguyên.</div></div>}
+
+            <ScriptInstaller kind="teacher" current={{ scriptUrl: saved.scriptUrl, key: saved.teacherKey, folderUrl: saved.folderUrl }} onDone={installed} />
+
+            <details className="card tight" open={connected && !first}>
+              <summary style={{ cursor: 'pointer', fontWeight: 700 }}><FolderOpen size={16} style={{ verticalAlign: '-2px' }} /> Thư mục và Apps Script đang dùng (sửa tay)</summary>
+              <div className="stack" style={{ marginTop: 10 }}>
+                <label className="field">
+                  <span className="row between">Link thư mục Google Drive lưu dữ liệu {s.folderUrl && <a href={s.folderUrl} target="_blank" rel="noopener noreferrer">Mở Drive <ExternalLink size={13} /></a>}</span>
+                  <input className="input" value={s.folderUrl} onChange={(e) => set({ folderUrl: e.target.value })} placeholder="https://drive.google.com/drive/folders/…" />
+                  <small className="help">Mọi bộ câu hỏi và kết quả được lưu trong thư mục này, chỉ thầy cô quản lý. Để trống thì Apps Script tự tạo thư mục QUICKPLAY_DATA.</small>
+                </label>
+                <label className="field">
+                  <span>Link Apps Script (đuôi /exec)</span>
+                  <input className="input" value={s.scriptUrl} onChange={(e) => set({ scriptUrl: e.target.value })} placeholder="https://script.google.com/macros/s/AKfy…/exec" />
+                </label>
+                <label className="field">
+                  <span>Khóa giáo viên</span>
+                  <div className="row" style={{ flexWrap: 'nowrap' }}>
+                    <input className="input" type={show ? 'text' : 'password'} value={s.teacherKey} onChange={(e) => set({ teacherKey: e.target.value })} autoComplete="off" />
+                    <button type="button" className="btn icon" onClick={() => setShow((x) => !x)} aria-label={show ? 'Ẩn khóa' : 'Hiện khóa'}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                  </div>
+                  <small className="help">Trình cài đặt tự tạo và tự điền khóa này. Chỉ giáo viên có khóa mới soạn đề và mở phòng được; học sinh không cần khóa.</small>
+                </label>
+                <div className="row">
+                  <button className="btn success" onClick={store} disabled={busy}><Save size={18} /> Lưu kết nối</button>
+                  <button className="btn" onClick={test} disabled={busy}><PlugZap size={18} /> Kiểm tra link</button>
+                  <button className="btn ghost" onClick={migrate} disabled={busy || !s.scriptUrl}><UploadCloud size={18} /> Chép đề từ máy này lên Drive</button>
+                </div>
+                {status && <div className={`alert ${status.tone}`} role="status">{status.text}</div>}
               </div>
-              <small className="help">Chỉ giáo viên biết khóa này mới soạn đề và mở phòng được. Học sinh không cần khóa.</small>
-            </label>
-            <div className="row">
-              <button className="btn" onClick={test} disabled={busy}><PlugZap size={18} /> Kiểm tra kết nối</button>
-              <button className="btn ghost" onClick={migrate} disabled={busy || !s.scriptUrl}><UploadCloud size={18} /> Chép đề từ máy này lên Drive</button>
-            </div>
-            {status && <div className={`alert ${status.tone}`} role="status">{status.text}</div>}
+            </details>
+            <ul className="help" style={{ margin: 0, paddingLeft: 18 }}>
+              <li>Mọi thay đổi (bộ câu hỏi, lớp, kết quả) được ghi thẳng lên Google Drive của thầy cô ngay khi lưu, không cần bấm đồng bộ.</li>
+              <li>Đổi máy tính: chỉ cần đăng nhập đúng tài khoản và mật khẩu, phần mềm tự kết nối lại thư mục và Apps Script này.</li>
+            </ul>
           </div>
         )}
+      </section>
+
+      <section className="card stack">
+        <h2 className="row" style={{ margin: 0, gap: 8 }}><DatabaseBackup size={22} color="var(--primary)" /> Sao lưu và khôi phục</h2>
+        <p className="muted" style={{ margin: 0 }}>Một tệp .json chứa toàn bộ bộ câu hỏi, danh mục môn học và danh sách lớp đang lưu ở <b>{connected ? 'Google Drive của thầy cô' : 'trình duyệt của máy này'}</b>. Kết quả các buổi đã tổ chức xuất riêng bằng Excel hoặc PDF ở mục Báo cáo.</p>
+        <div className="backup-grid">
+          <div>
+            <b>Tải tệp dữ liệu về máy</b>
+            <p className="muted small">Dùng để cất dự phòng, chép sang USB hoặc gửi cho đồng nghiệp.</p>
+            <button className="btn primary" onClick={backup} disabled={busy}><Download size={18} /> Tải về tệp sao lưu (.json)</button>
+          </div>
+          <div>
+            <b>Khôi phục từ tệp</b>
+            <p className="muted small">Chọn tệp sao lưu đã tải trước đó, hoặc tệp một bộ câu hỏi lẻ. Phần mềm cho xem số lượng trước khi ghi.</p>
+            <button className="btn" onClick={restore} disabled={busy}><Upload size={18} /> Chọn tệp .json để khôi phục</button>
+          </div>
+        </div>
+        {progress && <div className="alert ok" role="status">{progress}</div>}
       </section>
 
       <section className="card stack">
@@ -188,6 +304,18 @@ export default function Settings() {
             <label className="field grow"><span>Mật khẩu mới</span><input className="input" type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" /></label>
           </div>
           <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={changePw} disabled={busy || !pw.old || !pw.next}>Đổi mật khẩu</button>
+
+          <h3 style={{ margin: '8px 0 0' }}>Email khôi phục</h3>
+          <p className="muted" style={{ margin: 0 }}>
+            Khi quên mật khẩu, bấm <b>Quên mật khẩu?</b> ở màn đăng nhập: phần mềm gửi mã 6 số tới email này để thầy cô đặt mật khẩu mới.
+            {mail.saved ? <> Email đang dùng: <b>{mail.saved}</b>.</> : <> Hiện <b>chưa khai báo</b>.</>}
+          </p>
+          <div className="row">
+            <label className="field grow"><span>Email khôi phục (để trống = xóa)</span><input className="input" type="email" inputMode="email" value={mail.email} onChange={(e) => setMail({ ...mail, email: e.target.value })} placeholder="tenthayco@gmail.com" autoComplete="email" /></label>
+            <label className="field grow"><span>Mật khẩu hiện tại (để xác nhận)</span><input className="input" type="password" value={mail.password} onChange={(e) => setMail({ ...mail, password: e.target.value })} autoComplete="current-password" /></label>
+          </div>
+          <button className="btn success" style={{ alignSelf: 'flex-start' }} onClick={saveMail} disabled={busy || !mail.password}>Lưu email khôi phục</button>
+          <small className="help">Nên dùng email cá nhân mà chỉ thầy cô mở được. Sau khi đặt lại mật khẩu bằng mã, thầy cô cần kết nối lại Google Drive một lần (dán lại link thư mục, link Apps Script và khóa giáo viên; khóa xem được trong Apps Script → Cài đặt dự án → Thuộc tính tập lệnh → TEACHER_KEY).</small>
         </section>
       )}
 

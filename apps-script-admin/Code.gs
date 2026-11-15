@@ -11,7 +11,10 @@
  */
 
 var ADMIN_APP = 'QUICKPLAY-ACCOUNTS';
-var ADMIN_VERSION = '1.0.0';
+var ADMIN_VERSION = '1.1.0';
+
+// Trình cài đặt trong phần mềm điền sẵn khóa quản trị vào đây khi bấm "Sao chép mã" (không phải chạy setup()).
+var PRESET_ADMIN_KEY = '';
 var HASH_ROUNDS = 1500;
 var MAX_VAULT = 6000;          // ký tự – một thuộc tính Script Properties chứa tối đa ~9 KB
 var MAX_FAILS = 8;             // sai mật khẩu quá số lần này thì tạm khóa đăng nhập
@@ -19,6 +22,9 @@ var FAIL_WINDOW_MS = 15 * 60 * 1000;
 var MAX_ACCOUNTS = 400;
 var ADMIN_SESSION_MS = 12 * 60 * 60 * 1000; // phiên đăng nhập của quản trị: 12 giờ
 var ADMIN_MIN_PASSWORD = 8;
+var RESET_TTL_MS = 15 * 60 * 1000;   // mã đặt lại mật khẩu có hiệu lực 15 phút
+var RESET_GAP_MS = 60 * 1000;        // gửi lại mã sau ít nhất 1 phút
+var RESET_MAX_TRIES = 5;             // nhập sai mã quá số lần này thì phải xin mã mới
 
 function doGet() {
   return out_({ ok: true, data: { name: ADMIN_APP, version: ADMIN_VERSION } });
@@ -33,6 +39,9 @@ function doPost(e) {
       check: actCheck_,
       saveVault: actSaveVault_,
       changePassword: actChangePassword_,
+      setRecoveryEmail: actSetRecoveryEmail_,
+      forgotStart: actForgotStart_,
+      forgotFinish: actForgotFinish_,
       adminStatus: actAdminStatus_,
       adminInit: actAdminInit_,
       adminLogin: actAdminLogin_,
@@ -89,7 +98,7 @@ function actLogin_(req) {
     acc.fails = 0;
     acc.last_login = now;
     save_(acc);
-    return { username: acc.username, name: acc.name, token: token, vault: acc.vault || '' };
+    return { username: acc.username, name: acc.name, token: token, vault: acc.vault || '', recovery_email: acc.email || '' };
   });
 }
 
@@ -104,7 +113,7 @@ function session_(req) {
 
 function actCheck_(req) {
   var acc = session_(req);
-  return { username: acc.username, name: acc.name };
+  return { username: acc.username, name: acc.name, recovery_email: acc.email || '' };
 }
 
 function actSaveVault_(req) {
@@ -134,6 +143,97 @@ function actChangePassword_(req) {
   });
 }
 
+// ---------------------------------------------------------------- email khôi phục và quên mật khẩu
+function maskEmail_(email) {
+  var p = String(email).split('@');
+  var n = p[0];
+  return (n.length <= 3 ? n.charAt(0) + '***' : n.slice(0, 2) + '***' + n.slice(-1)) + '@' + p[1];
+}
+function randomDigits_(len) {
+  var out = '';
+  while (out.length < len) {
+    var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + ':' + Date.now() + ':' + Math.random());
+    for (var i = 0; i < bytes.length && out.length < len; i++) {
+      var b = (bytes[i] + 256) % 256;
+      if (b < 250) out += String(b % 10); // bỏ 250–255 để 10 chữ số có xác suất bằng nhau
+    }
+  }
+  return out;
+}
+
+/** Giáo viên đang đăng nhập khai báo (hoặc xóa) email khôi phục. Phải nhập lại mật khẩu hiện tại để xác nhận. */
+function actSetRecoveryEmail_(req) {
+  var email = String(req.email || '').trim().toLowerCase();
+  if (email && (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))) throw err_('Địa chỉ email chưa đúng.');
+  return lock_(function () {
+    var acc = session_(req);
+    if (!safeEq_(hash_(acc.salt, String(req.password || '')), acc.hash)) throw err_('Mật khẩu hiện tại không đúng.');
+    if (email) acc.email = email; else delete acc.email;
+    delete acc.reset;
+    save_(acc);
+    return { recovery_email: acc.email || '' };
+  });
+}
+
+/** Quên mật khẩu, bước 1: gửi mã 6 số tới email khôi phục đã khai báo. */
+function actForgotStart_(req) {
+  var username = normUser_(req.username);
+  return lock_(function () {
+    var acc = load_(username);
+    // cùng một câu cho "không có tài khoản" và "chưa khai báo email" để không lộ tên tài khoản nào tồn tại
+    if (!acc || !acc.email) throw err_('Tài khoản này chưa khai báo email khôi phục. Hãy liên hệ quản trị để được đặt lại mật khẩu (Zalo: 0888358363).');
+    if (acc.locked) throw err_('Tài khoản này đang bị khóa. Hãy liên hệ quản trị (Zalo: 0888358363).');
+    var now = Date.now();
+    if (acc.reset && now - (acc.reset.at || 0) < RESET_GAP_MS) throw err_('Vừa gửi mã xong. Hãy chờ 1 phút rồi bấm gửi lại.');
+    var code = randomDigits_(6);
+    acc.reset = { hash: sha_(acc.salt + ':' + code), at: now, tries: 0 };
+    save_(acc);
+    try {
+      MailApp.sendEmail({
+        to: acc.email,
+        name: 'Quickplay',
+        subject: 'Quickplay – Mã đặt lại mật khẩu',
+        body: 'Xin chào ' + acc.name + ',\n\nMã xác nhận đặt lại mật khẩu Quickplay của thầy cô là: ' + code +
+          '\n\nMã có hiệu lực trong 15 phút. Không chia sẻ mã này cho bất kỳ ai.' +
+          '\nNếu thầy cô không yêu cầu đặt lại mật khẩu, hãy bỏ qua thư này.\n\nTrân trọng,\nQuickplay'
+      });
+    } catch (e) {
+      delete acc.reset;
+      save_(acc);
+      throw err_('Máy chủ chưa gửi được email (có thể đã hết lượt gửi thư trong ngày). Hãy thử lại sau hoặc liên hệ quản trị.');
+    }
+    return { sent: true, email: maskEmail_(acc.email) };
+  });
+}
+
+/** Quên mật khẩu, bước 2: nhập mã trong email và đặt mật khẩu mới. */
+function actForgotFinish_(req) {
+  var username = normUser_(req.username);
+  var code = String(req.code || '').replace(/\D/g, '');
+  var next = String(req.new_password || '');
+  checkPassword_(next);
+  return lock_(function () {
+    var acc = load_(username);
+    if (!acc || !acc.reset) throw err_('Hãy bấm "Gửi mã về email khôi phục" trước.');
+    var now = Date.now();
+    if (now - (acc.reset.at || 0) > RESET_TTL_MS) { delete acc.reset; save_(acc); throw err_('Mã đã hết hạn. Hãy bấm gửi lại mã.'); }
+    if ((acc.reset.tries || 0) >= RESET_MAX_TRIES) { delete acc.reset; save_(acc); throw err_('Nhập sai mã quá nhiều lần. Hãy bấm gửi lại mã.'); }
+    if (!safeEq_(sha_(acc.salt + ':' + code), acc.reset.hash)) {
+      acc.reset.tries = (acc.reset.tries || 0) + 1;
+      save_(acc);
+      throw err_('Mã xác nhận không đúng (còn ' + (RESET_MAX_TRIES - acc.reset.tries) + ' lần thử).');
+    }
+    acc.salt = randomKey_(16);
+    acc.hash = hash_(acc.salt, next);
+    acc.fails = 0;
+    delete acc.reset;
+    delete acc.token_hash; // đăng xuất khỏi mọi thiết bị
+    delete acc.vault;      // két được mã hóa bằng mật khẩu cũ nên không còn mở được; giáo viên kết nối lại kho của mình một lần
+    save_(acc);
+    return { changed: true };
+  });
+}
+
 // ---------------------------------------------------------------- quản trị
 // Quản trị cao nhất đăng nhập bằng TÊN TÀI KHOẢN + MẬT KHẨU (trang /adminquantri).
 // Mật khẩu không nằm trong mã nguồn: quản trị tự đặt ở lần thiết lập đầu tiên, có ADMIN_KEY mới đặt được.
@@ -147,8 +247,13 @@ function saveAdminAcc_(acc) {
   PropertiesService.getScriptProperties().setProperty('ADMIN_ACC', JSON.stringify(acc));
 }
 function checkAdminKey_(key) {
-  var expected = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
-  if (!expected) throw err_('Máy chủ chưa có ADMIN_KEY. Hãy chạy hàm setup() trong trình soạn thảo Apps Script.');
+  var props = PropertiesService.getScriptProperties();
+  var expected = props.getProperty('ADMIN_KEY');
+  if (!expected && PRESET_ADMIN_KEY) {
+    expected = PRESET_ADMIN_KEY; // ghi nhớ để lần cập nhật mã sau vẫn giữ nguyên khóa
+    props.setProperty('ADMIN_KEY', expected);
+  }
+  if (!expected) throw err_('Máy chủ chưa có ADMIN_KEY. Hãy cài bằng Trình cài đặt ở trang quản trị, hoặc chạy hàm setup() trong trình soạn thảo Apps Script.');
   return !!key && safeEq_(String(key), expected);
 }
 function checkAdminPassword_(p) {
@@ -239,7 +344,7 @@ function admin_(fn) {
 function view_(acc) {
   return {
     username: acc.username, name: acc.name, locked: !!acc.locked, created_at: acc.created_at,
-    last_login: acc.last_login || 0, configured: !!acc.vault
+    last_login: acc.last_login || 0, configured: !!acc.vault, has_email: !!acc.email
   };
 }
 

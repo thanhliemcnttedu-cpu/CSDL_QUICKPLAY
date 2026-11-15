@@ -17,7 +17,10 @@ http
     req.on('end', () => {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       try {
+        const before = admin.mails.length;
         res.end(JSON.stringify(req.method === 'POST' ? admin.post(JSON.parse(body || '{}')) : { ok: true, data: { name: 'QUICKPLAY-ACCOUNTS-MOCK' } }));
+        // máy chủ thử không gửi thư thật: in thư ra màn hình để người lập trình lấy mã
+        admin.mails.slice(before).forEach((m) => console.log(`[THƯ GỬI TỚI ${m.to}] ${m.subject}\n${m.body}`));
       } catch (e) {
         res.end(JSON.stringify({ ok: false, error: String(e && e.message) }));
       }

@@ -6,6 +6,7 @@ import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminSignedIn, adminUrl, admin
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Field, Modal, useToast, askConfirm } from '../components/ui';
+import { ScriptInstaller } from '../components/ScriptInstaller';
 
 const randomPassword = () => {
   const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
@@ -132,6 +133,14 @@ export default function Admin() {
             <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" />
           </Field>
           <div className="row"><button className="btn primary" onClick={saveServer}><KeyRound size={18} /> Kết nối</button></div>
+          <p className="muted" style={{ margin: 0 }}>Chưa có máy chủ tài khoản? Làm theo 5 bước dưới đây (một lần, khoảng 5 phút). Xong bước 5 phần mềm chuyển ngay sang đặt mật khẩu quản trị.</p>
+          <ScriptInstaller kind="admin" onDone={async (r) => {
+            setAdminUrl(r.scriptUrl);
+            setUrl(r.scriptUrl);
+            const st = await adminAuth.status();
+            setForm((f) => ({ ...f, key: r.key }));
+            setStep(st.has_admin ? 'login' : 'init');
+          }} />
         </section>
       )}
       {step === 'checking' && <section className="card"><p className="muted" style={{ margin: 0 }}>Đang kết nối máy chủ tài khoản…</p></section>}
@@ -188,7 +197,7 @@ export default function Admin() {
           </div>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Tài khoản</th><th>Họ tên</th><th>Trạng thái</th><th>Đã cài kho riêng</th><th>Đăng nhập gần nhất</th><th /></tr></thead>
+              <thead><tr><th>Tài khoản</th><th>Họ tên</th><th>Trạng thái</th><th>Đã cài kho riêng</th><th>Email khôi phục</th><th>Đăng nhập gần nhất</th><th /></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.username}>
@@ -196,6 +205,7 @@ export default function Admin() {
                     <td>{r.name}</td>
                     <td>{r.locked ? <span className="badge red">Đang khóa</span> : <span className="badge green">Hoạt động</span>}</td>
                     <td>{r.configured ? 'Rồi' : 'Chưa'}</td>
+                    <td>{r.has_email ? 'Đã khai báo' : 'Chưa'}</td>
                     <td>{r.last_login ? new Date(r.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</td>
                     <td>
                       <span className="row" style={{ gap: 6, flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
@@ -208,7 +218,7 @@ export default function Admin() {
                     </td>
                   </tr>
                 ))}
-                {!rows.length && <tr><td colSpan={6} className="muted">Chưa có tài khoản nào. Bấm “Cấp tài khoản”.</td></tr>}
+                {!rows.length && <tr><td colSpan={7} className="muted">Chưa có tài khoản nào. Bấm “Cấp tài khoản”.</td></tr>}
               </tbody>
             </table>
           </div>

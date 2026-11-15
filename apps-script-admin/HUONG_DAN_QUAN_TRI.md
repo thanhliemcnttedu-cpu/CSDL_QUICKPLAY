@@ -3,7 +3,23 @@
 Máy chủ này chỉ làm một việc: **cấp, khóa và kiểm tra tài khoản giáo viên**. Nó không lưu bộ câu hỏi hay kết quả học sinh.
 Chỉ tác giả/quản trị cài, và chỉ cài **một lần**.
 
+## Tài khoản giáo viên được lưu ở đâu?
+
+- **Không lưu trên GitHub hay Vercel.** Hai nơi đó chỉ chứa mã của trang web; trang web không ghi được dữ liệu vào đó, và mọi thứ đặt ở đó
+  ai cũng đọc được.
+- **Lưu trong dự án Apps Script của quản trị**, ở kho riêng tên là *Thuộc tính tập lệnh* (Script Properties), thuộc tài khoản Google của quản trị.
+  Không cần tạo thư mục Google Drive cho việc này. Chỉ quản trị mở được; mật khẩu chỉ lưu dạng đã băm.
+- Mỗi giáo viên lại có **thư mục Google Drive và Apps Script riêng** để lưu bộ câu hỏi và kết quả. Thông tin kết nối (link thư mục, link Apps Script,
+  khóa giáo viên) được **mã hóa bằng mật khẩu của giáo viên** rồi gửi kèm tài khoản, nên đăng nhập ở máy nào phần mềm cũng tự kết nối lại,
+  còn quản trị thì không đọc được.
+
 ## 1. Cài máy chủ tài khoản (khoảng 5 phút)
+
+**Cách nhanh:** mở `<địa chỉ trang web>/adminquantri` và làm theo **Trình cài đặt Apps Script** 5 bước ngay trên trang
+(mã đã điền sẵn khóa quản trị, không phải chạy `setup()`). Xong bước 5 trang chuyển sang đặt mật khẩu quản trị.
+
+**Cách thủ công:**
+
 
 1. Vào <https://script.google.com> bằng tài khoản Google của quản trị → **Dự án mới**.
 2. Xóa mã mẫu, dán toàn bộ nội dung tệp `apps-script-admin/Code.gs`. Đặt tên dự án, ví dụ "Quickplay – Tài khoản".
@@ -52,6 +68,15 @@ Tại đây quản trị cũng **khóa / mở khóa**, **đặt lại mật kh�
 3. Đăng nhập Quickplay → trang Cài đặt tự mở → dán **link thư mục**, **link Apps Script**, **khóa giáo viên** → **Lưu cài đặt**.
 
 Từ lần sau, đăng nhập trên máy nào phần mềm cũng tự nhớ. Nếu giáo viên bấm **Đăng xuất**, lần sau phải nhập lại tài khoản và mật khẩu.
+
+## Giáo viên quên mật khẩu
+
+- Giáo viên đã khai báo **email khôi phục** (Cài đặt → Tài khoản → Email khôi phục): tự bấm **Quên mật khẩu?** ở màn đăng nhập, nhận mã 6 số
+  qua email (hiệu lực 15 phút, sai quá 5 lần phải xin mã mới) và đặt mật khẩu mới.
+- Chưa khai báo email: quản trị bấm **Đặt lại mật khẩu** ở trang quản trị rồi gửi mật khẩu mới cho giáo viên.
+- Cả hai cách đều làm mất "két cấu hình" (vì két được mã hóa bằng mật khẩu cũ): giáo viên đăng nhập lại rồi kết nối lại Google Drive một lần.
+  Dữ liệu trên Drive không mất.
+- Thư do tài khoản Google của quản trị gửi (tối đa khoảng 100 thư mỗi ngày với Gmail miễn phí). Lần triển khai đầu Google sẽ hỏi thêm quyền gửi thư.
 
 ## Máy chủ này lưu gì
 

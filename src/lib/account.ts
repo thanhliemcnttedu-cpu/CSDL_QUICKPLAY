@@ -2,9 +2,9 @@
 // Máy chủ chỉ kiểm tra tên/mật khẩu và cất "két cấu hình" đã mã hóa; bộ câu hỏi vẫn nằm trong Drive riêng của giáo viên.
 import { loadSettings, saveSettings } from './settings';
 
-export interface Account { username: string; name: string; token: string; key: string } // key: khóa AES (base64) suy ra từ mật khẩu
+export interface Account { username: string; name: string; token: string; key: string; email?: string } // key: khóa AES (base64) suy ra từ mật khẩu
 export interface Vault { scriptUrl: string; teacherKey: string; folderUrl: string }
-export interface AccountRow { username: string; name: string; locked: boolean; created_at: number; last_login: number; configured: boolean }
+export interface AccountRow { username: string; name: string; locked: boolean; created_at: number; last_login: number; configured: boolean; has_email?: boolean }
 
 const ACC = 'quizzi.account';
 const URL_KEY = 'quizzi.adminUrl';
@@ -91,9 +91,9 @@ export async function decryptVault(key: string, vault: string): Promise<Vault | 
 /** Đăng nhập; nếu tài khoản đã lưu cấu hình thì nạp lại link Apps Script + thư mục vào máy này. Trả về true nếu đã có cấu hình. */
 export async function login(usernameRaw: string, password: string): Promise<{ account: Account; configured: boolean }> {
   const username = usernameRaw.trim().toLowerCase();
-  const r = await call<{ username: string; name: string; token: string; vault: string }>('login', { username, password });
+  const r = await call<{ username: string; name: string; token: string; vault: string; recovery_email?: string }>('login', { username, password });
   const key = await deriveKey(r.username, password);
-  const account: Account = { username: r.username, name: r.name, token: r.token, key };
+  const account: Account = { username: r.username, name: r.name, token: r.token, key, email: r.recovery_email || '' };
   localStorage.setItem(ACC, JSON.stringify(account));
   const v = r.vault ? await decryptVault(key, r.vault) : null;
   const s = loadSettings();
@@ -137,6 +137,21 @@ export async function changePassword(password: string, newPassword: string): Pro
   await call('changePassword', { username: a.username, token: a.token, password, new_password: newPassword, vault });
   localStorage.setItem(ACC, JSON.stringify({ ...a, key }));
 }
+
+// ---------- email khôi phục và quên mật khẩu ----------
+/** Khai báo (hoặc xóa, khi để trống) email khôi phục của tài khoản đang đăng nhập. */
+export async function setRecoveryEmail(email: string, password: string): Promise<string> {
+  const a = currentAccount();
+  if (!a) throw new AccountError('Chưa đăng nhập.');
+  const r = await call<{ recovery_email: string }>('setRecoveryEmail', { username: a.username, token: a.token, email: email.trim(), password });
+  localStorage.setItem(ACC, JSON.stringify({ ...a, email: r.recovery_email }));
+  return r.recovery_email;
+}
+/** Quên mật khẩu, bước 1: máy chủ gửi mã 6 số tới email khôi phục. Trả về email đã che bớt. */
+export const forgotStart = (username: string) => call<{ sent: boolean; email: string }>('forgotStart', { username: username.trim().toLowerCase() });
+/** Quên mật khẩu, bước 2: nhập mã và mật khẩu mới. */
+export const forgotFinish = (username: string, code: string, newPassword: string) =>
+  call<{ changed: boolean }>('forgotFinish', { username: username.trim().toLowerCase(), code, new_password: newPassword });
 
 // ---------- quản trị ----------
 export const getAdminKey = () => sessionStorage.getItem(ADMIN_KEY) || '';

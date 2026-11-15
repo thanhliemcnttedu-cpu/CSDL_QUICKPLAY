@@ -9,6 +9,22 @@ lập trình, chỉ cần làm theo từng bước dưới đây (khoảng 10 ph
 
 ---
 
+## Cách nhanh (khuyên dùng): Trình cài đặt ngay trong phần mềm
+
+Đăng nhập Quickplay → **Cài đặt** → chọn **Google Drive** → làm lần lượt **5 bước của Trình cài đặt Apps Script**:
+
+1. Dán link thư mục Google Drive sẽ lưu dữ liệu.
+2. Bấm **Sao chép mã** (mã đã điền sẵn thư mục và khóa giáo viên, không phải chạy `setup()`).
+3. Bấm **Mở Apps Script mới**, xóa mã mẫu, dán mã, lưu.
+4. **Triển khai → Tùy chọn triển khai mới → Ứng dụng web**: Thực thi với tư cách **Tôi**, quyền truy cập **Bất kỳ ai**, rồi cấp quyền.
+5. Dán link `/exec` vào phần mềm, bấm **Kiểm tra**. Phần mềm tự lưu kết nối vào tài khoản của thầy cô.
+
+Khi phần mềm báo "Apps Script đang chạy mã cũ": chọn thẻ **Cập nhật bản mới** trong Trình cài đặt và làm lại 5 bước; link và dữ liệu giữ nguyên.
+
+Phần dưới đây là cách cài **thủ công**, chỉ cần khi không dùng được Trình cài đặt.
+
+---
+
 ## Bước 1. Tạo dự án Apps Script
 
 1. Mở trình duyệt, đăng nhập Google, vào **https://script.google.com**.

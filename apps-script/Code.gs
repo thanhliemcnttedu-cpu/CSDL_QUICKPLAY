@@ -18,7 +18,12 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.0.0';
+var APP_VERSION = '1.1.0';
+
+// Trình cài đặt trong phần mềm Quickplay điền sẵn hai giá trị này khi thầy cô bấm "Sao chép mã",
+// nhờ đó không phải chạy hàm setup() hay tìm khóa trong nhật ký. Để trống nếu cài thủ công theo hướng dẫn.
+var PRESET_TEACHER_KEY = '';
+var PRESET_FOLDER_ID = '';
 
 var ROOT_FOLDER_NAME = 'QUICKPLAY_DATA';
 var SUBFOLDERS = ['quizzes', 'sessions', 'media']; // lớp học (chế độ giấy) lưu ở classes.json trong thư mục gốc
@@ -166,7 +171,7 @@ function setup() {
 
   // Kiểm tra thư mục gốc cũ (nếu có), nếu mất thì tạo/tìm lại
   var root = null;
-  var rootId = props.getProperty('ROOT_FOLDER_ID');
+  var rootId = props.getProperty('ROOT_FOLDER_ID') || PRESET_FOLDER_ID;
   if (rootId) {
     try {
       root = DriveApp.getFolderById(rootId);
@@ -1915,7 +1920,7 @@ function folder_(name) {
   var props = PropertiesService.getScriptProperties();
   var root = MEMO_.root;
   if (!root) {
-    var rootId = props.getProperty('ROOT_FOLDER_ID');
+    var rootId = props.getProperty('ROOT_FOLDER_ID') || PRESET_FOLDER_ID;
     if (rootId) {
       try {
         root = DriveApp.getFolderById(rootId);
@@ -2069,9 +2074,15 @@ function withLockTry_(fn, ms) {
 
 /** Kiểm tra khóa giáo viên (so sánh thời gian gần như hằng số). */
 function requireTeacher_(key) {
-  var expected = PropertiesService.getScriptProperties().getProperty('TEACHER_KEY');
+  var props = PropertiesService.getScriptProperties();
+  var expected = props.getProperty('TEACHER_KEY');
+  if (!expected && PRESET_TEACHER_KEY) {
+    // Lần đầu dùng mã do trình cài đặt điền sẵn: ghi nhớ khóa để lần cập nhật mã sau (không điền sẵn) vẫn giữ nguyên khóa
+    expected = PRESET_TEACHER_KEY;
+    props.setProperty('TEACHER_KEY', expected);
+  }
   if (!expected) {
-    throw userError_('Máy chủ chưa có TEACHER_KEY. Hãy chạy hàm setup() trong trình soạn thảo Apps Script.');
+    throw userError_('Máy chủ chưa có khóa giáo viên. Hãy cài lại bằng Trình cài đặt trong phần mềm, hoặc chạy hàm setup() trong trình soạn thảo Apps Script.');
   }
   if (!safeEqual_(String(key || ''), String(expected))) {
     throw userError_('Khóa giáo viên không đúng.');

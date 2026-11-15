@@ -6,6 +6,7 @@ const crypto = require('crypto');
 
 function createAdmin() {
   const store = new Map();
+  const mails = []; // thư "đã gửi" (để kiểm thử và máy chủ thử in ra màn hình)
   const props = {
     getProperty: (k) => (store.has(k) ? store.get(k) : null),
     setProperty: (k, v) => void store.set(k, String(v)),
@@ -24,6 +25,7 @@ function createAdmin() {
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
     Logger: { log() {} },
+    MailApp: { sendEmail: (m) => { if (/@loi\./.test(m.to)) throw new Error('quota'); mails.push(m); } },
   };
   const code = fs.readFileSync(path.join(__dirname, 'Code.gs'), 'utf8');
   const names = Object.keys(stubs);
@@ -32,6 +34,7 @@ function createAdmin() {
     adminKey: api.setup(),
     post: (body) => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(body) } }).text),
     store,
+    mails,
   };
 }
 

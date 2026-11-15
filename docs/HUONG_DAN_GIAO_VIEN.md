@@ -2,11 +2,12 @@
 
 ## Lần đầu (làm một lần, khoảng 15 phút)
 
-1. Cài "máy chủ" lưu dữ liệu vào Google Drive của chính thầy cô: làm theo `apps-script/HUONG_DAN_CAI_DAT.md`.
-   Xong bước này thầy cô có **link Apps Script** (kết thúc bằng `/exec`) và **khóa giáo viên**.
-2. Tạo một thư mục riêng trên Google Drive, chép **link thư mục**.
-3. Mở trang Quickplay → đăng nhập bằng tài khoản quản trị cấp → trang **Cài đặt** → dán link thư mục, link Apps Script,
-   khóa giáo viên → **Lưu cài đặt**. Từ lần sau đăng nhập ở máy nào phần mềm cũng tự nhớ.
+1. Mở trang Quickplay (`/teacher`) → đăng nhập bằng tài khoản quản trị cấp.
+2. Trang **Cài đặt** tự mở. Tạo một thư mục riêng trên Google Drive rồi làm lần lượt **5 bước của Trình cài đặt Apps Script**
+   (dán link thư mục → Sao chép mã → dán vào Apps Script mới → Triển khai → dán link `/exec` và bấm Kiểm tra).
+3. Vào **Cài đặt → Tài khoản → Email khôi phục**, điền email cá nhân để sau này tự lấy lại mật khẩu khi quên.
+
+Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối lại Google Drive của thầy cô. Muốn cất dự phòng: **Cài đặt → Sao lưu và khôi phục**.
 
 Chưa cài Apps Script vẫn dùng thử được ở chế độ **"Chỉ máy này"** (dữ liệu nằm trong trình duyệt của máy đang dùng,
 học sinh chỉ vào được từ cùng máy).
