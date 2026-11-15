@@ -2,7 +2,8 @@
 // Khóa chỉ gửi thẳng tới máy chủ Gemini của Google (generativelanguage.googleapis.com), không đi qua nơi nào khác.
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
-export type KeyStatus = 'ok' | 'invalid' | 'quota' | 'blocked' | 'network' | 'error';
+export type KeyStatus = 'ok' | 'invalid' | 'quota' | 'blocked' | 'network' | 'busy' | 'error';
+export const BUSY_MESSAGE = 'Máy chủ Gemini của Google đang quá tải. Khóa API của thầy cô vẫn dùng được: hãy chờ khoảng một phút rồi bấm lại, hoặc dùng cách "Dùng Gemini trên trình duyệt" ngay bên dưới.';
 export interface KeyCheck { status: KeyStatus; message: string; model?: string }
 
 interface GError { error?: { code?: number; message?: string; status?: string; details?: { reason?: string }[] } }
@@ -16,6 +17,9 @@ export function explainGeminiError(httpStatus: number, body: GError | null): Key
     return { status: 'quota', message: 'Khóa API đã hết hạn mức sử dụng (hết tín dụng miễn phí). Hãy đổi khóa API khác, hoặc chờ hạn mức được cấp lại (khoảng 1 phút với giới hạn theo phút, sang ngày hôm sau với giới hạn theo ngày).' };
   if (httpStatus === 400 && /API key not valid|API_KEY_INVALID|api key/i.test(msg + ' ' + reason))
     return { status: 'invalid', message: 'Khóa API không hợp lệ. Hãy kiểm tra đã chép đủ cả khóa (thường bắt đầu bằng "AIza…"), không thừa dấu cách, rồi lưu lại.' };
+  // Google quá tải hoặc trục trặc tạm thời (không phải lỗi của khóa): thử lại hoặc đổi mô hình là được
+  if (httpStatus >= 500 || e.status === 'UNAVAILABLE' || e.status === 'INTERNAL' || /overloaded|high demand|unavailable|try again later/i.test(msg))
+    return { status: 'busy', message: BUSY_MESSAGE };
   if (httpStatus === 401 || httpStatus === 403)
     return { status: 'blocked', message: 'Khóa API bị từ chối: khóa đã bị xóa, bị giới hạn nơi được dùng, hoặc tài khoản Google chưa bật Gemini API. Hãy tạo khóa mới tại aistudio.google.com.' };
   return { status: 'error', message: `Gemini báo lỗi (${httpStatus}): ${msg.slice(0, 200) || 'không rõ nguyên nhân'}` };
@@ -25,6 +29,11 @@ export interface ModelInfo { name: string; supportedGenerationMethods?: string[]
 
 /** Chọn mô hình soạn câu hỏi: ưu tiên dòng "flash" bản chính thức, số phiên bản cao nhất. */
 export function pickModel(models: ModelInfo[]): string | undefined {
+  return rankModels(models)[0];
+}
+
+/** Các mô hình dùng được, xếp từ nên dùng nhất (để đổi sang mô hình khác khi mô hình đang dùng quá tải). */
+export function rankModels(models: ModelInfo[]): string[] {
   const usable = models
     .filter((m) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
     .map((m) => m.name.replace(/^models\//, ''))
@@ -38,7 +47,7 @@ export function pickModel(models: ModelInfo[]): string | undefined {
       : /flash/.test(n) ? 1000
       : /pro/.test(n) && !/preview|exp/.test(n) ? 500 : 0;
   const rank = (n: string) => kind(n) + ver(n) * 10;
-  return usable.sort((a, b) => rank(b) - rank(a))[0];
+  return usable.sort((a, b) => rank(b) - rank(a));
 }
 
 type Reply = { ok: boolean; status: number; body: GError & { models?: ModelInfo[]; candidates?: { content?: { parts?: { text?: string }[] } }[] } | null };

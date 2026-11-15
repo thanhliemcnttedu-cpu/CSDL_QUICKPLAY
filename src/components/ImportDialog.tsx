@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileUp, Sparkles, Wand2, AlertTriangle, Trash2, ClipboardPaste, FileCheck2, CircleDot, ListChecks, Eye, TextCursorInput, ListOrdered, Link2, MessageSquareText, FileDown, ClipboardList, Square } from 'lucide-react';
+import { FileUp, Sparkles, Wand2, AlertTriangle, Trash2, ClipboardPaste, FileCheck2, CircleDot, ListChecks, Eye, TextCursorInput, ListOrdered, Link2, MessageSquareText, FileDown, ClipboardList, Square, Copy, ExternalLink } from 'lucide-react';
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { extractText, hasImportedImages, parseQuestions, resolveImportedImages } from '../lib/importer';
 import { buildWordTemplate } from '../lib/wordTemplate';
@@ -7,7 +7,7 @@ import { formToQuestions, isGoogleFormUrl } from '../lib/googleForm';
 import { compressImage, uploadFile } from '../lib/media';
 import { loadSettings, scriptUrlFromLink } from '../lib/settings';
 import { downloadBlob } from '../lib/xlsx';
-import { LEVEL_LABELS, type Level } from '../lib/ai';
+import { aiItemsToQuestions, buildWebPrompt, extractJsonArray, LEVEL_LABELS, type Level } from '../lib/ai';
 import { runAiWithProgress, type AiProgress } from '../lib/aiProgress';
 import { api } from '../lib/api';
 import { COMPOSER_TYPES, newQuiz, SUBJECTS, TYPE_LABELS } from '../lib/factory';
@@ -60,6 +60,26 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
   const [prog, setProg] = useState<AiProgress | null>(null); // tiến độ AI đang chạy
   const abort = useRef<AbortController | null>(null);
   const canReadForm = loadSettings().backend === 'drive' || !!scriptUrlFromLink();
+  // Dùng Gemini trên trình duyệt: sao chép lời nhắc → dán vào gemini.google.com → dán câu trả lời về đây
+  const [web, setWeb] = useState<{ open: boolean; prompt: string; answer: string }>({ open: false, prompt: '', answer: '' });
+  const copyWebPrompt = async () => {
+    if (!source.trim()) return toast('Hãy chọn tệp hoặc dán nội dung tài liệu trước.', 'error');
+    if (way === 'generate' && !types.length) return toast('Chọn ít nhất một dạng câu hỏi.', 'error');
+    const text = buildWebPrompt(way === 'generate' ? 'generate' : 'extract', source, { count, types, level, grade });
+    let copied = false;
+    try { await navigator.clipboard.writeText(text); copied = true; } catch { /* trình duyệt chặn: hiện lời nhắc để chép tay */ }
+    setWeb((w) => ({ ...w, open: true, prompt: copied ? '' : text }));
+    toast(copied ? 'Đã sao chép lời nhắc. Mở Gemini, dán (Ctrl + V) rồi gửi.' : 'Trình duyệt không cho sao chép tự động. Hãy bấm vào khung lời nhắc, nhấn Ctrl + A rồi Ctrl + C.', copied ? 'ok' : 'info');
+  };
+  const useWebAnswer = () => {
+    try {
+      const qs = aiItemsToQuestions(extractJsonArray(web.answer), { subject: subject || undefined, lesson: lesson.trim() || undefined });
+      if (!qs.length) throw new Error('Không thấy câu hỏi nào trong phần vừa dán.');
+      setResult({ questions: qs, warnings: qs.flatMap((q, i) => (q.needs_review ? [`Câu ${i + 1}: chưa xác định được đáp án đúng.`] : [])) });
+    } catch {
+      toast('Chưa đọc được câu trả lời. Trong Gemini, bấm nút sao chép ở góc khối mã JSON (không chép thiếu dấu [ ở đầu và ] ở cuối) rồi dán lại.', 'error');
+    }
+  };
 
   const downloadTemplate = async () => {
     try {
@@ -284,7 +304,31 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
               </div>
             </div>
           )}
-          {way !== 'exact' && way !== 'gform' && <p className="help" style={{ margin: 0 }}>AI dùng Google Gemini (gói miễn phí). Khóa API dán ở trang Cài đặt → Trí tuệ nhân tạo (bấm Lưu khóa để kiểm tra). Luôn kiểm tra lại câu hỏi do AI tạo trước khi dùng.</p>}
+          {way !== 'exact' && way !== 'gform' && (
+            <>
+              <p className="help" style={{ margin: 0 }}>Nút <b>Chạy AI</b> gọi Google Gemini bằng khóa API ở trang Cài đặt → Trí tuệ nhân tạo. Luôn kiểm tra lại câu hỏi do AI tạo trước khi dùng.</p>
+              <div className="gem-web">
+                <div className="row between" style={{ gap: 10 }}>
+                  <div className="grow" style={{ minWidth: 220 }}>
+                    <b>Dùng Gemini trên trình duyệt</b>
+                    <div className="small">Không cần khóa API, không lo hết hạn mức hay máy chủ quá tải: thầy cô dùng chính trang Gemini quen thuộc, phần mềm lo phần lời nhắc và nhận câu hỏi về.</div>
+                  </div>
+                  <button type="button" className="btn" onClick={copyWebPrompt} disabled={!!busy}><Copy size={16} /> 1. Sao chép lời nhắc</button>
+                  <a className="btn" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" onClick={() => setWeb((w) => ({ ...w, open: true }))}><ExternalLink size={16} /> 2. Mở Gemini</a>
+                </div>
+                {web.open && (
+                  <>
+                    {web.prompt && <textarea className="input" rows={4} readOnly value={web.prompt} onFocus={(e) => e.currentTarget.select()} aria-label="Lời nhắc để chép tay" />}
+                    <label className="field">
+                      <span>3. Trong Gemini: dán lời nhắc (Ctrl + V), gửi, chờ xong rồi bấm nút sao chép ở góc khối mã. Dán câu trả lời vào đây:</span>
+                      <textarea className="input" rows={4} value={web.answer} onChange={(e) => setWeb({ ...web, answer: e.target.value })} placeholder={'[\n  {"type": "single_choice", "question": "…", "options": […]}\n]'} />
+                    </label>
+                    <button type="button" className="btn violet" style={{ alignSelf: 'flex-start' }} onClick={useWebAnswer} disabled={!web.answer.trim()}><Sparkles size={16} /> 4. Nhận câu hỏi</button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="stack">
@@ -361,7 +405,8 @@ function AiProgressPanel({ prog, generate }: { prog: AiProgress | null; generate
     <div className="ai-prog" role="status" aria-live="polite" ref={box}>
       <div className="row between" style={{ gap: 8 }}>
         <b>
-          {!p || (!p.done && !p.currentType) ? 'AI đang đọc tài liệu và bắt đầu soạn…'
+          {p?.note ? p.note
+            : !p || (!p.done && !p.currentType) ? 'AI đang đọc tài liệu và bắt đầu soạn…'
             : known ? (p.done >= p.total ? `Đã soạn xong ${p.total} câu, đang hoàn tất…` : `Đang soạn câu ${p.current}/${p.total}${p.currentType ? ` · dạng ${TYPE_LABELS[p.currentType]}` : ''}`)
             : `Đang tách câu ${p.current}${p.currentType ? ` · dạng ${TYPE_LABELS[p.currentType]}` : ''}`}
         </b>

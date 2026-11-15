@@ -638,6 +638,10 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .script-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 14px; margin-bottom: 14px; background: var(--warn-bg); color: var(--warn-fg); border: 1px solid #fcd34d; }
 .script-notice > span { flex: 1; min-width: 200px; }
 
+/* Dùng Gemini trên trình duyệt: sao chép lời nhắc, dán câu trả lời về */
+.gem-web { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 16px; border: 1.5px dashed #9cc3ff; background: #f7faff; }
+.gem-web textarea { font-size: 0.85rem; }
+
 /* Tiến độ AI soạn câu hỏi */
 .ai-prog { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 16px; background: var(--primary-soft); border: 1.5px solid #9cc3ff; color: var(--fg); text-align: left; }
 .ai-prog .ai-pct { font-size: 1.25rem; color: var(--primary-ink); }

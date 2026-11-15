@@ -50,6 +50,12 @@ export function buildPrompt(mode: AiMode, source: string, opts: { count: number;
   };
 }
 
+/** Lời nhắc đầy đủ để thầy cô dán vào Gemini trên trình duyệt (gemini.google.com), không cần khóa API. */
+export function buildWebPrompt(mode: AiMode, source: string, opts: { count: number; types: QuestionType[]; level: Level; grade?: string }): string {
+  const p = buildPrompt(mode, source, opts);
+  return `${p.system}\n\n${p.prompt}\n\nYÊU CẦU TRÌNH BÀY: trả lời bằng ĐÚNG MỘT khối mã JSON (\`\`\`json … \`\`\`), không viết thêm lời nào trước hoặc sau khối mã.`;
+}
+
 async function callGeminiDirect(prompt: string, system: string): Promise<string> {
   const s = loadSettings();
   if (!s.geminiKey)

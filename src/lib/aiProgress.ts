@@ -3,7 +3,7 @@
 import type { Question, QuestionType } from './types';
 import { api, ApiError } from './api';
 import { loadSettings, saveSettings } from './settings';
-import { generateStream, listModels, pickModel, type KeyCheck } from './gemini';
+import { BUSY_MESSAGE, generateStream, listModels, rankModels, type KeyCheck } from './gemini';
 import { aiItemsToQuestions, buildPrompt, extractJsonArray, type AiMode, type Level } from './ai';
 import { COMPOSER_TYPES } from './factory';
 
@@ -20,6 +20,7 @@ export interface AiProgress {
   etaMs?: number; // ước lượng thời gian còn lại
   batch: number; // đợt đang chạy (từ 1)
   batches: number;
+  note?: string; // việc phần mềm đang tự xử lý (Gemini quá tải: thử lại, đổi mô hình)
 }
 
 export interface AiRunOptions {
@@ -72,40 +73,73 @@ const typeOf = (x: unknown): QuestionType | undefined => {
   return t === 'drag_drop' ? 'fill_blank' : COMPOSER_TYPES.includes(t as QuestionType) ? (t as QuestionType) : undefined;
 };
 
-/** Gọi Gemini trực tiếp có nhận dần; mô hình đã lưu bị ngừng thì tự chọn mô hình khác rồi gọi lại một lần. */
-async function streamDirect(prompt: string, system: string, onText: (acc: string) => void, signal?: AbortSignal): Promise<string> {
+const RETRY_WAIT_MS = 2500;
+let workingModel = ''; // mô hình vừa chạy được trong lượt này (để các đợt sau không thử lại mô hình đang quá tải)
+
+/** Chờ, bấm Dừng thì thôi ngay. */
+const wait = (ms: number, signal?: AbortSignal) => new Promise<void>((res, rej) => {
+  if (signal?.aborted) return rej(Object.assign(new Error('abort'), { name: 'AbortError' }));
+  const t = setTimeout(res, ms);
+  signal?.addEventListener('abort', () => { clearTimeout(t); rej(Object.assign(new Error('abort'), { name: 'AbortError' })); }, { once: true });
+});
+
+/**
+ * Gọi Gemini trực tiếp có nhận dần. Tự xử lý hai tình huống hay gặp:
+ * - mô hình đang quá tải (503): thử lại một lần, vẫn quá tải thì đổi sang mô hình Gemini khác;
+ * - mô hình đã lưu bị ngừng (404/400): chọn mô hình khác và ghi nhớ.
+ */
+export async function streamDirect(prompt: string, system: string, onText: (acc: string) => void, signal?: AbortSignal, onNote?: (note: string) => void, waitMs = RETRY_WAIT_MS): Promise<string> {
   const s = loadSettings();
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
   };
-  const explain = (e: unknown) => new ApiError((e as { check?: KeyCheck }).check?.message ?? 'Không kết nối được tới Google Gemini. Hãy kiểm tra mạng Internet.');
-  try {
-    return await generateStream(s.geminiKey, s.geminiModel || 'gemini-flash-latest', body, onText, signal);
-  } catch (e) {
-    if ((e as Error).name === 'AbortError') throw e;
-    const http = (e as { httpStatus?: number }).httpStatus;
-    const st = (e as { check?: KeyCheck }).check?.status;
-    if (http === 404 || (http === 400 && st === 'error')) {
+  const saved = s.geminiModel || 'gemini-flash-latest';
+  const queue = [workingModel || saved];
+  let listed = false;
+  let last: unknown;
+  for (let i = 0; i < queue.length && i < 4; i++) {
+    const model = queue[i];
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const model = pickModel(await listModels(s.geminiKey));
-        if (model && model !== s.geminiModel) {
-          saveSettings({ ...loadSettings(), geminiModel: model });
-          return await generateStream(s.geminiKey, model, body, onText, signal);
+        const text = await generateStream(s.geminiKey, model, body, onText, signal);
+        workingModel = model;
+        onNote?.('');
+        return text;
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') throw e;
+        last = e;
+        const http = (e as { httpStatus?: number }).httpStatus;
+        const st = (e as { check?: KeyCheck }).check?.status;
+        const gone = http === 404 || (http === 400 && st === 'error');
+        if (st !== 'busy' && !gone) throw new ApiError((e as { check?: KeyCheck }).check?.message ?? 'Không kết nối được tới Google Gemini. Hãy kiểm tra mạng Internet.');
+        onText(''); // bỏ phần chữ dở dang của lần gọi hỏng
+        if (st === 'busy' && attempt === 0) {
+          onNote?.('Gemini đang quá tải, phần mềm tự thử lại…');
+          await wait(waitMs, signal);
+          continue;
         }
-      } catch (e2) {
-        if ((e2 as Error).name === 'AbortError') throw e2;
-        throw explain(e2);
+        // Đổi mô hình: lấy danh sách mô hình khóa này dùng được (một lần)
+        if (!listed) {
+          listed = true;
+          try {
+            for (const m of rankModels(await listModels(s.geminiKey))) if (!queue.includes(m)) queue.push(m);
+          } catch { /* không lấy được danh sách: hết cách đổi */ }
+        }
+        if (gone && queue[i + 1]) saveSettings({ ...loadSettings(), geminiModel: queue[i + 1] });
+        if (queue[i + 1]) onNote?.(`${st === 'busy' ? 'Mô hình đang quá tải' : 'Mô hình cũ đã ngừng'}, phần mềm đổi sang ${queue[i + 1]}…`);
+        break;
       }
     }
-    throw explain(e);
   }
+  const check = (last as { check?: KeyCheck } | undefined)?.check;
+  throw new ApiError(check?.status === 'busy' ? BUSY_MESSAGE : check?.message ?? 'Không kết nối được tới Google Gemini. Hãy kiểm tra mạng Internet.');
 }
 
 /** Một lượt gọi AI: có khóa trong Cài đặt thì nhận dần; không thì nhờ Apps Script (chỉ biết kết quả khi xong cả đợt). */
-async function callOnce(prompt: string, system: string, onText: (acc: string) => void, signal?: AbortSignal): Promise<string> {
-  if (loadSettings().geminiKey) return streamDirect(prompt, system, onText, signal);
+async function callOnce(prompt: string, system: string, onText: (acc: string) => void, signal?: AbortSignal, onNote?: (note: string) => void): Promise<string> {
+  if (loadSettings().geminiKey) return streamDirect(prompt, system, onText, signal, onNote);
   try {
     const text = (await api.aiGenerate(prompt, system)).text;
     onText(text);
@@ -125,6 +159,8 @@ export async function runAiWithProgress(o: AiRunOptions): Promise<AiRunResult> {
   const all: Question[] = [];
   let warning: string | undefined;
   let stopped = false;
+  let note = '';
+  workingModel = '';
 
   const report = (batch: number, partial: unknown[], tail: string) => {
     const doneItems = partial.map(typeOf);
@@ -140,7 +176,7 @@ export async function runAiWithProgress(o: AiRunOptions): Promise<AiRunResult> {
     o.onProgress?.({
       done, total, current: working ? done + 1 : done, currentType: m ? typeOf({ type: m[1] }) : undefined, byType,
       pct: Math.round(frac * 100), elapsedMs, etaMs: total && done >= 1 ? Math.max(0, Math.round((elapsedMs / (done + (frac * total - done))) * (total - done))) : undefined,
-      batch, batches,
+      batch, batches, note: note || undefined,
     });
   };
 
@@ -158,7 +194,11 @@ export async function runAiWithProgress(o: AiRunOptions): Promise<AiRunResult> {
         acc = t;
         const s = scanItems(t);
         report(b + 1, s.items, s.tail);
-      }, o.signal);
+      }, o.signal, (n) => {
+        note = n;
+        const s = scanItems(acc);
+        report(b + 1, s.items, s.tail);
+      });
       const qs = aiItemsToQuestions(extractJsonArray(text), o.meta);
       all.push(...(generate ? qs.slice(0, want) : qs));
     } catch (e) {
