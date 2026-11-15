@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
-import { HashRouter, NavLink, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
-import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLine, LogOut, UserRound } from 'lucide-react';
+import { HashRouter, NavLink, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLine, LogOut, UserRound, Monitor, Tablet, Smartphone } from 'lucide-react';
 import { LightboxProvider, Spinner, ToastProvider, askConfirm } from './components/ui';
 import { loadSettings } from './lib/settings';
 import { accountRequired, checkSession, currentAccount, logout } from './lib/account';
 import { Wordmark } from './components/Logo';
+import './devices.css';
 import { AppFooter } from './components/AppFooter';
 import { Home } from './pages/Home';
 import { Join } from './pages/Join';
@@ -23,6 +24,7 @@ const PaperScan = lazy(() => import('./pages/PaperScan'));
 const Preview = lazy(() => import('./pages/Preview'));
 const Login = lazy(() => import('./pages/Login'));
 const Admin = lazy(() => import('./pages/Admin'));
+const DevicePreview = lazy(() => import('./pages/DevicePreview'));
 
 export function Brand() {
   return (
@@ -33,6 +35,20 @@ export function Brand() {
 }
 
 /** Khu giáo viên: có máy chủ tài khoản thì bắt buộc đăng nhập bằng tài khoản quản trị cấp. */
+/** Ba nút nổi ở góc dưới trái (chỉ khi lập trình trên máy): mở trang đang xem trong khung Máy tính / Máy tính bảng / Điện thoại. */
+function DeviceLauncher() {
+  const loc = useLocation();
+  if (!import.meta.env.DEV || window.self !== window.top || loc.pathname === '/devices') return null;
+  const to = (d: string) => `/devices?d=${d}&p=${encodeURIComponent(loc.pathname + loc.search)}`;
+  return (
+    <nav className="dv-launch" aria-label="Xem thử theo thiết bị">
+      <Link to={to('desktop')} title="Xem thử trên máy tính" aria-label="Xem thử trên máy tính"><Monitor size={18} /></Link>
+      <Link to={to('tablet')} title="Xem thử trên máy tính bảng" aria-label="Xem thử trên máy tính bảng"><Tablet size={18} /></Link>
+      <Link to={to('phone')} title="Xem thử trên điện thoại" aria-label="Xem thử trên điện thoại"><Smartphone size={18} /></Link>
+    </nav>
+  );
+}
+
 function RequireTeacher({ children }: { children: ReactNode }) {
   const nav = useNavigate();
   const need = accountRequired();
@@ -97,6 +113,7 @@ export function App() {
     <ToastProvider>
       <LightboxProvider>
         <HashRouter>
+          <DeviceLauncher />
           <Suspense fallback={<Spinner />}>
             <Routes>
               <Route path="/" element={<Home />} />
@@ -113,6 +130,7 @@ export function App() {
               <Route path="/scan" element={<PaperScan />} />
               <Route path="/teacher/preview/:id" element={<RequireTeacher><Preview /></RequireTeacher>} />
               <Route path="/login" element={<Login />} />
+              <Route path="/devices" element={<DevicePreview />} />
               <Route path="/teacher/login" element={<Login role="teacher" />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<Home />} />
