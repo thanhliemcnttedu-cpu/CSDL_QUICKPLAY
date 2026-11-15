@@ -44,10 +44,13 @@ function Frame({ id, landscape, src, nonce, fit }: { id: DeviceId; landscape: bo
 
 export default function DevicePreview() {
   const [params, setParams] = useSearchParams();
+  // Thiết bị và trang đang xem lấy thẳng từ địa chỉ (?d=…&p=…) để chép link cho người khác vẫn mở đúng chế độ
   const asked = params.get('d');
-  const [device, setDevice] = useState<DeviceId | 'all'>(asked === 'phone' || asked === 'tablet' || asked === 'desktop' || asked === 'all' ? asked : 'phone');
+  const device: DeviceId | 'all' = asked === 'phone' || asked === 'tablet' || asked === 'desktop' || asked === 'all' ? asked : 'phone';
+  const path = params.get('p') || '/';
+  const setDevice = (d: DeviceId | 'all') => setParams({ d, p: path }, { replace: true });
+  const setPath = (p: string) => setParams({ d: device, p }, { replace: true });
   const [landscape, setLandscape] = useState(false);
-  const [path, setPath] = useState(params.get('p') || '/');
   const [typed, setTyped] = useState(path);
   const [nonce, setNonce] = useState(0);
   const stage = useRef<HTMLDivElement>(null);
@@ -63,10 +66,7 @@ export default function DevicePreview() {
     window.addEventListener('resize', measure);
     return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
   }, []);
-  useEffect(() => {
-    setParams({ d: device, p: path }, { replace: true });
-    setTyped(path);
-  }, [device, path]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setTyped(path), [path]);
 
   const src = `${location.origin}${location.pathname}#${path.startsWith('/') ? path : '/' + path}`;
   const go = (p: string) => setPath(p.trim() ? (p.trim().startsWith('/') ? p.trim() : '/' + p.trim()) : '/');

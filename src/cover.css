@@ -11,6 +11,6 @@
 
 /* Ô chọn nhanh thời gian trên từng câu trong trang soạn đề */
 .qtime { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink); font-size: 0.82rem; font-weight: 700; border: 1.5px solid transparent; cursor: pointer; }
-.qtime select { border: 0; background: transparent; color: inherit; font: inherit; padding: 2px 2px; cursor: pointer; min-height: 28px; }
+.qtime select { border: 0; background: transparent; color: inherit; font: inherit; padding: 2px 2px; cursor: pointer; min-height: 36px; }
 .qtime:hover, .qtime:focus-within { border-color: var(--primary); }
 .qtime select:focus { outline: none; }
