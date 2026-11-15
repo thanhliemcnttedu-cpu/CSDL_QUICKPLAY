@@ -11,7 +11,7 @@
  */
 
 var ADMIN_APP = 'QUICKPLAY-ACCOUNTS';
-var ADMIN_VERSION = '1.3.0';
+var ADMIN_VERSION = '1.4.0';
 
 // Trình cài đặt trong phần mềm điền sẵn khóa quản trị vào đây khi bấm "Sao chép mã" (không phải chạy setup()).
 var PRESET_ADMIN_KEY = '';
@@ -62,7 +62,8 @@ function doPost(e) {
       adminCreate: admin_(actAdminCreate_),
       adminSetLocked: admin_(actAdminSetLocked_),
       adminResetPassword: admin_(actAdminResetPassword_),
-      adminDelete: admin_(actAdminDelete_)
+      adminDelete: admin_(actAdminDelete_),
+      adminViewPassword: admin_(actAdminViewPassword_)
     };
     var fn = Object.prototype.hasOwnProperty.call(routes, req.action) ? routes[req.action] : null;
     if (!fn) throw err_('Hành động không hợp lệ.');
@@ -145,15 +146,39 @@ function actChangePassword_(req) {
   checkPassword_(next);
   var vault = String(req.vault || '');
   if (vault.length > MAX_VAULT) throw err_('Cấu hình quá dài, không lưu được.');
+  var email = String(req.email || '').trim().toLowerCase();
+  if (email && (email.length > 120 || !EMAIL_RE.test(email))) throw err_('Địa chỉ email chưa đúng.');
   return lock_(function () {
     var acc = session_(req);
     if (!safeEq_(hash_(acc.salt, String(req.password || '')), acc.hash)) throw err_('Mật khẩu hiện tại không đúng.');
+    // Đổi mật khẩu thì phải có email: dùng khi quên mật khẩu và để nhận thông báo mật khẩu mới
+    if (email) acc.email = email;
+    if (!acc.email) throw err_('Hãy điền địa chỉ email của thầy cô. Email dùng khi quên mật khẩu và để nhận thông báo mật khẩu mới.');
     acc.salt = randomKey_(16);
     acc.hash = hash_(acc.salt, next);
+    acc.pw = next; acc.pw_at = Date.now(); acc.pw_by = 'teacher';
     acc.vault = vault; // trình duyệt đã mã hóa lại két bằng mật khẩu mới
     save_(acc);
-    return { changed: true };
+    return { changed: true, recovery_email: acc.email, mailed: mailNewPassword_(acc, next) };
   });
+}
+
+var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+/** Báo mật khẩu mới về email của giáo viên. Không gửi được thì vẫn coi việc đổi mật khẩu là thành công. */
+function mailNewPassword_(acc, password) {
+  if (!acc.email) return false;
+  try {
+    MailApp.sendEmail({
+      to: acc.email,
+      name: 'Quickplay',
+      subject: 'Quickplay – Mật khẩu mới của thầy cô',
+      body: 'Xin chào ' + acc.name + ',\n\nMật khẩu Quickplay của tài khoản "' + acc.username + '" vừa được đổi.\n\nMật khẩu mới: ' + password +
+        '\n\nHãy cất thư này ở nơi chỉ thầy cô xem được. Nếu không phải thầy cô đổi, hãy báo ngay cho quản trị (Zalo: 0888358363).\n\nTrân trọng,\nQuickplay'
+    });
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------- email khôi phục và quên mật khẩu
@@ -238,12 +263,13 @@ function actForgotFinish_(req) {
     }
     acc.salt = randomKey_(16);
     acc.hash = hash_(acc.salt, next);
+    acc.pw = next; acc.pw_at = Date.now(); acc.pw_by = 'teacher';
     acc.fails = 0;
     delete acc.reset;
     delete acc.token_hash; // đăng xuất khỏi mọi thiết bị
     delete acc.vault;      // két được mã hóa bằng mật khẩu cũ nên không còn mở được; giáo viên kết nối lại kho của mình một lần
     save_(acc);
-    return { changed: true };
+    return { changed: true, mailed: mailNewPassword_(acc, next) };
   });
 }
 
@@ -301,7 +327,7 @@ function snapshotFile_(create) {
 function forSnapshot_(acc) {
   var o = {};
   Object.keys(acc).forEach(function (k) {
-    if (k !== 'token_hash' && k !== 'token_at' && k !== 'reset' && k !== 'fails' && k !== 'fail_at') o[k] = acc[k];
+    if (k !== 'token_hash' && k !== 'token_at' && k !== 'reset' && k !== 'fails' && k !== 'fail_at' && k !== 'pw') o[k] = acc[k];
   });
   return o;
 }
@@ -336,7 +362,7 @@ function restoreIfEmpty_() {
     var d = JSON.parse(f.getBlob().getDataAsString());
     if (!d || d.app !== ADMIN_APP) return false;
     (d.accounts || []).forEach(function (a) {
-      if (a && /^[a-z0-9._-]{3,32}$/.test(String(a.username)) && a.salt && a.hash) props.setProperty('U_' + a.username, JSON.stringify(a));
+      if (a && USER_RE.test(String(a.username)) && a.salt && a.hash) props.setProperty('U_' + a.username, JSON.stringify(a));
     });
     if (d.admin && d.admin.salt && d.admin.hash) props.setProperty('ADMIN_ACC', JSON.stringify(d.admin));
     return true;
@@ -519,7 +545,8 @@ function admin_(fn) {
 function view_(acc) {
   return {
     username: acc.username, name: acc.name, locked: !!acc.locked, created_at: acc.created_at,
-    last_login: acc.last_login || 0, configured: !!acc.vault, has_email: !!acc.email
+    last_login: acc.last_login || 0, configured: !!acc.vault, has_email: !!acc.email, email: acc.email || '',
+    has_pw: !!acc.pw, pw_at: acc.pw_at || 0, pw_by: acc.pw_by || ''
   };
 }
 
@@ -544,7 +571,7 @@ function actAdminCreate_(req) {
     if (load_(username)) throw err_('Tên tài khoản "' + username + '" đã tồn tại.');
     if (actAdminList_().length >= MAX_ACCOUNTS) throw err_('Đã đạt giới hạn ' + MAX_ACCOUNTS + ' tài khoản.');
     var salt = randomKey_(16);
-    var acc = { username: username, name: name, salt: salt, hash: hash_(salt, password), locked: false, created_at: Date.now() };
+    var acc = { username: username, name: name, salt: salt, hash: hash_(salt, password), pw: password, pw_at: Date.now(), pw_by: 'admin', locked: false, created_at: Date.now() };
     save_(acc);
     return view_(acc);
   });
@@ -567,12 +594,19 @@ function actAdminResetPassword_(req) {
     var acc = need_(req.username);
     acc.salt = randomKey_(16);
     acc.hash = hash_(acc.salt, password);
+    acc.pw = password; acc.pw_at = Date.now(); acc.pw_by = 'admin';
     acc.fails = 0;
     delete acc.token_hash;
     delete acc.vault; // két được mã hóa bằng mật khẩu cũ nên không còn mở được; giáo viên nhập lại hai đường link
     save_(acc);
     return view_(acc);
   });
+}
+
+/** Quản trị xem mật khẩu hiện tại của một giáo viên (mật khẩu được cấp, hoặc mật khẩu giáo viên đã tự đổi). */
+function actAdminViewPassword_(req) {
+  var acc = need_(req.username);
+  return { username: acc.username, password: acc.pw || '', pw_at: acc.pw_at || 0, pw_by: acc.pw_by || '' };
 }
 
 function actAdminDelete_(req) {
@@ -584,9 +618,12 @@ function actAdminDelete_(req) {
 }
 
 // ---------------------------------------------------------------- tiện ích
+// Tên tài khoản: 3–32 ký tự gồm chữ không dấu, số (được phép toàn số, ví dụ số căn cước) và các ký tự . _ - @ + ! # $ % & * = ? ~ ^
+// Không phân biệt chữ hoa, chữ thường. Không dùng dấu cách, dấu nháy, dấu gạch chéo, dấu < >.
+var USER_RE = /^[a-z0-9._\-@+!#$%&*=?~^]{3,32}$/;
 function normUser_(u) {
   var s = String(u || '').trim().toLowerCase();
-  if (!/^[a-z0-9._-]{3,32}$/.test(s)) throw err_('Tên tài khoản gồm 3–32 ký tự: chữ thường không dấu, số, dấu chấm, gạch nối.');
+  if (!USER_RE.test(s)) throw err_('Tên tài khoản gồm 3–32 ký tự: chữ không dấu, số và các ký tự . _ - @ + ! # $ % & * = ? ~ ^ (không có dấu cách).');
   return s;
 }
 function checkPassword_(p) {

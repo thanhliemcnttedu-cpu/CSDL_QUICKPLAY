@@ -183,11 +183,13 @@ export default function Settings() {
   };
   const changePw = async () => {
     if (pw.next.length < 6) return toast('Mật khẩu mới cần ít nhất 6 ký tự.', 'error');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail.email.trim())) return toast('Muốn đổi mật khẩu, hãy điền địa chỉ email của thầy cô ở ô Email.', 'error');
     setBusy(true);
     try {
-      await changePassword(pw.old, pw.next);
+      const r = await changePassword(pw.old, pw.next, mail.email);
       setPw({ old: '', next: '' });
-      toast('Đã đổi mật khẩu.', 'ok');
+      setMail({ email: r.email, password: '', saved: r.email });
+      toast(r.mailed ? `Đã đổi mật khẩu. Mật khẩu mới đã được gửi tới ${r.email}.` : 'Đã đổi mật khẩu. Chưa gửi được thư báo (máy chủ hết lượt gửi thư hôm nay).', 'ok');
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
@@ -229,6 +231,7 @@ export default function Settings() {
           <div>
             <b>Chào {acc?.name ?? 'thầy cô'}! Đây là lần đầu thầy cô dùng Quickplay.</b> Hãy làm một lần duy nhất (khoảng 10 phút): đi hết <b>5 bước của Trình cài đặt</b> bên dưới
             để dữ liệu được lưu vào Google Drive của chính thầy cô. Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối lại.
+            Mật khẩu được cấp có thể giữ nguyên, hoặc đổi ở mục <b>Tài khoản</b> cuối trang này.
           </div>
         </div>
       )}
@@ -380,11 +383,15 @@ export default function Settings() {
       {acc && (
         <section className="card stack">
           <h2 style={{ margin: 0 }}>Tài khoản: {acc.name} ({acc.username})</h2>
+          <h3 style={{ margin: 0 }}>Mật khẩu</h3>
+          <p className="muted" style={{ margin: 0 }}>Thầy cô <b>có thể giữ nguyên mật khẩu được quản trị cấp</b>, hoặc đổi sang mật khẩu của riêng mình (từ 6 ký tự: chỉ số, chữ, hoặc kết hợp chữ hoa, chữ thường, số, ký tự đặc biệt đều được).</p>
           <div className="row">
             <label className="field grow"><span>Mật khẩu hiện tại</span><input className="input" type="password" value={pw.old} onChange={(e) => setPw({ ...pw, old: e.target.value })} autoComplete="current-password" /></label>
             <label className="field grow"><span>Mật khẩu mới</span><input className="input" type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} autoComplete="new-password" /></label>
+            <label className="field grow"><span>Email của thầy cô (bắt buộc khi đổi)</span><input className="input" type="email" inputMode="email" value={mail.email} onChange={(e) => setMail({ ...mail, email: e.target.value })} placeholder="tenthayco@gmail.com" autoComplete="email" /></label>
           </div>
-          <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={changePw} disabled={busy || !pw.old || !pw.next}>Đổi mật khẩu</button>
+          <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={changePw} disabled={busy || !pw.old || !pw.next || !mail.email.trim()}>Đổi mật khẩu</button>
+          <small className="help">Khi đổi, mật khẩu mới được <b>gửi về email này</b> và được <b>lưu ở hồ sơ của quản trị</b> để quản trị hỗ trợ khi thầy cô quên. Vì vậy đừng dùng lại mật khẩu của Gmail, ngân hàng hay tài khoản quan trọng khác.</small>
 
           <h3 style={{ margin: '8px 0 0' }}>Email khôi phục</h3>
           <p className="muted" style={{ margin: 0 }}>

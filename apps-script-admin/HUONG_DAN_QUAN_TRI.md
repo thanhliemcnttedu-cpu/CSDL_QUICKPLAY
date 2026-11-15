@@ -8,7 +8,7 @@ Chỉ tác giả/quản trị cài, và chỉ cài **một lần**.
 - **Không lưu trên GitHub hay Vercel.** Hai nơi đó chỉ chứa mã của trang web; trang web không ghi được dữ liệu vào đó, và mọi thứ đặt ở đó
   ai cũng đọc được.
 - **Lưu trong dự án Apps Script của quản trị**, ở kho riêng tên là *Thuộc tính tập lệnh* (Script Properties), thuộc tài khoản Google của quản trị.
-  Chỉ quản trị mở được; mật khẩu chỉ lưu dạng đã băm.
+  Chỉ quản trị mở được. Từ bản 1.4.0, mật khẩu của giáo viên được lưu ở đây để quản trị xem lại được.
 - **Sao lưu vào thư mục Google Drive của quản trị.** Ở bước 1 của Trình cài đặt, quản trị dán link thư mục và bấm **Lưu link**. Mỗi khi tài khoản
   thay đổi, máy chủ ghi lại tệp `quickplay-tai-khoan.json` trong thư mục đó. Nếu sau này cài lại máy chủ (dự án Apps Script mới) vào **cùng thư mục**,
   máy chủ tự nạp lại toàn bộ tài khoản từ tệp này. Không chia sẻ thư mục này cho người khác.
@@ -110,12 +110,25 @@ Từ lần sau, đăng nhập trên máy nào phần mềm cũng tự nhớ. N�
 
 | Lưu | Không lưu |
 |---|---|
-| Tên tài khoản, họ tên | Mật khẩu dạng rõ (chỉ lưu bản băm có muối) |
+| Tên tài khoản, họ tên, email | Mật khẩu của quản trị dạng rõ (chỉ lưu bản băm) |
+| **Mật khẩu của giáo viên** (quản trị xem được bằng nút con mắt) | Mật khẩu giáo viên trong tệp sao lưu trên Drive (tệp chỉ có bản băm) |
 | Trạng thái khóa, lần đăng nhập gần nhất | Bộ câu hỏi, kết quả học sinh |
 | "Két cấu hình" của giáo viên, **đã mã hóa bằng mật khẩu của giáo viên** | Nội dung két dạng đọc được |
 
 Vì két được mã hóa bằng mật khẩu của giáo viên, khi quản trị **đặt lại mật khẩu** thì két cũ không mở được nữa: giáo viên dán lại
 ba thông tin ở bước 4. Dữ liệu trên Drive của giáo viên không bị ảnh hưởng.
+
+## Tên tài khoản và mật khẩu của giáo viên (từ bản 1.4.0)
+
+- **Tên tài khoản:** 3–32 ký tự, không có dấu cách. Dùng được toàn số (ví dụ số căn cước), chữ không dấu, chữ kết hợp số, và các ký tự
+  `. _ - @ + ! # $ % & * = ? ~ ^`. Không phân biệt chữ hoa, chữ thường.
+- **Mật khẩu:** từ 6 ký tự, đặt thế nào cũng được: toàn số, chữ, hoặc kết hợp chữ hoa, chữ thường, số, ký tự đặc biệt.
+- Giáo viên **có thể giữ nguyên** mật khẩu được cấp, hoặc tự đổi ở **Cài đặt → Tài khoản**.
+- Khi giáo viên đổi mật khẩu: **bắt buộc điền email**; mật khẩu mới được **gửi về email đó** và được **lưu ở máy chủ tài khoản**.
+- Quản trị bấm **biểu tượng con mắt** ở cột Mật khẩu để xem mật khẩu hiện tại của giáo viên (tự ẩn sau 30 giây). Dưới mật khẩu có ghi chú nếu giáo viên đã tự đổi.
+
+> **Hệ quả cần biết:** vì quản trị xem được mật khẩu, về kỹ thuật quản trị có thể đăng nhập thay giáo viên và thấy dữ liệu của giáo viên đó.
+> Mật khẩu cũng đi qua email. Vì vậy hãy giữ kín tài khoản quản trị, và nhắc giáo viên không dùng lại mật khẩu của Gmail, ngân hàng hay tài khoản quan trọng khác.
 
 ## Giới hạn cần biết
 

@@ -31,7 +31,9 @@ describe('máy chủ tài khoản', () => {
     expect(a.post({ action: 'login', username: 'lan.nguyen', password: 'matkhau1' }).data.vault).toBe('ket-da-ma-hoa');
 
     // mật khẩu không lưu dạng rõ; két quản trị thấy được chỉ là chuỗi đã mã hóa do trình duyệt gửi lên
-    expect(a.store.get('U_lan.nguyen')).not.toContain('matkhau1');
+    // từ bản 1.4.0 máy chủ giữ mật khẩu ở trường pw để quản trị xem lại được (theo yêu cầu của chủ hệ thống); vẫn có bản băm để kiểm tra đăng nhập
+    expect(JSON.parse(a.store.get('U_lan.nguyen')!)).toMatchObject({ pw: 'matkhau1', pw_by: 'admin' });
+    expect(JSON.parse(a.store.get('U_lan.nguyen')!).hash).toMatch(/^[0-9a-f]{64}$/);
     expect(a.post({ action: 'adminList', admin_key: k }).data[0]).toMatchObject({ username: 'lan.nguyen', configured: true, locked: false });
 
     // khóa tài khoản: phiên đang mở mất hiệu lực, không đăng nhập lại được
@@ -147,7 +149,8 @@ describe('máy chủ tài khoản', () => {
     acc.reset = undefined;
     a.store.set('U_lan.nguyen', JSON.stringify(acc));
     a.post({ action: 'forgotStart', username: 'lan.nguyen' });
-    const code2 = a.mails[1].body.match(/là: (\d{6})/)![1];
+    // (thư thứ hai là thư báo mật khẩu mới của lần đặt lại trước; thư mã xác nhận lần này là thư cuối)
+    const code2 = a.mails[a.mails.length - 1].body.match(/là: (\d{6})/)![1];
     const bad = code2 === '999999' ? '888888' : '999999';
     for (let i = 0; i < 5; i++) a.post({ action: 'forgotFinish', username: 'lan.nguyen', code: bad, new_password: 'moi-123456' });
     expect(a.post({ action: 'forgotFinish', username: 'lan.nguyen', code: code2, new_password: 'moi-654321' }).error).toMatch(/quá nhiều lần|gửi mã/);
@@ -233,5 +236,70 @@ describe('máy chủ tài khoản', () => {
     const td = d.post({ action: 'adminInit', admin_key: d.adminKey, username: 'adminquantri', password: 'mat-khau-dai' });
     expect(td.ok).toBe(true);
     expect(d.post({ action: 'adminStorage', admin_token: td.data.token }).data.error).not.toBe('');
+  });
+
+  it('tên tài khoản toàn số, có ký tự đặc biệt; mật khẩu đơn giản hay phức tạp đều được', () => {
+    const a = createAdmin();
+    const k = a.adminKey;
+    // toàn số (số căn cước), chữ + số, có ký tự đặc biệt
+    expect(a.post({ action: 'adminCreate', admin_key: k, username: '035091005725', name: 'Giáo viên A', password: '123456' }).data.username).toBe('035091005725');
+    expect(a.post({ action: 'adminCreate', admin_key: k, username: 'Lan@TH1', name: 'Cô Lan', password: 'Lan@2026!aB' }).data.username).toBe('lan@th1');
+    expect(a.post({ action: 'adminCreate', admin_key: k, username: 'gv#01+a', name: 'Thầy B', password: 'abcdef' }).ok).toBe(true);
+    // không nhận dấu cách, dấu nháy, dấu gạch chéo, quá ngắn
+    for (const bad of ['a b c', "x'y'z", 'a/b/c', 'ab', '<abc>']) expect(a.post({ action: 'adminCreate', admin_key: k, username: bad, name: 'X', password: '123456' }).error).toMatch(/3–32 ký tự/);
+    // đăng nhập được, không phân biệt hoa thường ở tên tài khoản
+    expect(a.post({ action: 'login', username: '035091005725', password: '123456' }).ok).toBe(true);
+    expect(a.post({ action: 'login', username: 'LAN@th1', password: 'Lan@2026!aB' }).ok).toBe(true);
+    expect(a.post({ action: 'login', username: 'lan@th1', password: 'lan@2026!ab' }).ok).toBe(false); // mật khẩu thì phân biệt hoa thường
+    expect(a.post({ action: 'adminCreate', admin_key: k, username: 'ngan', name: 'X', password: '12345' }).error).toMatch(/6 đến 72/);
+  });
+
+  it('giáo viên đổi mật khẩu phải có email; mật khẩu mới gửi về email và quản trị xem được', () => {
+    const FOLDER = '1AbCdEfGhIjKlMnOpQrStUvWxYz012345';
+    const a = createAdmin({ folderId: FOLDER });
+    const k = a.adminKey;
+    a.post({ action: 'adminCreate', admin_key: k, username: '035091005725', name: 'Nguyễn Văn A', password: '123456' });
+    // quản trị xem được mật khẩu vừa cấp; người ngoài thì không
+    expect(a.post({ action: 'adminViewPassword', admin_key: k, username: '035091005725' }).data).toMatchObject({ password: '123456', pw_by: 'admin' });
+    expect(a.post({ action: 'adminViewPassword', username: '035091005725' }).ok).toBe(false);
+    expect(a.post({ action: 'adminList', admin_key: k }).data[0]).toMatchObject({ has_pw: true, pw_by: 'admin', email: '' });
+
+    const s1 = a.post({ action: 'login', username: '035091005725', password: '123456' }).data;
+    // giữ nguyên mật khẩu được cấp: không cần làm gì. Đổi mật khẩu mà chưa có email thì bị từ chối
+    expect(a.post({ action: 'changePassword', username: '035091005725', token: s1.token, password: '123456', new_password: 'MatKhau@Moi1', vault: '' }).error).toMatch(/điền địa chỉ email/);
+    expect(a.post({ action: 'changePassword', username: '035091005725', token: s1.token, password: '123456', new_password: 'MatKhau@Moi1', vault: '', email: 'sai-email' }).error).toMatch(/email chưa đúng/);
+    expect(a.post({ action: 'login', username: '035091005725', password: '123456' }).ok).toBe(true); // chưa đổi gì
+    const s2 = a.post({ action: 'login', username: '035091005725', password: '123456' }).data;
+    const done = a.post({ action: 'changePassword', username: '035091005725', token: s2.token, password: '123456', new_password: 'MatKhau@Moi1', vault: 'KET', email: 'gv.a@example.com' });
+    expect(done.data).toMatchObject({ changed: true, recovery_email: 'gv.a@example.com', mailed: true });
+    // thư báo mật khẩu mới tới đúng email
+    expect(a.mails).toHaveLength(1);
+    expect(a.mails[0].to).toBe('gv.a@example.com');
+    expect(a.mails[0].body).toContain('MatKhau@Moi1');
+    // quản trị thấy mật khẩu mới, biết là giáo viên tự đổi, thấy email
+    expect(a.post({ action: 'adminViewPassword', admin_key: k, username: '035091005725' }).data).toMatchObject({ password: 'MatKhau@Moi1', pw_by: 'teacher' });
+    expect(a.post({ action: 'adminList', admin_key: k }).data[0]).toMatchObject({ email: 'gv.a@example.com', pw_by: 'teacher' });
+    expect(a.post({ action: 'login', username: '035091005725', password: 'MatKhau@Moi1' }).ok).toBe(true);
+    // lần đổi sau không cần điền lại email
+    const s3 = a.post({ action: 'login', username: '035091005725', password: 'MatKhau@Moi1' }).data;
+    expect(a.post({ action: 'changePassword', username: '035091005725', token: s3.token, password: 'MatKhau@Moi1', new_password: '654321', vault: '' }).ok).toBe(true);
+    expect(a.mails).toHaveLength(2);
+
+    // tự đặt lại bằng mã (quên mật khẩu): mật khẩu mới cũng được lưu và gửi thư
+    a.post({ action: 'forgotStart', username: '035091005725' });
+    const code = a.mails[2].body.match(/là: (\d{6})/)![1];
+    expect(a.post({ action: 'forgotFinish', username: '035091005725', code, new_password: 'quen-roi-dat-lai' }).data.mailed).toBe(true);
+    expect(a.post({ action: 'adminViewPassword', admin_key: k, username: '035091005725' }).data.password).toBe('quen-roi-dat-lai');
+    expect(a.mails[3].body).toContain('quen-roi-dat-lai');
+
+    // quản trị đặt lại mật khẩu: xem được mật khẩu mới, ghi là do quản trị đặt
+    a.post({ action: 'adminResetPassword', admin_key: k, username: '035091005725', password: '999999' });
+    expect(a.post({ action: 'adminViewPassword', admin_key: k, username: '035091005725' }).data).toMatchObject({ password: '999999', pw_by: 'admin' });
+
+    // tệp sao lưu trên Google Drive không chứa mật khẩu dạng xem được
+    const file = a.drive.get(FOLDER)!.get('quickplay-tai-khoan.json')!.content;
+    expect(file).not.toContain('999999');
+    expect(file).not.toContain('"pw"');
+    expect(file).toContain('gv.a@example.com');
   });
 });

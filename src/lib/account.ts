@@ -4,7 +4,7 @@ import { loadSettings, saveSettings } from './settings';
 
 export interface Account { username: string; name: string; token: string; key: string; email?: string } // key: khóa AES (base64) suy ra từ mật khẩu
 export interface Vault { scriptUrl: string; teacherKey: string; folderUrl: string }
-export interface AccountRow { username: string; name: string; locked: boolean; created_at: number; last_login: number; configured: boolean; has_email?: boolean }
+export interface AccountRow { username: string; name: string; locked: boolean; created_at: number; last_login: number; configured: boolean; has_email?: boolean; email?: string; has_pw?: boolean; pw_at?: number; pw_by?: string }
 
 const ACC = 'quizzi.account';
 const URL_KEY = 'quizzi.adminUrl';
@@ -128,14 +128,17 @@ export async function saveVault(v: Vault): Promise<void> {
   await call('saveVault', { username: a.username, token: a.token, vault: await encryptVault(a.key, v) });
 }
 
-export async function changePassword(password: string, newPassword: string): Promise<void> {
+/** Đổi mật khẩu. Bắt buộc có email (dùng khi quên mật khẩu, và để nhận thông báo mật khẩu mới). Trả về: thư báo có gửi được không. */
+export async function changePassword(password: string, newPassword: string, email: string): Promise<{ mailed: boolean; email: string }> {
   const a = currentAccount();
   if (!a) throw new AccountError('Chưa đăng nhập.');
   const s = loadSettings();
   const key = await deriveKey(a.username, newPassword);
   const vault = s.scriptUrl ? await encryptVault(key, { scriptUrl: s.scriptUrl, teacherKey: s.teacherKey, folderUrl: s.folderUrl }) : '';
-  await call('changePassword', { username: a.username, token: a.token, password, new_password: newPassword, vault });
-  localStorage.setItem(ACC, JSON.stringify({ ...a, key }));
+  const r = await call<{ changed: boolean; recovery_email?: string; mailed?: boolean }>('changePassword', { username: a.username, token: a.token, password, new_password: newPassword, vault, email: email.trim() });
+  const saved = r.recovery_email ?? email.trim().toLowerCase();
+  localStorage.setItem(ACC, JSON.stringify({ ...a, key, email: saved }));
+  return { mailed: !!r.mailed, email: saved };
 }
 
 // ---------- email khôi phục và quên mật khẩu ----------
@@ -247,4 +250,6 @@ export const adminApi = {
   setLocked: (username: string, locked: boolean) => adminCall<AccountRow>('adminSetLocked', { username, locked }),
   resetPassword: (username: string, password: string) => adminCall<AccountRow>('adminResetPassword', { username, password }),
   remove: (username: string) => adminCall<{ username: string }>('adminDelete', { username }),
+  /** Xem mật khẩu hiện tại của một giáo viên */
+  viewPassword: (username: string) => adminCall<{ username: string; password: string; pw_at: number; pw_by: string }>('adminViewPassword', { username }),
 };

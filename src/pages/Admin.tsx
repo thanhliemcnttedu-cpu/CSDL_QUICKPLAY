@@ -1,13 +1,13 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Check, ChevronRight, Download, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Check, ChevronRight, Download, Eye, EyeOff, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminBootOk, adminEmail, adminSignedIn, adminUrl, adminUser, bootAdminPassword, markDefaultAdminPassword, setAdminUrl, usingDefaultAdminPassword, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Field, Modal, useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller } from '../components/ScriptInstaller';
-import { ADMIN_SCRIPT_VERSION, buildLinkFile, linkFileName, loadLink, pingScript, saveLink } from '../lib/installer';
+import { ADMIN_SCRIPT_VERSION, buildLinkFile, compareVersion, linkFileName, loadLink, pingScript, saveLink } from '../lib/installer';
 import { downloadBlob } from '../lib/xlsx';
 import { AdminGuide } from '../components/AdminGuide';
 import '../installer.css';
@@ -36,6 +36,20 @@ export default function Admin() {
   const [defaultPw, setDefaultPw] = useState(usingDefaultAdminPassword());
   // Nơi lưu trữ trên Google Drive của máy chủ tài khoản (thư mục + tệp sao lưu)
   // Sau khi bước 5 báo liên kết thành công: giữ nguyên màn hình để quản trị thấy tích xanh và tải tệp kết nối, bấm Tiếp tục mới sang bước sau
+  // Mật khẩu giáo viên đang được mở xem (tự ẩn sau 30 giây), và phiên bản mã của máy chủ tài khoản
+  const [shown, setShown] = useState<Record<string, string>>({});
+  const [serverVer, setServerVer] = useState('');
+  const outdated = !!serverVer && compareVersion(serverVer, ADMIN_SCRIPT_VERSION) < 0;
+  const showPw = async (username: string) => {
+    if (shown[username] !== undefined) return setShown((m) => { const n = { ...m }; delete n[username]; return n; });
+    try {
+      const r = await adminApi.viewPassword(username);
+      setShown((m) => ({ ...m, [username]: r.password }));
+      window.setTimeout(() => setShown((m) => { const n = { ...m }; delete n[username]; return n; }), 30000);
+    } catch (e) {
+      toast(/không hợp lệ/.test((e as Error).message) ? 'Máy chủ tài khoản đang chạy bản cũ, chưa có chức năng xem mật khẩu. Hãy cập nhật máy chủ (mục bên dưới).' : (e as Error).message, 'error');
+    }
+  };
   const [afterLink, setAfterLink] = useState<null | { label: string; go: () => void }>(null);
   const [store, setStore] = useState<null | { folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>(null); // đang dùng mật khẩu mặc định: nhắc đổi ngay
   const [fg, setFg] = useState<null | { sentTo: string; code: string; next: string; again: string; err: string; busy: boolean }>(null);
@@ -103,6 +117,7 @@ export default function Admin() {
       setRows(await adminApi.list());
       setStep('in');
       adminApi.storage().then(setStore).catch(() => setStore(null));
+      pingScript(adminUrl()).then((r) => setServerVer(r.version)).catch(() => {});
     } catch (e) {
       toast((e as Error).message, 'error');
       setRows(null);
@@ -313,6 +328,24 @@ export default function Admin() {
         </div>
       )}
 
+      {step === 'in' && (
+        <details className="card stack" open={outdated}>
+          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+            Máy chủ tài khoản{serverVer ? `: đang chạy phiên bản ${serverVer}` : ''}
+            {outdated ? <span className="badge amber" style={{ marginLeft: 8 }}>Cần cập nhật lên {ADMIN_SCRIPT_VERSION}</span> : serverVer ? <span className="badge green" style={{ marginLeft: 8 }}>Mới nhất</span> : null}
+          </summary>
+          {outdated && <div className="alert warn" role="status"><div><b>Phần mềm đã có mã máy chủ mới ({ADMIN_SCRIPT_VERSION}).</b> Một số chức năng (tên tài khoản có ký tự đặc biệt, xem mật khẩu giáo viên, gửi mật khẩu mới qua email) chỉ chạy sau khi cập nhật. Chọn thẻ <b>Cập nhật bản mới</b> bên dưới: Sao chép mã → dán đè vào dự án Apps Script đang dùng → Triển khai <b>Phiên bản mới</b> → bấm Kiểm tra. Link và tài khoản giữ nguyên.</div></div>}
+          <ScriptInstaller kind="admin" current={{ scriptUrl: adminUrl(), folderUrl: store?.folder_url ?? '' }} onDone={async () => {
+            const sto = await adminApi.storage();
+            setStore(sto);
+            const pong = await pingScript(adminUrl());
+            setServerVer(pong.version);
+            if (sto.error) throw new Error(sto.error);
+            return { folderName: sto.folder_name, folderUrl: sto.folder_url };
+          }} />
+        </details>
+      )}
+
       {step === 'in' && rows && (
         <section className="card stack">
           <div className="row between">
@@ -324,15 +357,26 @@ export default function Admin() {
           </div>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Tài khoản</th><th>Họ tên</th><th>Trạng thái</th><th>Đã cài kho riêng</th><th>Email khôi phục</th><th>Đăng nhập gần nhất</th><th /></tr></thead>
+              <thead><tr><th>Tài khoản</th><th>Họ tên</th><th>Mật khẩu</th><th>Email</th><th>Trạng thái</th><th>Đã cài kho riêng</th><th>Đăng nhập gần nhất</th><th /></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.username}>
                     <td><b>{r.username}</b></td>
                     <td>{r.name}</td>
+                    <td>
+                      <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+                        {shown[r.username] !== undefined
+                          ? <b style={{ letterSpacing: '0.04em', overflowWrap: 'anywhere' }}>{shown[r.username] || <span className="muted">(chưa lưu: đặt lại mật khẩu để xem được)</span>}</b>
+                          : <span className="muted">••••••</span>}
+                        <button className="btn icon sm ghost" onClick={() => showPw(r.username)} aria-label={shown[r.username] !== undefined ? `Ẩn mật khẩu của ${r.username}` : `Xem mật khẩu của ${r.username}`} title={shown[r.username] !== undefined ? 'Ẩn' : 'Xem mật khẩu'}>
+                          {shown[r.username] !== undefined ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </span>
+                      {r.pw_by === 'teacher' && <small className="muted">giáo viên đã tự đổi{r.pw_at ? ` ngày ${new Date(r.pw_at).toLocaleDateString('vi-VN')}` : ''}</small>}
+                    </td>
+                    <td style={{ overflowWrap: 'anywhere' }}>{r.email || (r.has_email ? 'Đã khai báo' : <span className="muted">Chưa</span>)}</td>
                     <td>{r.locked ? <span className="badge red">Đang khóa</span> : <span className="badge green">Hoạt động</span>}</td>
                     <td>{r.configured ? 'Rồi' : 'Chưa'}</td>
-                    <td>{r.has_email ? 'Đã khai báo' : 'Chưa'}</td>
                     <td>{r.last_login ? new Date(r.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</td>
                     <td>
                       <span className="row" style={{ gap: 6, flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
@@ -345,12 +389,14 @@ export default function Admin() {
                     </td>
                   </tr>
                 ))}
-                {!rows.length && <tr><td colSpan={7} className="muted">Chưa có tài khoản nào. Bấm “Cấp tài khoản”.</td></tr>}
+                {!rows.length && <tr><td colSpan={8} className="muted">Chưa có tài khoản nào. Bấm “Cấp tài khoản”.</td></tr>}
               </tbody>
             </table>
           </div>
           <p className="help" style={{ margin: 0 }}>
-            Máy chủ này chỉ giữ tên tài khoản, mật khẩu đã băm và cấu hình đã mã hóa của giáo viên. Bộ câu hỏi và kết quả học sinh nằm trong Google Drive riêng của từng giáo viên, quản trị không xem được.
+            Máy chủ tài khoản giữ tên tài khoản, email và mật khẩu của giáo viên (quản trị bấm biểu tượng con mắt để xem, kể cả mật khẩu giáo viên đã tự đổi).
+            Bộ câu hỏi và kết quả học sinh nằm trong Google Drive riêng của từng giáo viên. Lưu ý: vì quản trị xem được mật khẩu, về kỹ thuật quản trị có thể đăng nhập thay giáo viên;
+            hãy giữ kín tài khoản quản trị. Tệp sao lưu trên Google Drive không chứa mật khẩu dạng xem được.
           </p>
         </section>
       )}
@@ -358,11 +404,11 @@ export default function Admin() {
       {add && (
         <Modal title="Cấp tài khoản giáo viên" onClose={() => setAdd(null)} footer={<button className="btn primary" onClick={create}><Plus size={18} /> Tạo tài khoản</button>}>
           <div className="stack">
-            <Field label="Tên tài khoản" help="3–32 ký tự: chữ thường không dấu, số, dấu chấm, gạch nối. Ví dụ: lan.nguyen">
+            <Field label="Tên tài khoản" help="3–32 ký tự, không có dấu cách. Dùng được: toàn số (ví dụ số căn cước), chữ không dấu, chữ kết hợp số, và các ký tự . _ - @ + ! # $ % & * = ? ~ ^  Không phân biệt chữ hoa, chữ thường.">
               <input className="input" value={add.username} onChange={(e) => setAdd({ ...add, username: e.target.value })} autoCapitalize="none" spellCheck={false} />
             </Field>
             <Field label="Họ tên giáo viên"><input className="input" value={add.name} maxLength={60} onChange={(e) => setAdd({ ...add, name: e.target.value })} /></Field>
-            <Field label="Mật khẩu ban đầu" help="Ít nhất 6 ký tự. Giáo viên có thể tự đổi trong mục Cài đặt.">
+            <Field label="Mật khẩu ban đầu" help="Từ 6 ký tự. Đặt đơn giản toàn số cũng được, hoặc kết hợp chữ hoa, chữ thường, số, ký tự đặc biệt. Giáo viên có thể giữ nguyên hoặc tự đổi trong mục Cài đặt.">
               <div className="row" style={{ flexWrap: 'nowrap' }}>
                 <input className="input" value={add.password} onChange={(e) => setAdd({ ...add, password: e.target.value })} autoComplete="off" />
                 <button type="button" className="btn" onClick={() => setAdd({ ...add, password: randomPassword() })}>Tạo ngẫu nhiên</button>
