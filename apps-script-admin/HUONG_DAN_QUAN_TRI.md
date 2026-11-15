@@ -8,7 +8,10 @@ Chỉ tác giả/quản trị cài, và chỉ cài **một lần**.
 - **Không lưu trên GitHub hay Vercel.** Hai nơi đó chỉ chứa mã của trang web; trang web không ghi được dữ liệu vào đó, và mọi thứ đặt ở đó
   ai cũng đọc được.
 - **Lưu trong dự án Apps Script của quản trị**, ở kho riêng tên là *Thuộc tính tập lệnh* (Script Properties), thuộc tài khoản Google của quản trị.
-  Không cần tạo thư mục Google Drive cho việc này. Chỉ quản trị mở được; mật khẩu chỉ lưu dạng đã băm.
+  Chỉ quản trị mở được; mật khẩu chỉ lưu dạng đã băm.
+- **Sao lưu vào thư mục Google Drive của quản trị.** Ở bước 1 của Trình cài đặt, quản trị dán link thư mục và bấm **Lưu link**. Mỗi khi tài khoản
+  thay đổi, máy chủ ghi lại tệp `quickplay-tai-khoan.json` trong thư mục đó. Nếu sau này cài lại máy chủ (dự án Apps Script mới) vào **cùng thư mục**,
+  máy chủ tự nạp lại toàn bộ tài khoản từ tệp này. Không chia sẻ thư mục này cho người khác.
 - Mỗi giáo viên lại có **thư mục Google Drive và Apps Script riêng** để lưu bộ câu hỏi và kết quả. Thông tin kết nối (link thư mục, link Apps Script,
   khóa giáo viên) được **mã hóa bằng mật khẩu của giáo viên** rồi gửi kèm tài khoản, nên đăng nhập ở máy nào phần mềm cũng tự kết nối lại,
   còn quản trị thì không đọc được.

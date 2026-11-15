@@ -1,6 +1,6 @@
 // Trình cài đặt Apps Script 5 bước, dùng chung cho giáo viên (kho dữ liệu riêng) và quản trị (máy chủ tài khoản).
 import { useEffect, useState } from 'react';
-import { Check, CheckCircle2, Code2, Copy, ExternalLink, FolderOpen, Link2, Rocket, TriangleAlert, Wand2 } from 'lucide-react';
+import { Check, CheckCircle2, Code2, Copy, ExternalLink, FolderOpen, Link2, Pencil, Rocket, Save, Trash2, TriangleAlert, Wand2 } from 'lucide-react';
 import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION as TEACHER_SCRIPT_VERSION, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, loadScriptCode, pingScript, randomKey, type InstallKind } from '../lib/installer';
 import { useToast } from './ui';
 import '../installer.css';
@@ -53,7 +53,7 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
   const SCRIPT_VERSION = teacher ? TEACHER_SCRIPT_VERSION : ADMIN_SCRIPT_VERSION;
   const [mode, setMode] = useState<'new' | 'update'>(current?.scriptUrl ? 'update' : 'new');
   // Khóa tạo sẵn cho lần cài mới: giữ tạm trong phiên trình duyệt để lỡ tải lại trang vẫn khớp với mã đã dán
-  const [draft, setDraft] = useState<{ key: string; folderUrl: string }>(() => {
+  const [draft, setDraft] = useState<{ key: string; folderUrl: string; saved?: boolean }>(() => {
     try {
       const d = JSON.parse(sessionStorage.getItem(DRAFT(kind)) || 'null');
       if (d?.key) return d;
@@ -69,16 +69,26 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
-  const folderId = teacher ? folderIdOf(draft.folderUrl) : '';
-  const folderOk = !teacher || !!folderId;
+  // Bước 1: link thư mục phải được bấm LƯU thì phần mềm mới ghi nhận địa chỉ và mã thư mục, và mới mở bước sao chép mã
+  const folderId = folderIdOf(draft.folderUrl);
+  const folderOk = !!folderId && !!draft.saved;
+  const saveFolder = () => {
+    if (!folderId) return toast('Link thư mục chưa đúng. Mở thư mục trên Google Drive rồi chép địa chỉ trên thanh trình duyệt.', 'error');
+    setDraft({ ...draft, folderUrl: draft.folderUrl.trim(), saved: true });
+    setCopied(false);
+    toast('Đã lưu link thư mục. Sang bước 2 để sao chép mã.', 'ok');
+  };
+  const editFolder = () => { setDraft({ ...draft, saved: false }); setCopied(false); };
+  const clearFolder = () => { setDraft({ ...draft, folderUrl: '', saved: false }); setCopied(false); setManual(''); };
   // Cập nhật: dán đè mã mới vào dự án cũ. Khóa và thư mục cũ đã được máy chủ ghi nhớ nên giữ nguyên.
   const keyToUse = mode === 'update' ? current?.key ?? '' : draft.key;
 
   const copy = async () => {
-    if (mode === 'new' && !folderOk) return toast('Hãy dán link thư mục Google Drive ở bước 1 trước.', 'error');
+    if (mode === 'new' && !folderOk) return toast('Hãy dán link thư mục Google Drive ở bước 1 và bấm Lưu trước.', 'error');
     try {
       const raw = await loadScriptCode(kind);
-      const code = teacher ? fillTeacherCode(raw, keyToUse, mode === 'new' ? folderId! : folderIdOf(current?.folderUrl ?? '') ?? '') : fillAdminCode(raw, keyToUse);
+      const fid = mode === 'new' ? folderId! : folderIdOf(current?.folderUrl ?? '') ?? '';
+      const code = teacher ? fillTeacherCode(raw, keyToUse, fid) : fillAdminCode(raw, keyToUse, fid);
       if (await copyText(code)) {
         setManual('');
         setCopied(true);
@@ -131,38 +141,54 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
 
       <div className="ins-grid">
         <div className="ins-col">
-          {teacher ? (
-            <Step n={1} icon={<FolderOpen size={18} />} title="Thư mục Google Drive lưu dữ liệu" done={mode === 'update' ? !!current?.folderUrl : folderOk}>
-              {mode === 'new' ? (
+          <Step n={1} icon={<FolderOpen size={18} />} title={teacher ? 'Thư mục Google Drive lưu dữ liệu' : 'Thư mục Google Drive lưu trữ'} done={mode === 'update' ? true : folderOk}>
+            {mode === 'new' ? (
+              folderOk ? (
                 <>
-                  <p>Tạo một thư mục trên Google Drive của thầy cô (ví dụ <b>Quickplay_DuLieu</b>), mở thư mục rồi sao chép link trên thanh địa chỉ.</p>
-                  <input className="input" value={draft.folderUrl} onChange={(e) => { setDraft({ ...draft, folderUrl: e.target.value }); setCopied(false); }} placeholder="https://drive.google.com/drive/folders/…" aria-label="Link thư mục Google Drive" />
-                  {draft.folderUrl.trim() && (folderId ? <small className="ins-ok">✓ Mã thư mục: {folderId}</small> : <small className="error-text">Link chưa đúng. Mở thư mục trên Drive rồi chép địa chỉ trên thanh trình duyệt.</small>)}
-                  <a className="btn sm ghost" href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở Google Drive</a>
+                  <p>Đã ghi nhận thư mục lưu trữ:</p>
+                  <div className="ins-saved">
+                    <span><small>Địa chỉ thư mục</small><a href={draft.folderUrl} target="_blank" rel="noopener noreferrer">{draft.folderUrl.replace(/^https?:\/\//, '')}</a></span>
+                    <span><small>Mã thư mục (ID)</small><code>{folderId}</code></span>
+                  </div>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button type="button" className="btn sm" onClick={editFolder}><Pencil size={14} /> Đổi link</button>
+                    <button type="button" className="btn sm danger" onClick={clearFolder}><Trash2 size={14} /> Xóa link</button>
+                  </div>
                 </>
               ) : (
-                <p>{current?.folderUrl ? <>Giữ nguyên thư mục đang dùng. <a href={current.folderUrl} target="_blank" rel="noopener noreferrer">Mở thư mục</a></> : 'Giữ nguyên thư mục đang dùng.'}</p>
-              )}
-            </Step>
-          ) : (
-            <Step n={1} icon={<FolderOpen size={18} />} title="Nơi lưu tài khoản" done>
-              <p>Không cần tạo thư mục. Danh sách tài khoản giáo viên được cất trong <b>kho riêng của chính dự án Apps Script</b> (Script Properties) thuộc tài khoản Google của quản trị, không ai khác mở được.</p>
-            </Step>
-          )}
+                <>
+                  <p>{teacher
+                    ? <>Tạo một thư mục trên Google Drive của thầy cô (ví dụ <b>Quickplay_DuLieu</b>), mở thư mục rồi sao chép link trên thanh địa chỉ.</>
+                    : <>Tạo một thư mục trên Google Drive của quản trị (ví dụ <b>Quickplay_TaiKhoan</b>), mở thư mục rồi sao chép link trên thanh địa chỉ. Máy chủ ghi tệp sao lưu tài khoản vào thư mục này.</>}</p>
+                  <input className="input" value={draft.folderUrl} onChange={(e) => setDraft({ ...draft, folderUrl: e.target.value, saved: false })} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveFolder(); } }}
+                    placeholder="https://drive.google.com/drive/folders/…" aria-label="Link thư mục Google Drive" />
+                  {draft.folderUrl.trim() && !folderId && <small className="error-text">Link chưa đúng. Mở thư mục trên Drive rồi chép địa chỉ trên thanh trình duyệt.</small>}
+                  <div className="row" style={{ gap: 6 }}>
+                    <button type="button" className="btn sm success" onClick={saveFolder} disabled={!draft.folderUrl.trim()}><Save size={14} /> Lưu link</button>
+                    {draft.folderUrl.trim() && <button type="button" className="btn sm danger" onClick={clearFolder}><Trash2 size={14} /> Xóa link</button>}
+                    <a className="btn sm ghost" href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở Google Drive</a>
+                  </div>
+                </>
+              )
+            ) : (
+              <p>{current?.folderUrl ? <>Giữ nguyên thư mục đang dùng. <a href={current.folderUrl} target="_blank" rel="noopener noreferrer">Mở thư mục</a></> : 'Giữ nguyên thư mục đang dùng (máy chủ đã ghi nhớ).'}</p>
+            )}
+          </Step>
 
           <Step n={2} icon={<Code2 size={18} />} title="Sao chép mã Apps Script" done={copied}>
             <p>{mode === 'new'
-              ? teacher ? 'Mã đã điền sẵn mã thư mục và khóa giáo viên của thầy cô.' : 'Mã đã điền sẵn khóa quản trị, không phải chạy hàm setup().'
+              ? folderOk ? (teacher ? 'Mã đã điền sẵn mã thư mục và khóa giáo viên của thầy cô.' : 'Mã đã điền sẵn mã thư mục và khóa quản trị, không phải chạy hàm setup().') : 'Lưu link thư mục ở bước 1 xong thì nút này mới mở.'
               : 'Mã mới giữ nguyên thư mục, khóa và link đang dùng.'} (phiên bản {SCRIPT_VERSION})</p>
-            <button type="button" className="btn primary sm" onClick={copy}><Copy size={16} /> Sao chép mã</button>
+            <button type="button" className="btn primary sm" onClick={copy} disabled={mode === 'new' && !folderOk}><Copy size={16} /> Sao chép mã</button>
             {manual && <textarea className="input ins-code" readOnly value={manual} onFocus={(e) => e.currentTarget.select()} aria-label="Mã Apps Script để chép tay" />}
           </Step>
 
-          <Step n={3} icon={<ExternalLink size={18} />} title={mode === 'new' ? 'Mở Apps Script mới, dán mã và lưu' : 'Dán mã mới vào dự án Apps Script đang dùng'}>
-            <a className="btn success sm" href={mode === 'new' ? 'https://script.new' : 'https://script.google.com/home'} target="_blank" rel="noopener noreferrer">
-              <ExternalLink size={16} /> {mode === 'new' ? 'Mở Apps Script mới (script.new)' : 'Mở danh sách dự án Apps Script'}
+          <Step n={3} icon={<ExternalLink size={18} />} title={mode === 'new' ? 'Mở Apps Script, dán mã và lưu' : 'Dán mã mới vào dự án Apps Script đang dùng'}>
+            <a className="btn success sm" href="https://script.google.com/home" target="_blank" rel="noopener noreferrer">
+              <ExternalLink size={16} /> Mở trang chủ Apps Script
             </a>
             <ol>
+              {mode === 'new' && <li>Ở trang chủ Apps Script, bấm <b>Dự án mới</b> (hoặc mở dự án muốn dùng).</li>}
               {mode === 'update' && <li>Mở đúng dự án đang dùng (dự án đã triển khai link /exec hiện tại).</li>}
               <li>Bấm vào vùng mã, chọn hết <kbd>Ctrl + A</kbd> rồi <kbd>Delete</kbd>.</li>
               <li>Dán mã vừa sao chép <kbd>Ctrl + V</kbd>, bấm Lưu <kbd>Ctrl + S</kbd>.</li>

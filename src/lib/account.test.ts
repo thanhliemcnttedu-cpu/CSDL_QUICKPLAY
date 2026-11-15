@@ -5,7 +5,7 @@ import { decryptVault, deriveKey, encryptVault } from './account';
 
 const require = createRequire(import.meta.url);
 const { createAdmin } = require('../../apps-script-admin/gas-harness.cjs') as {
-  createAdmin: () => { adminKey: string; post: (b: Record<string, unknown>) => { ok: boolean; data?: any; error?: string }; store: Map<string, string>; mails: { to: string; subject: string; body: string }[] };
+  createAdmin: (opts?: { folderId?: string; drive?: Map<string, Map<string, { content: string; at: number }>> }) => { adminKey: string; post: (b: Record<string, unknown>) => { ok: boolean; data?: any; error?: string }; store: Map<string, string>; mails: { to: string; subject: string; body: string }[]; drive: Map<string, Map<string, { content: string; at: number }>> };
 };
 
 describe('máy chủ tài khoản', () => {
@@ -67,14 +67,14 @@ describe('máy chủ tài khoản', () => {
 
   it('quản trị đăng nhập bằng tên tài khoản và mật khẩu tự đặt', () => {
     const a = createAdmin();
-    expect(a.post({ action: 'adminStatus' }).data).toEqual({ has_admin: false });
+    expect(a.post({ action: 'adminStatus' }).data).toEqual({ has_admin: false, folder: false });
     // chưa thiết lập thì không đăng nhập được; thiết lập phải có ADMIN_KEY đúng và mật khẩu đủ dài
     expect(a.post({ action: 'adminLogin', username: 'adminquantri', password: 'bat-ky-123' }).error).toMatch(/Chưa thiết lập/);
     expect(a.post({ action: 'adminInit', admin_key: 'sai', username: 'adminquantri', password: 'mat-khau-dai' }).error).toMatch(/ADMIN_KEY/);
     expect(a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'adminquantri', password: 'ngan' }).error).toMatch(/8 đến 72/);
     const first = a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'AdminQuanTri', password: 'mat-khau-dai' });
     expect(first.data.username).toBe('adminquantri');
-    expect(a.post({ action: 'adminStatus' }).data).toEqual({ has_admin: true });
+    expect(a.post({ action: 'adminStatus' }).data).toEqual({ has_admin: true, folder: false });
     // mật khẩu không được lưu dạng rõ
     expect([...a.store.values()].join('|')).not.toContain('mat-khau-dai');
 
@@ -182,5 +182,56 @@ describe('máy chủ tài khoản', () => {
 
     // đặt lại bằng ADMIN_KEY vẫn giữ email khôi phục
     expect(a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'adminquantri', password: 'dat-lai-khoa-1' }).data.recovery_email).toBe('quantri@example.com');
+  });
+
+  it('máy chủ tài khoản sao lưu vào thư mục Google Drive và tự khôi phục khi cài lại', () => {
+    const FOLDER = '1AbCdEfGhIjKlMnOpQrStUvWxYz012345';
+    const a = createAdmin({ folderId: FOLDER });
+    expect(a.post({ action: 'ping' }).data.folder).toBe(true);
+    const t = a.post({ action: 'adminInit', admin_key: a.adminKey, username: 'adminquantri', password: 'mat-khau-dai' }).data.token;
+    a.post({ action: 'adminCreate', admin_token: t, username: 'lan.nguyen', name: 'Nguyễn Thị Lan', password: 'matkhau1' });
+    a.post({ action: 'adminCreate', admin_token: t, username: 'binh.tran', name: 'Trần Văn Bình', password: 'matkhau2' });
+    const s1 = a.post({ action: 'login', username: 'lan.nguyen', password: 'matkhau1' }).data;
+    a.post({ action: 'saveVault', username: 'lan.nguyen', token: s1.token, vault: 'KET-DA-MA-HOA' });
+
+    // tệp sao lưu có đủ tài khoản, không có mật khẩu dạng rõ, không có phiên đăng nhập
+    const file = a.drive.get(FOLDER)!.get('quickplay-tai-khoan.json')!.content;
+    const snap = JSON.parse(file);
+    expect(snap.accounts.map((x: { username: string }) => x.username).sort()).toEqual(['binh.tran', 'lan.nguyen']);
+    expect(snap.admin.username).toBe('adminquantri');
+    expect(file).not.toContain('matkhau1');
+    expect(file).not.toContain('mat-khau-dai');
+    expect(file).not.toContain('token_hash');
+    expect(file).toContain('KET-DA-MA-HOA');
+
+    const st = a.post({ action: 'adminStorage', admin_token: t }).data;
+    expect(st).toMatchObject({ folder_id: FOLDER, error: '' });
+    expect(st.folder_url).toContain(FOLDER);
+    expect(st.file_url).not.toBe('');
+    expect(a.post({ action: 'adminStorage' }).ok).toBe(false); // chỉ quản trị xem được
+
+    // xóa một tài khoản thì tệp sao lưu cập nhật theo
+    a.post({ action: 'adminDelete', admin_token: t, username: 'binh.tran' });
+    expect(JSON.parse(a.drive.get(FOLDER)!.get('quickplay-tai-khoan.json')!.content).accounts).toHaveLength(1);
+
+    // cài lại máy chủ (dự án Apps Script mới, kho trống) vào CÙNG thư mục: tự nạp lại tài khoản
+    const b = createAdmin({ folderId: FOLDER, drive: a.drive });
+    expect(b.post({ action: 'adminStatus' }).data).toEqual({ has_admin: true, folder: true });
+    expect(b.post({ action: 'adminLogin', username: 'adminquantri', password: 'mat-khau-dai' }).ok).toBe(true);
+    const again = b.post({ action: 'login', username: 'lan.nguyen', password: 'matkhau1' });
+    expect(again.data.vault).toBe('KET-DA-MA-HOA');
+    expect(b.post({ action: 'login', username: 'binh.tran', password: 'matkhau2' }).ok).toBe(false);
+
+    // không có thư mục: vẫn chạy bình thường, chỉ là không có tệp sao lưu
+    const c = createAdmin();
+    expect(c.post({ action: 'adminStatus' }).data).toEqual({ has_admin: false, folder: false });
+    expect(c.post({ action: 'adminInit', admin_key: c.adminKey, username: 'adminquantri', password: 'mat-khau-dai' }).ok).toBe(true);
+    expect(c.drive.size).toBe(0);
+
+    // thư mục không mở được: thao tác chính vẫn thành công, lỗi được ghi lại để quản trị thấy
+    const d = createAdmin({ folderId: 'KHONG_CO_THU_MUC' });
+    const td = d.post({ action: 'adminInit', admin_key: d.adminKey, username: 'adminquantri', password: 'mat-khau-dai' });
+    expect(td.ok).toBe(true);
+    expect(d.post({ action: 'adminStorage', admin_token: td.data.token }).data.error).not.toBe('');
   });
 });

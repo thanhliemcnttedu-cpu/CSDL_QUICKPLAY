@@ -4,8 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-function createAdmin() {
+function createAdmin(opts = {}) {
   const store = new Map();
+  // Google Drive giả lập: mỗi thư mục là một Map tên tệp → nội dung; dùng chung giữa các lần "cài lại" qua opts.drive
+  const drive = opts.drive || new Map();
+  const fileOf = (files, name) => ({
+    setContent: (c) => void files.set(name, { content: String(c), at: Date.now() }),
+    getBlob: () => ({ getDataAsString: () => files.get(name).content }),
+    getUrl: () => 'https://drive.google.com/file/d/' + name,
+    getLastUpdated: () => new Date(files.get(name).at),
+  });
   const mails = []; // thư "đã gửi" (để kiểm thử và máy chủ thử in ra màn hình)
   const props = {
     getProperty: (k) => (store.has(k) ? store.get(k) : null),
@@ -25,9 +33,23 @@ function createAdmin() {
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
     Logger: { log() {} },
+    DriveApp: {
+      getFolderById: (id) => {
+        if (!/^[\w-]{10,}$/.test(id) || id === 'KHONG_CO_THU_MUC') throw new Error('not found');
+        if (!drive.has(id)) drive.set(id, new Map());
+        const files = drive.get(id);
+        return {
+          getName: () => 'Thư mục ' + id.slice(0, 6),
+          getUrl: () => 'https://drive.google.com/drive/folders/' + id,
+          getFilesByName: (name) => { let done = !files.has(name); return { hasNext: () => !done, next: () => { done = true; return fileOf(files, name); } }; },
+          createFile: (name, content) => { files.set(name, { content: String(content), at: Date.now() }); return fileOf(files, name); },
+        };
+      },
+    },
     MailApp: { sendEmail: (m) => { if (/@loi\./.test(m.to)) throw new Error('quota'); mails.push(m); } },
   };
-  const code = fs.readFileSync(path.join(__dirname, 'Code.gs'), 'utf8');
+  let code = fs.readFileSync(path.join(__dirname, 'Code.gs'), 'utf8');
+  if (opts.folderId) code = code.replace("var PRESET_FOLDER_ID = '';", `var PRESET_FOLDER_ID = '${opts.folderId}';`);
   const names = Object.keys(stubs);
   const api = new Function(...names, code + '\nreturn { doPost: doPost, doGet: doGet, setup: setup };')(...names.map((n) => stubs[n]));
   return {
@@ -35,6 +57,7 @@ function createAdmin() {
     post: (body) => JSON.parse(api.doPost({ postData: { contents: JSON.stringify(body) } }).text),
     store,
     mails,
+    drive,
   };
 }
 

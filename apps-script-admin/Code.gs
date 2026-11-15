@@ -11,10 +11,17 @@
  */
 
 var ADMIN_APP = 'QUICKPLAY-ACCOUNTS';
-var ADMIN_VERSION = '1.2.0';
+var ADMIN_VERSION = '1.3.0';
 
 // Trình cài đặt trong phần mềm điền sẵn khóa quản trị vào đây khi bấm "Sao chép mã" (không phải chạy setup()).
 var PRESET_ADMIN_KEY = '';
+// Mã thư mục Google Drive lưu trữ của quản trị (Trình cài đặt điền sẵn từ link thư mục đã lưu ở bước 1).
+// Mỗi khi tài khoản thay đổi, máy chủ ghi một tệp sao lưu vào thư mục này; cài lại máy chủ vào cùng thư mục thì tự khôi phục.
+var PRESET_FOLDER_ID = '';
+var SNAPSHOT_FILE = 'quickplay-tai-khoan.json';
+// Các hành động làm thay đổi tài khoản → ghi lại tệp sao lưu (đăng nhập, kiểm tra phiên thì không ghi để không chậm)
+var MIRRORED = { adminInit: 1, adminChangePassword: 1, adminSetEmail: 1, adminForgotFinish: 1, adminCreate: 1, adminSetLocked: 1,
+  adminResetPassword: 1, adminDelete: 1, saveVault: 1, changePassword: 1, setRecoveryEmail: 1, forgotFinish: 1 };
 var HASH_ROUNDS = 1500;
 var MAX_VAULT = 6000;          // ký tự – một thuộc tính Script Properties chứa tối đa ~9 KB
 var MAX_FAILS = 8;             // sai mật khẩu quá số lần này thì tạm khóa đăng nhập
@@ -27,14 +34,15 @@ var RESET_GAP_MS = 60 * 1000;        // gửi lại mã sau ít nhất 1 phút
 var RESET_MAX_TRIES = 5;             // nhập sai mã quá số lần này thì phải xin mã mới
 
 function doGet() {
-  return out_({ ok: true, data: { name: ADMIN_APP, version: ADMIN_VERSION } });
+  return out_({ ok: true, data: { name: ADMIN_APP, version: ADMIN_VERSION, folder: !!folderId_() } });
 }
 
 function doPost(e) {
   try {
     var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     var routes = {
-      ping: function () { return { name: ADMIN_APP, version: ADMIN_VERSION }; },
+      ping: function () { return { name: ADMIN_APP, version: ADMIN_VERSION, folder: !!folderId_() }; },
+      adminStorage: admin_(actAdminStorage_),
       login: actLogin_,
       check: actCheck_,
       saveVault: actSaveVault_,
@@ -58,7 +66,9 @@ function doPost(e) {
     };
     var fn = Object.prototype.hasOwnProperty.call(routes, req.action) ? routes[req.action] : null;
     if (!fn) throw err_('Hành động không hợp lệ.');
-    return out_({ ok: true, data: fn(req) });
+    var data = fn(req);
+    if (MIRRORED[req.action]) mirror_();
+    return out_({ ok: true, data: data });
   } catch (ex) {
     return out_({ ok: false, error: ex && ex.userMessage ? ex.userMessage : 'Lỗi máy chủ tài khoản: ' + (ex && ex.message ? ex.message : ex) });
   }
@@ -265,7 +275,90 @@ function checkAdminPassword_(p) {
 
 /** Ai cũng gọi được: chỉ cho biết đã thiết lập tài khoản quản trị hay chưa (không lộ tên tài khoản). */
 function actAdminStatus_() {
-  return { has_admin: !!adminAcc_() };
+  restoreIfEmpty_(); // máy chủ vừa cài lại vào thư mục cũ: nạp lại tài khoản từ tệp sao lưu
+  return { has_admin: !!adminAcc_(), folder: !!folderId_() };
+}
+
+// ---------------------------------------------------------------- thư mục lưu trữ trên Google Drive
+function folderId_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('FOLDER_ID');
+  if (!id && PRESET_FOLDER_ID) {
+    id = PRESET_FOLDER_ID; // ghi nhớ để lần cập nhật mã sau vẫn dùng đúng thư mục
+    props.setProperty('FOLDER_ID', id);
+  }
+  return id || '';
+}
+function snapshotFile_(create) {
+  var id = folderId_();
+  if (!id) return null;
+  var folder = DriveApp.getFolderById(id);
+  var it = folder.getFilesByName(SNAPSHOT_FILE);
+  if (it.hasNext()) return it.next();
+  return create ? folder.createFile(SNAPSHOT_FILE, '{}', 'application/json') : null;
+}
+/** Bản ghi tài khoản để sao lưu: bỏ phiên đăng nhập và mã đặt lại mật khẩu (những thứ chỉ có ý nghĩa tức thời). */
+function forSnapshot_(acc) {
+  var o = {};
+  Object.keys(acc).forEach(function (k) {
+    if (k !== 'token_hash' && k !== 'token_at' && k !== 'reset' && k !== 'fails' && k !== 'fail_at') o[k] = acc[k];
+  });
+  return o;
+}
+/** Ghi toàn bộ tài khoản (mật khẩu đã băm, két đã mã hóa) vào tệp sao lưu trong thư mục. Lỗi ghi không làm hỏng thao tác chính. */
+function mirror_() {
+  var props = PropertiesService.getScriptProperties();
+  try {
+    if (!folderId_()) return;
+    var all = props.getProperties();
+    var out = { app: ADMIN_APP, version: ADMIN_VERSION, saved_at: new Date().toISOString(), admin: null, accounts: [] };
+    Object.keys(all).forEach(function (k) {
+      if (k.indexOf('U_') !== 0) return;
+      try { out.accounts.push(forSnapshot_(JSON.parse(all[k]))); } catch (e) { /* bỏ qua bản ghi hỏng */ }
+    });
+    var admin = adminAcc_();
+    if (admin) out.admin = forSnapshot_(admin);
+    snapshotFile_(true).setContent(JSON.stringify(out, null, 1));
+    props.deleteProperty('MIRROR_ERR');
+  } catch (e) {
+    props.setProperty('MIRROR_ERR', String(e && e.message ? e.message : e).slice(0, 200));
+  }
+}
+/** Máy chủ chưa có tài khoản nào mà thư mục đã có tệp sao lưu: nạp lại (dùng khi cài lại máy chủ). */
+function restoreIfEmpty_() {
+  try {
+    if (!folderId_()) return false;
+    var props = PropertiesService.getScriptProperties();
+    var all = props.getProperties();
+    if (all.ADMIN_ACC || Object.keys(all).some(function (k) { return k.indexOf('U_') === 0; })) return false;
+    var f = snapshotFile_(false);
+    if (!f) return false;
+    var d = JSON.parse(f.getBlob().getDataAsString());
+    if (!d || d.app !== ADMIN_APP) return false;
+    (d.accounts || []).forEach(function (a) {
+      if (a && /^[a-z0-9._-]{3,32}$/.test(String(a.username)) && a.salt && a.hash) props.setProperty('U_' + a.username, JSON.stringify(a));
+    });
+    if (d.admin && d.admin.salt && d.admin.hash) props.setProperty('ADMIN_ACC', JSON.stringify(d.admin));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+/** Quản trị xem nơi lưu trữ: tên và link thư mục, link tệp sao lưu, lỗi ghi gần nhất (nếu có). */
+function actAdminStorage_() {
+  var id = folderId_();
+  var out = { folder_id: id, folder_name: '', folder_url: '', file_url: '', saved_at: '', error: PropertiesService.getScriptProperties().getProperty('MIRROR_ERR') || '' };
+  if (!id) return out;
+  try {
+    var folder = DriveApp.getFolderById(id);
+    out.folder_name = folder.getName();
+    out.folder_url = folder.getUrl();
+    var f = snapshotFile_(false);
+    if (f) { out.file_url = f.getUrl(); out.saved_at = f.getLastUpdated().toISOString(); }
+  } catch (e) {
+    out.error = 'Máy chủ không mở được thư mục này. Thư mục phải nằm trong Google Drive của chính tài khoản đã cài máy chủ.';
+  }
+  return out;
 }
 
 /** Thiết lập (hoặc đặt lại) tài khoản quản trị. Bắt buộc có ADMIN_KEY. */

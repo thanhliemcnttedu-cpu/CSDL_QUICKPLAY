@@ -4,7 +4,7 @@
 /** Phiên bản mã máy chủ đang đi kèm phần mềm (phải trùng APP_VERSION / ADMIN_VERSION trong hai tệp Code.gs). */
 export const SCRIPT_VERSION = '1.1.0';
 /** Phiên bản mã máy chủ tài khoản (ADMIN_VERSION trong apps-script-admin/Code.gs). */
-export const ADMIN_SCRIPT_VERSION = '1.2.0';
+export const ADMIN_SCRIPT_VERSION = '1.3.0';
 
 export type InstallKind = 'teacher' | 'admin';
 
@@ -51,8 +51,8 @@ export function fillTeacherCode(code: string, teacherKey: string, folderId: stri
 }
 
 /** Mã máy chủ tài khoản của quản trị, đã điền sẵn khóa quản trị. */
-export function fillAdminCode(code: string, adminKey: string): string {
-  return setVar(code, 'PRESET_ADMIN_KEY', adminKey);
+export function fillAdminCode(code: string, adminKey: string, folderId = ''): string {
+  return setVar(setVar(code, 'PRESET_ADMIN_KEY', adminKey), 'PRESET_FOLDER_ID', folderId);
 }
 
 /** Tải mã máy chủ đi kèm phần mềm (chỉ tải khi thầy cô bấm Sao chép mã). */

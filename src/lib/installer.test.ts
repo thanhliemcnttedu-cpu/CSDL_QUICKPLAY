@@ -32,6 +32,10 @@ describe('trình cài đặt Apps Script', () => {
     expect(code.length).toBe(teacherCode.length + key.length + 33);
     expect(() => new Function(code)).not.toThrow();
     expect(() => new Function(fillAdminCode(adminCode, key))).not.toThrow();
+    const admin = fillAdminCode(adminCode, key, '1ZVJkapI-ikPsp2rdd6kuvXSGu-zzgJEk');
+    expect(admin).toContain(`var PRESET_ADMIN_KEY = '${key}';`);
+    expect(admin).toContain("var PRESET_FOLDER_ID = '1ZVJkapI-ikPsp2rdd6kuvXSGu-zzgJEk';");
+    expect(() => new Function(admin)).not.toThrow();
     // giá trị lạ không được chèn vào mã
     expect(() => fillTeacherCode(teacherCode, "x'; evil(); '", 'abc')).toThrow();
   });

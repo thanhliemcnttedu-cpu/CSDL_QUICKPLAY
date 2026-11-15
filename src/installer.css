@@ -48,3 +48,9 @@
 .guide-list > li.done { border-color: #86d9a8; background: #f0fbf4; }
 .guide-list > li.done::before { content: '✓'; background: #129a4b; color: #fff; }
 .guide-list code { overflow-wrap: anywhere; }
+
+/* Bước 1: thư mục đã lưu */
+.ins-saved { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 8px 10px; border-radius: 12px; background: #fff; border: 1.5px solid #86d9a8; }
+.ins-saved span { display: flex; flex-direction: column; min-width: 0; }
+.ins-saved small { color: var(--muted-fg); font-weight: 700; }
+.ins-saved a, .ins-saved code { overflow-wrap: anywhere; font-weight: 700; }

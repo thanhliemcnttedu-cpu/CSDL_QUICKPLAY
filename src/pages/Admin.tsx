@@ -1,12 +1,13 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { BookOpenCheck, Check, Copy, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Check, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminBootOk, adminEmail, adminSignedIn, adminUrl, adminUser, bootAdminPassword, markDefaultAdminPassword, setAdminUrl, usingDefaultAdminPassword, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Field, Modal, useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller } from '../components/ScriptInstaller';
+import { AdminGuide } from '../components/AdminGuide';
 import '../installer.css';
 
 const randomPassword = () => {
@@ -30,7 +31,9 @@ export default function Admin() {
   // Email khôi phục của quản trị và hộp "quên mật khẩu"
   const [mail, setMail] = useState<null | { email: string; password: string }>(null);
   const [myEmail, setMyEmail] = useState(adminEmail());
-  const [defaultPw, setDefaultPw] = useState(usingDefaultAdminPassword()); // đang dùng mật khẩu mặc định: nhắc đổi ngay
+  const [defaultPw, setDefaultPw] = useState(usingDefaultAdminPassword());
+  // Nơi lưu trữ trên Google Drive của máy chủ tài khoản (thư mục + tệp sao lưu)
+  const [store, setStore] = useState<null | { folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>(null); // đang dùng mật khẩu mặc định: nhắc đổi ngay
   const [fg, setFg] = useState<null | { sentTo: string; code: string; next: string; again: string; err: string; busy: boolean }>(null);
   const envUrl = ((import.meta.env?.VITE_ADMIN_URL as string | undefined) || '').trim(); // đã đặt trên Vercel chưa
   const saveMail = async () => {
@@ -79,6 +82,7 @@ export default function Admin() {
     try {
       setRows(await adminApi.list());
       setStep('in');
+      adminApi.storage().then(setStore).catch(() => setStore(null));
     } catch (e) {
       toast((e as Error).message, 'error');
       setRows(null);
@@ -178,49 +182,7 @@ export default function Admin() {
         <span className="badge blue">Quản trị toàn hệ thống</span>
       </div>
 
-      <details className="card stack guide" open={step !== 'in' || guideAt < 6}>
-        <summary><BookOpenCheck size={20} color="var(--primary)" /> <b>Hướng dẫn từng bước cho quản trị</b> <span className="badge blue">Đang ở bước {guideAt}/6</span></summary>
-        <ol className="guide-list">
-          <li className={guideAt > 1 ? 'done' : guideAt === 1 ? 'now' : ''}>
-            <b>Cài máy chủ tài khoản (một lần, khoảng 5 phút).</b> Làm 5 bước của <b>Trình cài đặt Apps Script</b> bên dưới bằng tài khoản Google của quản trị:
-            Sao chép mã → mở Apps Script mới và dán → Triển khai thành Ứng dụng web (Tôi / Bất kỳ ai) → dán link <code>/exec</code> → Kiểm tra.
-            Danh sách tài khoản giáo viên được cất ngay trong dự án Apps Script đó; không lưu trên GitHub hay Vercel.
-          </li>
-          <li className={guideAt > 2 ? 'done' : guideAt === 2 ? 'now' : ''}>
-            <b>Đổi mật khẩu quản trị.</b> Ngay sau khi kết nối, phần mềm dùng tài khoản mặc định vừa đăng nhập làm tài khoản quản trị và hiện nhắc đổi mật khẩu:
-            bấm <b>Đổi mật khẩu quản trị ngay</b>, đặt mật khẩu riêng (8–72 ký tự). Từ lần sau bấm <b>Dành cho giáo viên</b> ở trang chủ → chọn vai trò <b>Quản trị</b>,
-            hoặc vào thẳng <code>{site}/adminquantri</code>.
-          </li>
-          <li className={guideAt > 3 ? 'done' : guideAt === 3 ? 'now' : ''}>
-            <b>Khai báo email khôi phục của quản trị.</b> Bấm <b>Email khôi phục</b> ở thanh phía trên danh sách, điền email cá nhân. Khi quên mật khẩu,
-            bấm <b>Quên mật khẩu?</b> để nhận mã 6 số qua email.
-          </li>
-          <li className={guideAt > 4 ? 'done' : guideAt === 4 ? 'now' : ''}>
-            <b>Bật đăng nhập cho giáo viên trên trang web (bắt buộc, làm một lần).</b> {envUrl
-              ? <>Trang web này <b>đã được gắn</b> với máy chủ tài khoản, giáo viên ở máy nào cũng đăng nhập được.</>
-              : <>Hiện trang web <b>chưa biết</b> máy chủ tài khoản, nên giáo viên ở máy khác <b>chưa đăng nhập được</b>. Vào Vercel → dự án <b>quickplay</b> → <b>Settings → Environment Variables</b> → thêm biến tên <code>VITE_ADMIN_URL</code>, giá trị là link <code>/exec</code> của máy chủ tài khoản → <b>Save</b> → thẻ <b>Deployments</b> → bấm dấu ba chấm ở bản mới nhất → <b>Redeploy</b>.</>}
-            {!envUrl && adminUrl() && (
-              <span className="row" style={{ gap: 6, marginTop: 6 }}>
-                <button className="btn sm" onClick={() => copy('VITE_ADMIN_URL', 'Đã chép tên biến.')}><Copy size={14} /> Chép tên biến</button>
-                <button className="btn sm" onClick={() => copy(adminUrl(), 'Đã chép link /exec.')}><Copy size={14} /> Chép link /exec</button>
-                <a className="btn sm ghost" href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Mở Vercel</a>
-              </span>
-            )}
-          </li>
-          <li className={guideAt > 5 ? 'done' : guideAt === 5 ? 'now' : ''}>
-            <b>Cấp tài khoản cho từng giáo viên.</b> Bấm <b>Cấp tài khoản</b>, nhập tên tài khoản (ví dụ <code>lan.nguyen</code>), họ tên, mật khẩu ban đầu →
-            bấm <b>Chép để gửi</b> rồi gửi cho giáo viên qua Zalo. Tại đây cũng khóa, mở khóa, đặt lại mật khẩu và xóa tài khoản.
-          </li>
-          <li className={guideAt === 6 ? 'now' : ''}>
-            <b>Giáo viên làm gì.</b> Mở <code>{site}/teacher</code>, đăng nhập bằng tài khoản được cấp. Lần đầu trang Cài đặt tự mở: giáo viên làm 5 bước Trình cài đặt
-            để nối Google Drive của riêng mình, rồi khai báo email khôi phục. Từ đó đăng nhập ở máy nào phần mềm cũng tự kết nối lại. Học sinh vào <code>{site}/join</code>, không cần tài khoản.
-            <span className="row" style={{ gap: 6, marginTop: 6 }}>
-              <button className="btn sm" onClick={() => copy(`${site}/teacher`, 'Đã chép link cho giáo viên.')}><Copy size={14} /> Chép link giáo viên</button>
-              <button className="btn sm" onClick={() => copy(`${site}/join`, 'Đã chép link cho học sinh.')}><Copy size={14} /> Chép link học sinh</button>
-            </span>
-          </li>
-        </ol>
-      </details>
+      <AdminGuide at={guideAt} site={site} linked={!!envUrl} serverUrl={adminUrl()} copy={copy} />
 
       {step === 'server' && (
         <section className="card stack">
@@ -283,6 +245,19 @@ export default function Admin() {
         </form>
       )}
 
+      {step === 'in' && store && (
+        store.error ? (
+          <div className="alert error" role="alert"><div><b>Chưa ghi được tệp sao lưu vào thư mục Google Drive:</b> {store.error}</div></div>
+        ) : store.folder_id ? (
+          <div className="conn-ok" role="status" style={{ flexWrap: 'wrap' }}>
+            <FolderOpen size={20} /> Thư mục lưu trữ: {store.folder_name || store.folder_id}
+            <a className="btn sm ghost" href={store.folder_url} target="_blank" rel="noopener noreferrer">Mở thư mục</a>
+            {store.saved_at && <small style={{ fontWeight: 600 }}>Tệp sao lưu tài khoản cập nhật lúc {new Date(store.saved_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</small>}
+          </div>
+        ) : (
+          <div className="conn-off" role="status"><FolderOpen size={20} /> Máy chủ tài khoản này chưa có thư mục Google Drive lưu trữ. Muốn có tệp sao lưu, hãy cài lại bằng Trình cài đặt (bước 1: dán link thư mục và bấm Lưu link).</div>
+        )
+      )}
       {step === 'in' && defaultPw && (
         <div className="alert warn" role="alert">
           <div>
