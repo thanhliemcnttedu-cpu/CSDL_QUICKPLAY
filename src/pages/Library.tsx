@@ -4,7 +4,7 @@ import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOp
 import type { Catalog, Quiz, QuizSummary } from '../lib/types';
 import { api } from '../lib/api';
 import { BUILTIN_QUIZZES, newQuiz, sampleQuiz, type BuiltinQuiz } from '../lib/factory';
-import { ALL, NONE, UNGRADED, countByNode, emptyCatalog, ensurePath, gradeOfId, inNode, isGradeId, nodeExists, pathOf, placementOf, resolve, type Placement } from '../lib/catalog';
+import { ALL, NONE, UNGRADED, addSubject, countByNode, emptyCatalog, ensurePath, gradeOfId, inNode, isGradeId, nodeExists, pathOf, placementOf, resolve, subjectsOfGrade, type Placement } from '../lib/catalog';
 import { formatDate, uid } from '../lib/util';
 import { Modal, Spinner, useToast, askConfirm } from '../components/ui';
 import { ImportDialog } from '../components/ImportDialog';
@@ -29,6 +29,7 @@ export default function Library() {
   const toast = useToast();
   const [items, setItems] = useState<QuizSummary[] | null>(null);
   const [pub, setPub] = useState<QuizSummary[]>([]);
+  const [pubNode, setPubNode] = useState<string>(ALL); // mục đang chọn ở cây thư viện công cộng
   const [tab, setTab] = useState<'mine' | 'public'>('mine');
   const [error, setError] = useState('');
   const [dlg, setDlg] = useState<null | { kind: 'import' | 'ai' } | { kind: 'host'; quiz: QuizSummary } | { kind: 'move'; quiz: QuizSummary; to: Placement & { subject?: string } }>(null);
@@ -188,8 +189,38 @@ export default function Library() {
   const mine = tab === 'mine';
   const needle = filter.trim().toLowerCase();
   const byName = (q: { title: string }) => q.title.toLowerCase().includes(needle);
-  const list = (mine ? items?.filter((q) => inNode(catalog, q, current)) : pub)?.filter(byName);
-  const builtins = mine ? [] : BUILTIN_QUIZZES.filter(byName);
+  // Thư viện công cộng: cây thư mục chỉ xem, dựng từ bộ mặc định của Quickplay (Lớp 1) và lớp + môn mà giáo viên ghi trên bộ đề công khai
+  const pubView = useMemo(() => {
+    let cat: Catalog = emptyCatalog();
+    const place = new Map<string, Placement>();
+    for (const b of BUILTIN_QUIZZES) {
+      const r = ensurePath(cat, ...b.path, b.grade);
+      cat = r.catalog;
+      place.set(b.id, r.placement);
+    }
+    for (const q of pub) {
+      const name = (q.subject ?? '').trim();
+      if (!name) continue; // không ghi môn → "Chưa phân loại"
+      const grade = (q.grade ?? '').replace(/\s+/g, ' ').trim();
+      try {
+        let s = subjectsOfGrade(cat, grade).find((x) => x.name.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
+        if (!s) {
+          const r = addSubject(cat, name, grade);
+          cat = r.catalog;
+          s = cat.subjects.find((x) => x.id === r.id)!;
+        }
+        place.set(q.id, { subject_id: s.id });
+      } catch { /* tên môn không hợp lệ: để ở Chưa phân loại */ }
+    }
+    const all: Placement[] = [...BUILTIN_QUIZZES.map((b) => place.get(b.id) ?? {}), ...pub.map((q) => place.get(q.id) ?? {})];
+    return { cat, place, counts: countByNode(cat, all) };
+  }, [pub]);
+  const pubCurrent = pubNode === ALL || pubNode === NONE || nodeExists(pubView.cat, pubNode) ? pubNode : ALL;
+  const inPub = (id: string) => inNode(pubView.cat, pubView.place.get(id) ?? {}, pubCurrent);
+  const pubLabel = pubCurrent === ALL ? 'Tất cả bộ đề' : pubCurrent === NONE ? 'Chưa phân loại' : isGradeId(pubCurrent) ? (pubCurrent === UNGRADED ? 'Môn chưa xếp lớp' : gradeOfId(pubCurrent)) : pathOf(pubView.cat, placementOf(pubView.cat, pubCurrent) ?? {});
+
+  const list = (mine ? items?.filter((q) => inNode(catalog, q, current)) : pub.filter((q) => inPub(q.id)))?.filter(byName);
+  const builtins = mine ? [] : BUILTIN_QUIZZES.filter(byName).filter((b) => inPub(b.id));
   const inNodeView = mine && current !== ALL;
   const sampleBtn = (
     <button type="button" className="btn sm ghost cat-sample" onClick={addDemoData} disabled={busy} title="Tạo hai môn mẫu kèm hai bộ đề đủ mọi dạng câu hỏi">
@@ -220,7 +251,15 @@ export default function Library() {
         </div>
       )}
 
-      <div className={`lib-layout ${mine ? '' : 'single'}`}>
+      <div className="lib-layout">
+        {!mine && (
+          <aside className={`card lib-side ${sideOpen ? 'open' : ''}`}>
+            <button type="button" className="btn sm ghost lib-side-toggle" onClick={() => setSideOpen((v) => !v)} aria-expanded={sideOpen}>
+              <FolderTree size={16} /><span>Danh mục: {pubLabel}</span>{sideOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            <CatalogTree readOnly catalog={pubView.cat} counts={pubView.counts} selected={pubCurrent} onSelect={setPubNode} onChange={() => {}} />
+          </aside>
+        )}
         {mine && (
           <aside className={`card lib-side ${sideOpen ? 'open' : ''}`}>
             <button type="button" className="btn sm ghost lib-side-toggle" onClick={() => setSideOpen((v) => !v)} aria-expanded={sideOpen}>
@@ -231,6 +270,12 @@ export default function Library() {
         )}
 
         <div className="stack" style={{ gap: 14, minWidth: 0 }}>
+          {!mine && pubCurrent !== ALL && (
+            <p className="lib-crumb">
+              <FolderTree size={18} /> {pubLabel}
+              <span className="badge blue">{pubView.counts[pubCurrent] ?? 0} bộ đề</span>
+            </p>
+          )}
           {inNodeView && (
             <p className="lib-crumb">
               <FolderTree size={18} /> {currentLabel}
@@ -274,7 +319,7 @@ export default function Library() {
                         <span className="badge blue">10 câu</span>
                         <span className="badge">Đủ 7 dạng</span>
                       </div>
-                      <div className="quiz-path"><FolderTree size={14} /><span>{b.path.join(' › ')}</span></div>
+                      <div className="quiz-path"><FolderTree size={14} /><span>{[b.grade, ...b.path].join(' › ')}</span></div>
                       <small className="muted">{copy ? 'Đã có một bản trong thư viện của thầy cô.' : 'Luôn có sẵn, không cần cài thêm.'}</small>
                     </div>
                     <div className="card-actions">

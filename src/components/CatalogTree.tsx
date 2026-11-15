@@ -17,7 +17,7 @@ type NameDialog =
   | { mode: 'add'; kind: Kind; parentId?: string; parentName?: string; grade?: string }
   | { mode: 'rename'; kind: Kind; id: string; old: string; grade?: string };
 
-export function CatalogTree({ catalog, counts, selected, onSelect, onChange, footer }: {
+export function CatalogTree({ catalog, counts, selected, onSelect, onChange, footer, readOnly }: {
   catalog: Catalog;
   counts: Record<string, number>;
   selected: string;
@@ -25,13 +25,15 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
   /** Lưu danh mục mới. removed: id các nút vừa bị xóa (để nơi gọi bỏ chọn nếu cần). */
   onChange: (next: Catalog, removed?: string[]) => void;
   footer?: React.ReactNode;
+  /** Chỉ xem (thư viện công cộng): không có nút thêm / đổi tên / xóa, chỉ hiện các lớp đang có bộ đề */
+  readOnly?: boolean;
 }) {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [dlg, setDlg] = useState<NameDialog | null>(null);
   const [name, setName] = useState('');
   const [toGrade, setToGrade] = useState(''); // đổi tên môn: có thể chuyển môn sang lớp khác
   const [err, setErr] = useState('');
-  const grades = gradesOf(catalog);
+  const grades = gradesOf(catalog).filter((g) => !readOnly || subjectsOfGrade(catalog, g).length > 0);
   const ungraded = subjectsOfGrade(catalog, '');
 
   const toggle = (id: string) => setClosed((s) => {
@@ -111,7 +113,7 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
         <button type="button" className="cat-name" onClick={() => onSelect(o.id)} aria-current={on ? 'true' : undefined} title={o.label}>
           {o.icon}<span>{o.label}</span><em>{counts[o.id] ?? 0}</em>
         </button>
-        {o.acts && <span className="cat-acts">{o.acts}</span>}
+        {o.acts && !readOnly && <span className="cat-acts">{o.acts}</span>}
       </div>
     );
   };
@@ -137,7 +139,7 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
   return (
     <nav className="cat-tree" aria-label="Danh mục khối lớp, môn học">
       {row({ id: ALL, label: 'Tất cả bộ đề', depth: 0, icon: <LibraryBig size={16} /> })}
-      {row({ id: NONE, label: 'Chưa phân loại', depth: 0, icon: <Inbox size={16} /> })}
+      {(!readOnly || (counts[NONE] ?? 0) > 0) && row({ id: NONE, label: 'Chưa phân loại', depth: 0, icon: <Inbox size={16} /> })}
       <div className="cat-sep"><span>Khối lớp</span></div>
       {grades.map((g) => {
         const id = gradeId(g);
@@ -162,10 +164,10 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
         <div>
           {row({ id: UNGRADED, label: 'Môn chưa xếp lớp', depth: 0, icon: <Inbox size={16} />, canToggle: true, hasKids: true })}
           {!closed.has(UNGRADED) && subjectRows('', 1)}
-          {!closed.has(UNGRADED) && <p className="cat-empty" style={{ paddingLeft: 26 }}>Bấm bút chì cạnh tên môn để chuyển môn vào một khối lớp.</p>}
+          {!closed.has(UNGRADED) && !readOnly && <p className="cat-empty" style={{ paddingLeft: 26 }}>Bấm bút chì cạnh tên môn để chuyển môn vào một khối lớp.</p>}
         </div>
       )}
-      <button type="button" className="btn sm cat-add" onClick={() => open({ mode: 'add', kind: 'grade' })}><FolderPlus size={16} /> Thêm khối lớp</button>
+      {!readOnly && <button type="button" className="btn sm cat-add" onClick={() => open({ mode: 'add', kind: 'grade' })}><FolderPlus size={16} /> Thêm khối lớp</button>}
       {footer}
 
       {dlg && (
