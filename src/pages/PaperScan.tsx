@@ -150,7 +150,7 @@ export default function PaperScan() {
         g.stroke();
         const cx = (hit.corners[0].x + hit.corners[2].x) / 2, cy = (hit.corners[0].y + hit.corners[2].y) / 2;
         const fs = Math.max(16, w / 44);
-        g.font = `800 ${fs}px sans-serif`;
+        g.font = `800 ${fs}px 'Be Vietnam Pro', system-ui, sans-serif`;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
         const label = `${hit.card} · ${OPTION_LABELS[hit.side]}`;

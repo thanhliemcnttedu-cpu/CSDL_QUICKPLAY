@@ -405,7 +405,7 @@ export default function Admin() {
       {issued && (
         <Modal title="Gửi thông tin này cho giáo viên" onClose={() => setIssued(null)} footer={<button className="btn primary" onClick={() => navigator.clipboard.writeText(`Tài khoản Quickplay\nTên tài khoản: ${issued.username}\nMật khẩu: ${issued.password}`).then(() => toast('Đã chép.', 'ok'))}>Chép để gửi</button>}>
           <p>Tên tài khoản: <b>{issued.username}</b></p>
-          <p>Mật khẩu: <b style={{ fontFamily: 'monospace', fontSize: '1.2rem' }}>{issued.password}</b></p>
+          <p>Mật khẩu: <b style={{ fontSize: '1.3rem', letterSpacing: '0.08em' }}>{issued.password}</b></p>
           <p className="muted small" style={{ margin: 0 }}>Mật khẩu chỉ hiện lần này. Máy chủ chỉ lưu bản đã băm nên không xem lại được.</p>
         </Modal>
       )}

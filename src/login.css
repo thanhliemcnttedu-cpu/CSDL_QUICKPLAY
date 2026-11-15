@@ -1,0 +1,47 @@
+/* Cửa sổ đăng nhập và chọn vai trò: co giãn theo điện thoại, máy tính bảng, máy tính */
+.login-wrap { max-width: 520px; justify-content: center; gap: 12px; }
+.login-shell { display: grid; grid-template-columns: 1fr; gap: 0; }
+.login-side { display: none; }
+.login-card { gap: 16px; }
+.login-logo { align-self: center; }
+
+.role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.role-btn { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 2px; align-items: center; text-align: left; padding: 12px; border-radius: 18px; border: 2px solid var(--border); background: #fff; color: var(--fg); cursor: pointer; font: inherit; min-height: 64px; transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease; }
+.role-btn .ic { grid-row: span 2; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: #94a3b8; color: #fff; transition: background-color 150ms ease; }
+.role-btn b { font-size: 1.05rem; line-height: 1.2; }
+.role-btn small { color: var(--muted-fg); line-height: 1.35; }
+.role-btn:hover { border-color: var(--primary); }
+.role-btn:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+.role-btn.on { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 3px #bcd5ff; }
+.role-btn.on .ic { background: var(--primary); }
+
+/* Điện thoại: hai vai trò vẫn nằm cạnh nhau cho gọn, biểu tượng ở trên, bỏ dòng mô tả để cả cửa sổ vừa một màn hình */
+@media (max-width: 520px) {
+  .login-wrap { padding: 12px; gap: 10px; }
+  .login-card { padding: 16px; gap: 12px; }
+  .login-card h1 { font-size: 1.4rem !important; }
+  .role-btn { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 10px 6px; row-gap: 6px; }
+  .role-btn .ic { grid-row: auto; }
+  .role-btn small { display: none; }
+  .login-card .input { font-size: 16px; } /* tránh iPhone tự phóng to khi chạm vào ô nhập */
+}
+
+/* Máy tính bảng: cửa sổ rộng hơn, chữ thoáng hơn */
+@media (min-width: 700px) {
+  .login-wrap { max-width: 640px; }
+  .login-card { padding: 28px; }
+}
+
+/* Máy tính: hai cột, bên trái là khung giới thiệu */
+@media (min-width: 1024px) {
+  .login-wrap { max-width: 1000px; }
+  .login-shell { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr); border-radius: 28px; overflow: hidden; box-shadow: var(--shadow); background: #fff; border: 1.5px solid var(--border); }
+  .login-side { display: flex; flex-direction: column; gap: 18px; justify-content: center; padding: 40px 36px; background: linear-gradient(150deg, #e3eeff 0%, #cfe0ff 100%); color: var(--fg); }
+  .login-side h2 { margin: 0; font-size: 1.9rem; line-height: 1.2; }
+  .login-side ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .login-side li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.45; }
+  .login-side li svg { flex: none; margin-top: 2px; color: var(--primary); }
+  .login-card { border: 0; border-radius: 0; box-shadow: none; padding: 40px 36px; justify-content: center; }
+  .login-logo { display: none; } /* logo đã có ở khung bên trái */
+}
+@media (prefers-reduced-motion: reduce) { .role-btn, .role-btn .ic { transition: none; } }

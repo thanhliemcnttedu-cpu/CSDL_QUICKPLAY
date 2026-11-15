@@ -16,7 +16,6 @@
     "dist:win": "vite build --base=./ && electron-builder --win nsis --config electron-builder.yml"
   },
   "dependencies": {
-    "@fontsource/barlow-condensed": "^5.3.0",
     "@fontsource/be-vietnam-pro": "^5.3.0",
     "@types/qrcode": "^1.5.5",
     "dompurify": "^3.2.0",

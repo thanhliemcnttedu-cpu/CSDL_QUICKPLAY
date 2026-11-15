@@ -8,6 +8,7 @@ import {
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Modal, useToast } from '../components/ui';
+import '../login.css';
 
 type Role = 'admin' | 'teacher';
 
@@ -100,23 +101,34 @@ export default function Login({ role: fixed }: { role?: Role }) {
 
   return (
     <div className="play-bg">
-      <div className="play-wrap" style={{ maxWidth: 520, justifyContent: 'center' }}>
+      <div className="play-wrap login-wrap">
         <Link to="/" className="btn ghost" style={{ alignSelf: 'flex-start' }}><ArrowLeft size={18} /> Trang chủ</Link>
-        <form className="card stack" style={{ gap: 16 }} onSubmit={(e) => { e.preventDefault(); if (role && !teacherOpen) submit(); }}>
-          <div style={{ alignSelf: 'center' }}><Wordmark size={40} /></div>
+        <div className="login-shell">
+        {/* Màn hình rộng (máy tính): thêm khung giới thiệu bên trái */}
+        <aside className="login-side" aria-hidden>
+          <Wordmark size={44} />
+          <h2>Kiểm tra mà như chơi</h2>
+          <ul>
+            <li><GraduationCap size={20} /> <span><b>Giáo viên</b> soạn bộ câu hỏi, tổ chức trên lớp hoặc giao về nhà, xem báo cáo từng lớp.</span></li>
+            <li><ShieldCheck size={20} /> <span><b>Quản trị</b> cấp và quản lý tài khoản giáo viên.</span></li>
+            <li><KeyRound size={20} /> <span>Dữ liệu của mỗi giáo viên nằm trong Google Drive của chính giáo viên đó.</span></li>
+          </ul>
+        </aside>
+        <form className="card stack login-card" onSubmit={(e) => { e.preventDefault(); if (role && !teacherOpen) submit(); }}>
+          <div className="login-logo"><Wordmark size={40} /></div>
           <h1 className="center" style={{ margin: 0, fontSize: '1.6rem' }}>Đăng nhập</h1>
 
           <div className="stack" style={{ gap: 8 }}>
             <b>1. Chọn vai trò đăng nhập</b>
-            <div className="type-grid" role="radiogroup" aria-label="Vai trò đăng nhập">
+            <div className="role-grid" role="radiogroup" aria-label="Vai trò đăng nhập">
               {([
                 ['teacher', GraduationCap, 'Giáo viên', 'Soạn bộ câu hỏi, tổ chức cho học sinh làm bài, xem báo cáo.'],
                 ['admin', ShieldCheck, 'Quản trị (admin)', 'Cấp, khóa và đặt lại mật khẩu tài khoản cho giáo viên.'],
               ] as const).map(([id, Ic, t, d]) => (
-                <button key={id} type="button" role="radio" aria-checked={role === id} aria-label={t} className="type-btn" onClick={() => pick(id)}
-                  style={role === id ? { borderColor: 'var(--primary)', background: 'var(--primary-soft)' } : undefined}>
-                  <span className="ic" style={{ background: role === id ? 'var(--primary)' : '#94a3b8' }}><Ic size={20} /></span>
-                  <span><b>{t}</b><br /><small className="muted">{d}</small></span>
+                <button key={id} type="button" role="radio" aria-checked={role === id} aria-label={t} className={`role-btn ${role === id ? 'on' : ''}`} onClick={() => pick(id)}>
+                  <span className="ic"><Ic size={22} /></span>
+                  <b>{t}</b>
+                  <small>{d}</small>
                 </button>
               ))}
             </div>
@@ -166,6 +178,7 @@ export default function Login({ role: fixed }: { role?: Role }) {
             </>
           )}
         </form>
+        </div>
 
         {fg && (
           <Modal title="Quên mật khẩu" onClose={() => setFg(null)}>
