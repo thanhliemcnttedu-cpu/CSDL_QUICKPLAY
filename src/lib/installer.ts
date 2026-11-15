@@ -15,7 +15,10 @@ export function folderIdOf(link: string): string | null {
   return m ? m[1] : null;
 }
 
-export const isExecUrl = (url: string) => /^https:\/\/script\.google(usercontent)?\.com\/macros\/s\/[\w-]+\/exec\/?$/.test(url.trim());
+export const isExecUrl = (url: string) =>
+  /^https:\/\/script\.google(usercontent)?\.com\/macros\/s\/[\w-]+\/exec\/?$/.test(url.trim()) ||
+  // chỉ khi lập trình trên máy: cho phép máy chủ thử (apps-script-admin/mock-server.cjs)
+  (!!import.meta.env?.DEV && /^http:\/\/localhost:\d+\/?$/.test(url.trim()));
 
 /** Khóa ngẫu nhiên, bỏ các ký tự dễ nhầm (0/O, 1/l/I). */
 export function randomKey(len = 32): string {

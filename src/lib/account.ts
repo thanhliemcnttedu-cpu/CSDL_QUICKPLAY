@@ -172,6 +172,44 @@ function keepAdmin(r: { username: string; token: string; recovery_email?: string
 }
 const adminCall = <T>(action: string, params: Record<string, unknown> = {}) =>
   call<T>(action, { admin_token: sessionStorage.getItem(ADMIN_TOKEN) || undefined, admin_key: getAdminKey() || undefined, ...params });
+// ---------- đăng nhập quản trị ở lần thiết lập đầu tiên ----------
+// Khi trang web chưa biết máy chủ tài khoản thì chưa có nơi nào kiểm tra mật khẩu, nên trang kiểm tra tại chỗ bằng BẢN BĂM
+// của mật khẩu mặc định (PBKDF2, không lưu mật khẩu dạng rõ trong mã). Cổng này chỉ để người lạ không mở được Trình cài đặt;
+// nó không bảo vệ dữ liệu. Sau khi máy chủ tài khoản chạy, mọi lần đăng nhập đều do máy chủ kiểm tra, và quản trị
+// phải đổi mật khẩu mặc định ngay (bản băm nằm trong mã công khai nên mật khẩu mặc định không an toàn để dùng lâu dài).
+const ADMIN_BOOT = { user: DEFAULT_ADMIN_USER, salt: 'yBjTJknd+7hoaG2JJl3gAg==', iter: 310000, hash: 'N8qVv/hWYfWICKscdE0gRU6LYZc8TcHZBKyGOv2i4XI=' };
+const BOOT_FLAG = 'quickplay.adminBoot';
+const DEFAULT_PW_FLAG = 'quickplay.adminDefaultPw';
+let bootPassword = ''; // chỉ giữ trong bộ nhớ của thẻ đang mở, để tự đặt làm mật khẩu quản trị khi máy chủ vừa cài xong
+
+/** Tên đăng nhập và mật khẩu có đúng là tài khoản quản trị mặc định không. */
+export async function isDefaultAdminPassword(username: string, password: string): Promise<boolean> {
+  if (username.trim().toLowerCase() !== ADMIN_BOOT.user || !password) return false;
+  try {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(ADMIN_BOOT.salt), iterations: ADMIN_BOOT.iter }, key, 256);
+    const got = b64(bits);
+    let diff = got.length ^ ADMIN_BOOT.hash.length;
+    for (let i = 0; i < got.length && i < ADMIN_BOOT.hash.length; i++) diff |= got.charCodeAt(i) ^ ADMIN_BOOT.hash.charCodeAt(i);
+    return diff === 0;
+  } catch {
+    return false;
+  }
+}
+/** Đăng nhập lần đầu bằng tài khoản quản trị mặc định để mở Trình cài đặt. */
+export async function adminBootLogin(username: string, password: string): Promise<boolean> {
+  if (!(await isDefaultAdminPassword(username, password))) return false;
+  bootPassword = password;
+  sessionStorage.setItem(BOOT_FLAG, '1');
+  return true;
+}
+export const adminBootOk = () => sessionStorage.getItem(BOOT_FLAG) === '1';
+/** Mật khẩu vừa nhập ở lần đăng nhập đầu (rỗng nếu đã tải lại trang). */
+export const bootAdminPassword = () => bootPassword;
+/** Đánh dấu quản trị đang dùng mật khẩu mặc định (để nhắc đổi ngay). */
+export const markDefaultAdminPassword = (on: boolean) => (on ? sessionStorage.setItem(DEFAULT_PW_FLAG, '1') : sessionStorage.removeItem(DEFAULT_PW_FLAG));
+export const usingDefaultAdminPassword = () => sessionStorage.getItem(DEFAULT_PW_FLAG) === '1';
+
 export const adminAuth = {
   /** Máy chủ đã có tài khoản quản trị chưa */
   status: () => call<{ has_admin: boolean }>('adminStatus'),
@@ -194,6 +232,9 @@ export const adminAuth = {
     sessionStorage.removeItem(ADMIN_USER);
     sessionStorage.removeItem(ADMIN_EMAIL);
     sessionStorage.removeItem(ADMIN_KEY);
+    sessionStorage.removeItem(BOOT_FLAG);
+    sessionStorage.removeItem(DEFAULT_PW_FLAG);
+    bootPassword = '';
   },
 };
 export const adminApi = {

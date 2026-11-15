@@ -1,22 +1,73 @@
-// Đăng nhập giáo viên bằng tài khoản do quản trị cấp.
+// Cửa sổ đăng nhập: chọn vai trò (Quản trị / Giáo viên) rồi mới nhập tên đăng nhập và mật khẩu.
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, EyeOff, KeyRound, LogIn, Mail, ShieldCheck } from 'lucide-react';
-import { accountRequired, currentAccount, forgotFinish, forgotStart, login } from '../lib/account';
-import { Modal, useToast } from '../components/ui';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Eye, EyeOff, GraduationCap, KeyRound, LogIn, Mail, ShieldCheck } from 'lucide-react';
+import {
+  DEFAULT_ADMIN_USER, accountRequired, adminAuth, adminBootLogin, adminUrl, currentAccount, forgotFinish, forgotStart, isDefaultAdminPassword, login, markDefaultAdminPassword,
+} from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
+import { Modal, useToast } from '../components/ui';
 
-export default function Login() {
+type Role = 'admin' | 'teacher';
+
+export default function Login({ role: fixed }: { role?: Role }) {
   const nav = useNavigate();
-  const [username, setUsername] = useState('');
+  const toast = useToast();
+  const [params] = useSearchParams();
+  const asked = params.get('role');
+  const [role, setRole] = useState<Role | null>(fixed ?? (asked === 'admin' || asked === 'teacher' ? asked : null));
+  const [username, setUsername] = useState(role === 'admin' ? DEFAULT_ADMIN_USER : '');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const toast = useToast();
-  // Quên mật khẩu: bước 1 nhập tên tài khoản để nhận mã qua email khôi phục; bước 2 nhập mã và mật khẩu mới
+  // Quên mật khẩu (giáo viên): bước 1 nhập tên tài khoản để nhận mã qua email khôi phục; bước 2 nhập mã và mật khẩu mới
   const [fg, setFg] = useState<null | { username: string; sentTo: string; code: string; next: string; again: string; err: string; busy: boolean; help: boolean }>(null);
+
+  if (role === 'teacher' && currentAccount()) return <Navigate to="/teacher" replace />;
+
+  const pick = (r: Role) => {
+    setRole(r);
+    setErr('');
+    setPassword('');
+    setUsername(r === 'admin' ? DEFAULT_ADMIN_USER : '');
+  };
+
+  const submitTeacher = async () => {
+    const r = await login(username, password);
+    // Lần đầu: chưa có link thư mục và Apps Script → mở Cài đặt để làm Trình cài đặt một lần
+    nav(r.configured ? '/teacher' : '/teacher/settings?first=1', { replace: true });
+  };
+  const submitAdmin = async () => {
+    const bad = 'Tên tài khoản hoặc mật khẩu quản trị không đúng.';
+    if (!adminUrl()) {
+      // Trang web chưa biết máy chủ tài khoản: đây là lần thiết lập đầu tiên, chỉ quản trị (tài khoản mặc định) mới được mở Trình cài đặt
+      if (!(await adminBootLogin(username, password))) throw new Error(bad);
+      return nav('/admin', { replace: true });
+    }
+    const st = await adminAuth.status();
+    if (!st.has_admin) {
+      // Máy chủ đã cài nhưng chưa đặt mật khẩu quản trị
+      if (!(await adminBootLogin(username, password))) throw new Error(bad);
+      return nav('/admin', { replace: true });
+    }
+    await adminAuth.login(username, password);
+    if (await isDefaultAdminPassword(username, password)) markDefaultAdminPassword(true);
+    nav('/admin', { replace: true });
+  };
+  const submit = async () => {
+    setErr('');
+    if (!username.trim() || !password) return setErr('Hãy nhập tên đăng nhập và mật khẩu.');
+    setBusy(true);
+    try {
+      await (role === 'admin' ? submitAdmin() : submitTeacher());
+    } catch (e) {
+      setErr((e as Error).message);
+      setBusy(false);
+    }
+  };
+
   const sendCode = async () => {
     if (!fg) return;
     if (!fg.username.trim()) return setFg({ ...fg, err: 'Hãy nhập tên tài khoản.' });
@@ -45,47 +96,77 @@ export default function Login() {
     }
   };
 
-  if (!accountRequired() || currentAccount()) return <Navigate to="/teacher" replace />;
-
-  const submit = async () => {
-    setErr('');
-    if (!username.trim() || !password) return setErr('Hãy nhập tên tài khoản và mật khẩu.');
-    setBusy(true);
-    try {
-      const r = await login(username, password);
-      // Lần đầu: chưa có link thư mục và Apps Script → mở Cài đặt để nhập và lưu một lần
-      nav(r.configured ? '/teacher' : '/teacher/settings?first=1', { replace: true });
-    } catch (e) {
-      setErr((e as Error).message);
-      setBusy(false);
-    }
-  };
+  const teacherOpen = role === 'teacher' && !accountRequired(); // quản trị chưa bật đăng nhập cho trang web này
 
   return (
     <div className="play-bg">
-      <div className="play-wrap" style={{ maxWidth: 460, justifyContent: 'center' }}>
+      <div className="play-wrap" style={{ maxWidth: 520, justifyContent: 'center' }}>
         <Link to="/" className="btn ghost" style={{ alignSelf: 'flex-start' }}><ArrowLeft size={18} /> Trang chủ</Link>
-        <form className="card stack" style={{ gap: 16 }} onSubmit={(e) => { e.preventDefault(); submit(); }}>
+        <form className="card stack" style={{ gap: 16 }} onSubmit={(e) => { e.preventDefault(); if (role && !teacherOpen) submit(); }}>
           <div style={{ alignSelf: 'center' }}><Wordmark size={40} /></div>
-          <h1 className="center" style={{ margin: 0, fontSize: '1.6rem' }}>Đăng nhập giáo viên</h1>
-          <label className="field">
-            <span>Tên tài khoản</span>
-            <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus />
-          </label>
-          <label className="field">
-            <span>Mật khẩu</span>
-            <div className="row" style={{ flexWrap: 'nowrap' }}>
-              <input className="input" type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-              <button type="button" className="btn icon" onClick={() => setShow((x) => !x)} aria-label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+          <h1 className="center" style={{ margin: 0, fontSize: '1.6rem' }}>Đăng nhập</h1>
+
+          <div className="stack" style={{ gap: 8 }}>
+            <b>1. Chọn vai trò đăng nhập</b>
+            <div className="type-grid" role="radiogroup" aria-label="Vai trò đăng nhập">
+              {([
+                ['teacher', GraduationCap, 'Giáo viên', 'Soạn bộ câu hỏi, tổ chức cho học sinh làm bài, xem báo cáo.'],
+                ['admin', ShieldCheck, 'Quản trị (admin)', 'Cấp, khóa và đặt lại mật khẩu tài khoản cho giáo viên.'],
+              ] as const).map(([id, Ic, t, d]) => (
+                <button key={id} type="button" role="radio" aria-checked={role === id} aria-label={t} className="type-btn" onClick={() => pick(id)}
+                  style={role === id ? { borderColor: 'var(--primary)', background: 'var(--primary-soft)' } : undefined}>
+                  <span className="ic" style={{ background: role === id ? 'var(--primary)' : '#94a3b8' }}><Ic size={20} /></span>
+                  <span><b>{t}</b><br /><small className="muted">{d}</small></span>
+                </button>
+              ))}
             </div>
-          </label>
-          {err && <div className="alert error" role="alert"><div>{err}</div></div>}
-          <button className="btn primary lg" disabled={busy}><LogIn size={20} /> {busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>
-          <button type="button" className="btn ghost" onClick={() => setFg({ username, sentTo: '', code: '', next: '', again: '', err: '', busy: false, help: false })}><KeyRound size={18} /> Quên mật khẩu?</button>
-          <p className="muted small center" style={{ margin: 0 }}>
-            Tài khoản do quản trị cấp. Chưa có tài khoản, hãy liên hệ tác giả Nguyễn Thanh Liêm qua <a href="https://zalo.me/0888358363" target="_blank" rel="noopener noreferrer">Zalo 0888358363</a>.
-          </p>
+          </div>
+
+          {!role && <p className="muted center" style={{ margin: 0 }}>Chọn một vai trò ở trên để nhập tên đăng nhập và mật khẩu.</p>}
+
+          {teacherOpen && (
+            <div className="alert warn" role="status">
+              <div>
+                Trang web này <b>chưa được quản trị bật đăng nhập</b> nên chưa có tài khoản giáo viên. Thầy cô có thể dùng thử ngay (dữ liệu lưu trong trình duyệt của máy này).
+                <div style={{ marginTop: 8 }}><Link to="/teacher" className="btn primary sm">Vào dùng thử không cần tài khoản</Link></div>
+              </div>
+            </div>
+          )}
+
+          {role && !teacherOpen && (
+            <>
+              <b>2. Nhập tên đăng nhập và mật khẩu {role === 'admin' ? 'quản trị' : 'giáo viên'}</b>
+              <label className="field">
+                <span>Tên đăng nhập</span>
+                <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus={role === 'teacher'} />
+              </label>
+              <label className="field">
+                <span>Mật khẩu</span>
+                <div className="row" style={{ flexWrap: 'nowrap' }}>
+                  <input className="input" type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" autoFocus={role === 'admin'} />
+                  <button type="button" className="btn icon" onClick={() => setShow((x) => !x)} aria-label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                </div>
+              </label>
+              {err && <div className="alert error" role="alert"><div>{err}</div></div>}
+              <button className="btn primary lg" disabled={busy}><LogIn size={20} /> {busy ? 'Đang đăng nhập…' : role === 'admin' ? 'Đăng nhập quản trị' : 'Đăng nhập'}</button>
+              {role === 'teacher' ? (
+                <>
+                  <button type="button" className="btn ghost" onClick={() => setFg({ username, sentTo: '', code: '', next: '', again: '', err: '', busy: false, help: false })}><KeyRound size={18} /> Quên mật khẩu?</button>
+                  <p className="muted small center" style={{ margin: 0 }}>
+                    Tài khoản do quản trị cấp. Chưa có tài khoản, hãy liên hệ tác giả Nguyễn Thanh Liêm qua <a href="https://zalo.me/0888358363" target="_blank" rel="noopener noreferrer">Zalo 0888358363</a>.
+                  </p>
+                </>
+              ) : (
+                <p className="muted small center" style={{ margin: 0 }}>
+                  {adminUrl()
+                    ? <>Quên mật khẩu quản trị: mở <Link to="/admin">trang quản trị</Link> rồi bấm <b>Quên mật khẩu?</b>.</>
+                    : 'Lần đầu thiết lập hệ thống: đăng nhập bằng tài khoản quản trị mặc định, phần mềm sẽ mở Trình cài đặt để nối máy chủ tài khoản.'}
+                </p>
+              )}
+            </>
+          )}
         </form>
+
         {fg && (
           <Modal title="Quên mật khẩu" onClose={() => setFg(null)}>
             <div className="stack">

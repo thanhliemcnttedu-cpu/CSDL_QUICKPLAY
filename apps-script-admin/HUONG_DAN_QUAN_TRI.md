@@ -51,7 +51,13 @@ Ba địa chỉ theo vai trò:
 | Giáo viên | `<địa chỉ trang web>/teacher` |
 | Học sinh tham gia | `<địa chỉ trang web>/join` (gõ `/jon` cũng vào được) |
 
-**Lần đầu (một lần):** mở `/adminquantri`. Nếu chưa đặt biến `VITE_ADMIN_URL` thì dán địa chỉ `/exec` của máy chủ tài khoản.
+**Cửa sổ đăng nhập:** ở trang chủ bấm **Dành cho giáo viên** → chọn vai trò **Quản trị (admin)** hoặc **Giáo viên** → nhập tên đăng nhập và mật khẩu.
+
+**Lần thiết lập đầu tiên:** chọn vai trò Quản trị, đăng nhập bằng tài khoản quản trị mặc định (`adminquantri` và mật khẩu mặc định do tác giả giữ).
+Phần mềm mở Trình cài đặt để nối máy chủ tài khoản; xong bước 5, tài khoản mặc định trở thành tài khoản quản trị và trang hiện nhắc
+**Đổi mật khẩu quản trị ngay**. Phải đổi: mật khẩu mặc định chỉ dùng để thiết lập, trong mã nguồn công khai có bản băm của nó nên không an toàn để dùng lâu dài.
+
+**Cách cũ (vẫn dùng được):** mở `/adminquantri`. Nếu chưa đặt biến `VITE_ADMIN_URL` thì dán địa chỉ `/exec` của máy chủ tài khoản.
 Trang hiện mục **Thiết lập tài khoản quản trị**: nhập `ADMIN_KEY`, tên tài khoản (mặc định `adminquantri`) và mật khẩu do quản trị tự đặt
 (8–72 ký tự) → **Lưu tài khoản quản trị**.
 

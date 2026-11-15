@@ -22,7 +22,7 @@ export function Home() {
       <header className="topbar">
         <Brand />
         <nav className="topnav">
-          <Link to="/teacher" className="btn primary">Dành cho giáo viên <ArrowRight size={18} /></Link>
+          <Link to="/login" className="btn primary">Dành cho giáo viên <ArrowRight size={18} /></Link>
         </nav>
       </header>
       <main className="page">

@@ -1,8 +1,8 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { BookOpenCheck, Check, Copy, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
-import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminEmail, adminSignedIn, adminUrl, adminUser, setAdminUrl, type AccountRow } from '../lib/account';
+import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminBootOk, adminEmail, adminSignedIn, adminUrl, adminUser, bootAdminPassword, markDefaultAdminPassword, setAdminUrl, usingDefaultAdminPassword, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Field, Modal, useToast, askConfirm } from '../components/ui';
@@ -30,6 +30,7 @@ export default function Admin() {
   // Email khôi phục của quản trị và hộp "quên mật khẩu"
   const [mail, setMail] = useState<null | { email: string; password: string }>(null);
   const [myEmail, setMyEmail] = useState(adminEmail());
+  const [defaultPw, setDefaultPw] = useState(usingDefaultAdminPassword()); // đang dùng mật khẩu mặc định: nhắc đổi ngay
   const [fg, setFg] = useState<null | { sentTo: string; code: string; next: string; again: string; err: string; busy: boolean }>(null);
   const envUrl = ((import.meta.env?.VITE_ADMIN_URL as string | undefined) || '').trim(); // đã đặt trên Vercel chưa
   const saveMail = async () => {
@@ -71,7 +72,7 @@ export default function Admin() {
   const copy = (text: string, ok: string) => navigator.clipboard.writeText(text).then(() => toast(ok, 'ok')).catch(() => toast('Trình duyệt không cho sao chép. Hãy bôi đen rồi nhấn Ctrl + C.', 'error'));
   const site = location.origin;
   // Bước đang làm trong bảng hướng dẫn
-  const guideAt = step === 'server' || step === 'checking' ? 1 : step === 'init' ? 2 : step === 'login' ? 2 : !myEmail ? 3 : !envUrl ? 4 : rows && rows.length ? 6 : 5;
+  const guideAt = step === 'server' || step === 'checking' ? 1 : step === 'init' ? 2 : step === 'login' ? 2 : defaultPw ? 2 : !myEmail ? 3 : !envUrl ? 4 : rows && rows.length ? 6 : 5;
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -134,6 +135,8 @@ export default function Admin() {
     if (pw.next !== pw.again) return toast('Hai lần nhập mật khẩu mới chưa giống nhau.', 'error');
     try {
       await adminAuth.changePassword(pw.password, pw.next);
+      markDefaultAdminPassword(false);
+      setDefaultPw(false);
       setPw(null);
       toast('Đã đổi mật khẩu quản trị.', 'ok');
     } catch (e) {
@@ -166,6 +169,8 @@ export default function Admin() {
     run(() => adminApi.resetPassword(r.username, password).then(() => setIssued({ username: r.username, password })), 'Đã đặt lại mật khẩu.');
   };
 
+  if (step === 'server' && !adminBootOk()) return <Navigate to="/login?role=admin" replace />;
+
   return (
     <div className="page stack" style={{ gap: 18, maxWidth: 980 }}>
       <div className="row between">
@@ -182,8 +187,9 @@ export default function Admin() {
             Danh sách tài khoản giáo viên được cất ngay trong dự án Apps Script đó; không lưu trên GitHub hay Vercel.
           </li>
           <li className={guideAt > 2 ? 'done' : guideAt === 2 ? 'now' : ''}>
-            <b>Đặt mật khẩu quản trị.</b> Giữ tên tài khoản <code>adminquantri</code>, gõ mật khẩu hai lần rồi bấm <b>Lưu tài khoản quản trị</b>.
-            Từ lần sau vào <code>{site}/adminquantri</code> và đăng nhập bằng tên tài khoản với mật khẩu này.
+            <b>Đổi mật khẩu quản trị.</b> Ngay sau khi kết nối, phần mềm dùng tài khoản mặc định vừa đăng nhập làm tài khoản quản trị và hiện nhắc đổi mật khẩu:
+            bấm <b>Đổi mật khẩu quản trị ngay</b>, đặt mật khẩu riêng (8–72 ký tự). Từ lần sau bấm <b>Dành cho giáo viên</b> ở trang chủ → chọn vai trò <b>Quản trị</b>,
+            hoặc vào thẳng <code>{site}/adminquantri</code>.
           </li>
           <li className={guideAt > 3 ? 'done' : guideAt === 3 ? 'now' : ''}>
             <b>Khai báo email khôi phục của quản trị.</b> Bấm <b>Email khôi phục</b> ở thanh phía trên danh sách, điền email cá nhân. Khi quên mật khẩu,
@@ -228,6 +234,16 @@ export default function Admin() {
             setAdminUrl(r.scriptUrl);
             setUrl(r.scriptUrl);
             const st = await adminAuth.status();
+            const first = bootAdminPassword();
+            if (!st.has_admin && first) {
+              // Máy chủ vừa cài xong: lấy luôn tài khoản và mật khẩu mặc định vừa đăng nhập làm tài khoản quản trị, rồi nhắc đổi mật khẩu
+              await adminAuth.init(r.key, DEFAULT_ADMIN_USER, first);
+              markDefaultAdminPassword(true);
+              setDefaultPw(true);
+              toast('Đã kết nối máy chủ tài khoản. Hãy đổi mật khẩu quản trị ngay.', 'ok');
+              await load();
+              return;
+            }
             setForm((f) => ({ ...f, key: r.key }));
             setStep(st.has_admin ? 'login' : 'init');
           }} />
@@ -267,6 +283,14 @@ export default function Admin() {
         </form>
       )}
 
+      {step === 'in' && defaultPw && (
+        <div className="alert warn" role="alert">
+          <div>
+            <b>Thầy/cô đang dùng mật khẩu quản trị mặc định.</b> Mật khẩu mặc định chỉ để thiết lập lần đầu; hãy đổi sang mật khẩu riêng ngay để không ai khác vào được trang quản trị.
+            <div style={{ marginTop: 8 }}><button className="btn primary sm" onClick={() => setPw({ password: '', next: '', again: '' })}><KeyRound size={16} /> Đổi mật khẩu quản trị ngay</button></div>
+          </div>
+        </div>
+      )}
       {step === 'in' && (
         <div className="row between">
           <span className="badge green"><ShieldCheck size={14} /> Đang đăng nhập: {adminUser() || 'quản trị'}</span>

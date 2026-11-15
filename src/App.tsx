@@ -112,7 +112,8 @@ export function App() {
               <Route path="/teacher/paper/:pin" element={<RequireTeacher><PaperHost /></RequireTeacher>} />
               <Route path="/scan" element={<PaperScan />} />
               <Route path="/teacher/preview/:id" element={<RequireTeacher><Preview /></RequireTeacher>} />
-              <Route path="/teacher/login" element={<Login />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/teacher/login" element={<Login role="teacher" />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<Home />} />
             </Routes>
