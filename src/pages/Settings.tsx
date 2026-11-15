@@ -333,7 +333,7 @@ export default function Settings() {
           <b className="row" style={{ gap: 8 }}><FolderCog size={20} color="var(--primary)" /> Tự lưu một tệp gộp mỗi khi dữ liệu thay đổi</b>
           <p className="muted" style={{ margin: 0 }}>
             Mỗi lần thầy cô thêm, sửa, xóa bộ câu hỏi, câu hỏi, môn học – chương – bài, lớp và học sinh, hay tổ chức một buổi, phần mềm tự ghi lại
-            <b> một tệp .json duy nhất</b> chứa toàn bộ dữ liệu (sau khoảng 15 giây kể từ thay đổi cuối), đặt tên theo tên đăng nhập và thời điểm lưu, ví dụ <code>{nextName}</code>.
+            <b> một tệp .json duy nhất</b> chứa toàn bộ dữ liệu (sau khoảng 15 giây kể từ thay đổi cuối, hai lần lưu cách nhau ít nhất 3 phút; trong giờ học chỉ lưu khi bấm Kết thúc), đặt tên theo tên đăng nhập và thời điểm lưu, ví dụ <code>{nextName}</code>.
             Mỗi nơi chỉ giữ tệp mới nhất; tệp này dùng được với nút <b>Khôi phục từ tệp</b>.
           </p>
 

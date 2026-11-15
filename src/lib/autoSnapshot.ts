@@ -6,13 +6,16 @@
 import { currentAccount } from './account';
 import { loadSettings } from './settings';
 
-/** Các thao tác làm thay đổi dữ liệu của giáo viên → hẹn lưu tệp gộp */
-export const SNAPSHOT_TRIGGERS = new Set([
-  'saveQuiz', 'deleteQuiz', 'saveCatalog', 'saveClass', 'deleteClass',
-  'createSession', 'hostAction', 'createPaperSession', 'paperAction', 'setRootFolder',
-]);
+/** Các thao tác làm thay đổi dữ liệu soạn bài của giáo viên → hẹn lưu tệp gộp.
+ *  Không tính các thao tác trong giờ học (mở phòng, chuyển câu, quét thẻ…) để máy chủ dành sức cho học sinh;
+ *  kết quả buổi học được lưu một lần khi giáo viên bấm Kết thúc (xem shouldSnapshot). */
+export const SNAPSHOT_TRIGGERS = new Set(['saveQuiz', 'deleteQuiz', 'saveCatalog', 'saveClass', 'deleteClass', 'setRootFolder']);
+export const shouldSnapshot = (action: string, params: Record<string, unknown>) =>
+  SNAPSHOT_TRIGGERS.has(action) || ((action === 'hostAction' || action === 'paperAction') && params.op === 'end');
 /** Chờ bấy nhiêu sau thay đổi cuối cùng rồi mới lưu, để nhiều thay đổi liên tiếp chỉ ghi một lần */
 export const SNAPSHOT_DELAY_MS = 15000;
+/** Hai lần tự lưu cách nhau ít nhất bấy nhiêu (bấm Lưu ngay thì không bị giới hạn) */
+export const SNAPSHOT_MIN_GAP_MS = 3 * 60 * 1000;
 
 const STATUS = 'quickplay.snapshot';
 export interface SnapshotStatus {
@@ -58,7 +61,8 @@ let again = false;
 /** Hẹn lưu tệp gộp (gọi sau mỗi thay đổi). */
 export function scheduleSnapshot() {
   window.clearTimeout(timer);
-  timer = window.setTimeout(() => void runSnapshot(), SNAPSHOT_DELAY_MS);
+  const since = Date.now() - (snapshotStatus()?.at ?? 0);
+  timer = window.setTimeout(() => void runSnapshot(), Math.max(SNAPSHOT_DELAY_MS, SNAPSHOT_MIN_GAP_MS - since));
 }
 
 /** Lưu ngay tệp gộp lên Drive (nếu đã kết nối) và vào thư mục trên máy (nếu đã chọn). */

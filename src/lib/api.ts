@@ -2,7 +2,7 @@
 //  - 'drive': Google Apps Script Web App -> tệp .json trên Google Drive (dùng chung web + bản .exe)
 //  - 'local': IndexedDB/localStorage trong trình duyệt (chạy thử không cần cấu hình; phiên trực tiếp giữa các tab)
 import type { AnswerRecord, ClassRoom, PaperView, PollResult, Quiz, QuizSummary, Session, SessionSettings } from './types';
-import { SNAPSHOT_TRIGGERS, scheduleSnapshot } from './autoSnapshot';
+import { scheduleSnapshot, shouldSnapshot } from './autoSnapshot';
 import * as paper from './paper';
 import { normalizeCatalog } from './catalog';
 import type { Catalog } from './types';
@@ -213,7 +213,7 @@ export function call<T>(action: string, params: Record<string, unknown> = {}): P
     : linked ? callDrive<T>(action, params, linked) // học sinh mở link tham gia có kèm URL Apps Script
     : callLocal<T>(action, params as Record<string, any>);
   // Dữ liệu của giáo viên vừa thay đổi: hẹn lưu tệp gộp (Drive + thư mục trên máy), không làm chậm thao tác chính
-  if (SNAPSHOT_TRIGGERS.has(action)) run.then(() => scheduleSnapshot()).catch(() => {});
+  if (shouldSnapshot(action, params)) run.then(() => scheduleSnapshot()).catch(() => {});
   return run;
 }
 
