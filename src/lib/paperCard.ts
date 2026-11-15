@@ -115,14 +115,42 @@ function frontCard(card: number, oy: number, H: number, big: boolean, img?: { id
   return s;
 }
 
+/** Mũi tên đặc từ tâm (cx, cy) chỉ ra theo hướng (ux, uy): thân từ khoảng cách `from` tới `to`, đầu tam giác ở `to`. */
+function arrow(cx: number, cy: number, ux: number, uy: number, from: number, to: number, thick: number): string {
+  const head = thick * 2.6; // dài đầu mũi tên
+  const half = thick * 1.7; // nửa bề rộng đầu mũi tên
+  const px = -uy, py = ux; // hướng vuông góc
+  const at = (d: number, side = 0) => `${n(cx + ux * d + px * side)} ${n(cy + uy * d + py * side)}`;
+  const body = `${n(thick)} w 0 J ${at(from)} m ${at(to - head + 1)} l S\n`;
+  const tip = `${at(to)} m ${at(to - head, half)} l ${at(to - head, -half)} l h f\n`;
+  return body + tip;
+}
+
+/**
+ * Mặt sau: chữ A, B, C, D thật to và mũi tên từ giữa thẻ chỉ ra từng chữ (em xoay thẻ cho mũi tên chữ mình chọn chỉ LÊN TRÊN).
+ * In hai mặt lật theo cạnh dài: nhìn từ phía sau, cạnh phải của mặt trước (B) nằm bên trái, cạnh trái (D) nằm bên phải,
+ * nên chữ ở mặt sau luôn nằm đúng cạnh tương ứng của mặt trước.
+ */
 function backCard(oy: number, H: number): string {
   const cx = PAGE_W / 2;
   const cy = oy + H / 2;
-  const dy = H / 2 - 24 * MM;
-  const dx = PAGE_W / 2 - 26 * MM;
-  // Nhìn từ phía sau: cạnh phải của mặt trước (B) nằm bên trái
-  let s = '0 g\n' + text('A', 96, cx, cy + dy, 0) + text('D', 96, cx + dx, cy, 1) + text('C', 96, cx, cy - dy, 2) + text('B', 96, cx - dx, cy, 3);
-  s += '0.45 g\n' + text('Quickplay', 16, cx, cy, 0) + '0 g\n';
+  const big = H > PAGE_H * 0.75;
+  const size = big ? 120 : 96;
+  const dy = H / 2 - (big ? 34 : 24) * MM; // tâm chữ trên/dưới
+  const dx = PAGE_W / 2 - 30 * MM; // tâm chữ trái/phải
+  const capH = 0.718 * size;
+  const capW = 0.722 * size;
+  const gap = (big ? 12 : 6) * MM; // khoảng trống giữa tâm thẻ và gốc mũi tên
+  const thick = (big ? 4.2 : 3.2) * MM;
+  const space = (big ? 8 : 6) * MM; // khoảng trống giữa đầu mũi tên và chữ
+  // Bốn mũi tên dài bằng nhau (hình chữ thập cân đối), chữ đặt sát đầu mũi tên
+  const to = Math.min(dy - capH / 2 - space, dx - capW / 2 - space);
+  const ly = to + space + capH / 2;
+  const lx = to + space + capW / 2;
+  let s = '0 g 0 G\n';
+  s += text('A', size, cx, cy + ly, 0) + text('D', size, cx + lx, cy, 0) + text('C', size, cx, cy - ly, 0) + text('B', size, cx - lx, cy, 0);
+  s += arrow(cx, cy, 0, 1, gap, to, thick) + arrow(cx, cy, 1, 0, gap, to, thick) + arrow(cx, cy, 0, -1, gap, to, thick) + arrow(cx, cy, -1, 0, gap, to, thick);
+  s += '0.45 g\n' + text('Quickplay', 10, PAGE_W - 30 * MM, oy + 10 * MM, 0) + '0 g\n';
   return s;
 }
 

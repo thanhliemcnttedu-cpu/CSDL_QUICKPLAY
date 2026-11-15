@@ -211,7 +211,8 @@ export default function Paper() {
           </div>
           <ul className="pp-tips">
             <li>Giấy A4 trắng, in đen trắng, tỷ lệ 100% (không chọn “vừa trang giấy”).</li>
-            <li>Mặt sau in chữ A, B, C, D thật to để học sinh nhìn là biết xoay.</li>
+            <li>Mặt sau in chữ A, B, C, D thật to kèm mũi tên: em xoay thẻ cho <b>mũi tên chữ mình chọn chỉ lên trên</b>.</li>
+            <li>In mặt sau bằng chế độ <b>in hai mặt, lật theo cạnh dài</b> để chữ ở mặt sau khớp đúng cạnh của mặt trước (vì vậy khi nhìn mặt sau, B nằm bên trái, D nằm bên phải).</li>
             <li>Cầm ở phần giấy trắng, đừng che ô đen.</li>
             <li>Giấy mỏng dễ cong thì dán lên bìa cứng.</li>
           </ul>
