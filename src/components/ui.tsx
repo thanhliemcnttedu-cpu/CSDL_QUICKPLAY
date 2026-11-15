@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ZoomIn, ZoomOut } from 'lucide-react';
 
 // ---------- Thông báo nhanh ----------
@@ -46,7 +47,9 @@ export function Modal({ title, onClose, children, wide, footer }: { title: strin
       prev?.focus?.();
     };
   }, []);
-  return (
+  // Vẽ hộp thoại ở ngoài cùng trang (document.body): nếu vẽ tại chỗ gọi, hộp thoại mở từ một khung có lớp xếp riêng
+  // (ví dụ cột cây thư mục dính ở Thư viện) sẽ bị các thẻ, nút phía sau đè lên.
+  return createPortal(
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="row between" style={{ marginBottom: 12 }}>
@@ -58,7 +61,8 @@ export function Modal({ title, onClose, children, wide, footer }: { title: strin
         {children}
         {footer && <div className="row end" style={{ marginTop: 18 }}>{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
