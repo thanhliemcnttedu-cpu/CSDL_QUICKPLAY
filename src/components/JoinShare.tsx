@@ -5,7 +5,7 @@ import { Check, Copy, Download, QrCode } from 'lucide-react';
 import { Modal, useToast } from './ui';
 import { downloadBlob } from '../lib/xlsx';
 
-/** Link trang học sinh. Bản cài .exe (file://) dùng địa chỉ web công khai đặt khi build. */
+/** Link trang học sinh (địa chỉ trang web đang mở; VITE_PUBLIC_URL chỉ dùng khi trang không chạy trên http/https). */
 export function joinLink(): string {
   const base = location.protocol.startsWith('http') ? location.origin : ((import.meta.env.VITE_PUBLIC_URL as string | undefined) ?? '').replace(/\/+$/, '');
   return base ? `${base}/#/join` : '';

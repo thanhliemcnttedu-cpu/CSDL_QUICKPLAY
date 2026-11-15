@@ -27,7 +27,7 @@ if (short && location.protocol.startsWith('http')) {
   history.replaceState(null, '', `/#${short}${location.search}`);
 }
 
-// Bộ đệm ngoại tuyến: chỉ bật ở bản đã phát hành trên web (https), không bật khi lập trình và trong bản .exe
+// Bộ đệm ngoại tuyến: chỉ bật ở bản đã phát hành trên web (https), không bật khi lập trình
 if (import.meta.env.PROD && 'serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }

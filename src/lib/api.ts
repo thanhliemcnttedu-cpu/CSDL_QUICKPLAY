@@ -1,8 +1,7 @@
 // Lớp truy cập dữ liệu: cùng một tập hành động (docs/API.md) cho 2 nơi lưu
-//  - 'drive': Google Apps Script Web App -> tệp .json trên Google Drive (dùng chung web + bản .exe)
+//  - 'drive': Google Apps Script Web App -> tệp .json trên Google Drive của giáo viên
 //  - 'local': IndexedDB/localStorage trong trình duyệt (chạy thử không cần cấu hình; phiên trực tiếp giữa các tab)
 import type { AnswerRecord, ClassRoom, PaperView, PollResult, Quiz, QuizSummary, Session, SessionSettings } from './types';
-import { scheduleSnapshot, shouldSnapshot } from './autoSnapshot';
 import * as paper from './paper';
 import { normalizeCatalog } from './catalog';
 import type { Catalog } from './types';
@@ -230,12 +229,9 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
 export function call<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const s = loadSettings();
   const linked = scriptUrlFromLink();
-  const run = s.backend === 'drive' ? callDrive<T>(action, params)
+  return s.backend === 'drive' ? callDrive<T>(action, params)
     : linked ? callDrive<T>(action, params, linked) // học sinh mở link tham gia có kèm URL Apps Script
     : callLocal<T>(action, params as Record<string, any>);
-  // Dữ liệu của giáo viên vừa thay đổi: hẹn lưu tệp gộp (Drive + thư mục trên máy), không làm chậm thao tác chính
-  if (shouldSnapshot(action, params)) run.then(() => scheduleSnapshot()).catch(() => {});
-  return run;
 }
 
 export const testConnection = (url: string) => callDrive<{ name: string; version: string }>('verifyTeacher', {}, url);

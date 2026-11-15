@@ -45,11 +45,7 @@ export function useSpeech(onText: (t: string) => void, lang: 'vi-VN' | 'en-US' =
     const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!Ctor) {
       setStatus('error');
-      setError(
-        (window as any).quizziDesktop
-          ? 'Bản cài đặt máy tính chưa hỗ trợ nhập giọng nói. Hãy dùng bản web trên Chrome hoặc Edge.'
-          : 'Trình duyệt này không hỗ trợ nhập giọng nói. Hãy dùng Google Chrome hoặc Microsoft Edge.',
-      );
+      setError('Trình duyệt này không hỗ trợ nhập giọng nói. Hãy dùng Google Chrome hoặc Microsoft Edge.');
       return;
     }
     const r: SR = new Ctor();

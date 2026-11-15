@@ -48,4 +48,3 @@ export function scriptUrlFromLink(): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-export const isDesktop = () => !!(window as unknown as { quizziDesktop?: unknown }).quizziDesktop;

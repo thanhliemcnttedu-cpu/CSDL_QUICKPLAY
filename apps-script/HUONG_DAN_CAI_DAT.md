@@ -23,9 +23,9 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 Ở máy tính khác, bấm **Nạp tệp kết nối (.json)** ở đầu Trình cài đặt là nối lại ngay. Tệp của giáo viên có khóa giáo viên, hãy giữ kín.
 (Đăng nhập bằng tài khoản được cấp thì phần mềm cũng tự nhớ kết nối, tệp này là cách dự phòng.)
 
-**Tệp gộp tự lưu (từ bản 1.2.0):** mỗi khi thầy cô thêm, sửa, xóa bộ câu hỏi, môn học – chương – bài, lớp, hay tổ chức một buổi,
-Apps Script ghi một tệp `.json` duy nhất vào thư mục lưu trữ, tên theo tên đăng nhập và thời điểm lưu, ví dụ `035091005725_15_11_2026_12h45.json`.
-Tệp gộp cũ của cùng tài khoản được chuyển vào Thùng rác. Nếu đã chọn thư mục trên máy tính (Cài đặt → Sao lưu và khôi phục), tệp này cũng được ghi vào đó.
+**Sao lưu:** phần mềm không còn tự ghi tệp gộp. Muốn giữ bản dự phòng, thầy cô vào **Cài đặt → Sao lưu và khôi phục → Tải file sao lưu toàn bộ**
+(một tệp `.json` duy nhất); sang máy khác hoặc đổi Google Drive thì **Khôi phục từ file .json**. Tệp gộp cũ (tên `<tên đăng nhập>_<ngày giờ>.json`)
+còn trong thư mục Drive có thể xóa đi.
 
 **Bản 1.5.3:** tên tệp bộ đề dễ hiểu. Trong thư mục `quizzes`, mỗi bộ đề mang tên `<Khối lớp> - <Môn> - <Tên bộ đề> (<mã bộ đề>).json`,
 ví dụ `Lớp 1 - Tiếng Việt - Bài 2 Ôn tập (quiz_mwhxf6se95s36v).json`. Tệp cũ tên `<mã>.json` được đổi tên một lần khi thầy cô mở Thư viện sau khi cập nhật;
@@ -143,11 +143,11 @@ Nếu thấy `{"ok":true,"data":{"name":"Quickplay","version":"1.0.0"}}` là má
 
 ## Bước 8. Kết nối ứng dụng Quickplay
 
-1. Mở ứng dụng Quickplay (bản web hoặc bản cài đặt trên máy tính) → màn hình **Cài đặt**.
+1. Mở ứng dụng Quickplay → màn hình **Cài đặt**.
 2. Dán **URL /exec** vào ô địa chỉ máy chủ.
 3. Nhập **khóa giáo viên** (`TEACHER_KEY`) → bấm lưu/kiểm tra kết nối.
 
-Bản web và bản cài đặt dùng cùng URL này nên luôn thấy chung một kho bộ đề.
+Mọi máy đăng nhập cùng tài khoản dùng chung URL này nên luôn thấy chung một kho bộ đề.
 
 ---
 

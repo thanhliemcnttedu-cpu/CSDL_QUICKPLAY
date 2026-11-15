@@ -2,7 +2,7 @@
 
 Phần mềm trắc nghiệm kiểu Quizizz dành cho giáo viên tiểu học và THCS. Không có máy chủ trả phí:
 **dữ liệu là các tệp `.json` trên Google Drive của thầy cô**, được đọc/ghi qua Google Apps Script.
-Bản web (Vercel) và bản cài đặt Windows (`Quickplay-Setup-x.y.z.exe`) **dùng chung một kho dữ liệu**.
+Quickplay chạy hoàn toàn trên trình duyệt (triển khai bằng Vercel); dữ liệu của mỗi giáo viên nằm trên Google Drive của chính họ.
 
 ## Tính năng (theo SRS v2.0)
 
@@ -100,17 +100,6 @@ xóa bộ đề: các bộ đề bên trong trở về "Chưa phân loại". Nú
 3. (Tùy chọn) khai báo biến `VITE_SCRIPT_URL` để giáo viên khỏi phải dán URL ở trang Cài đặt.
 4. Mỗi lần đẩy mã lên nhánh chính, Vercel tự build và cập nhật.
 
-## Bản cài đặt Windows (.exe)
-
-Xem [docs/BAN_CAI_DAT_WINDOWS.md](docs/BAN_CAI_DAT_WINDOWS.md). Tóm tắt:
-
-```bash
-npm run dist:win
-```
-
-Bộ cài nằm ở `release/Quickplay-Setup-1.0.0.exe`. Nên đặt `VITE_PUBLIC_URL` (địa chỉ Vercel) trước khi
-build để mã QR/link vào phòng trên bản máy tính trỏ tới bản web.
-
 ## Cấu trúc mã nguồn
 
 ```
@@ -124,7 +113,6 @@ src/lib/media.ts        Kiểm tra & tải ảnh/âm thanh/video, nhận diện 
 src/components/         Trình soạn thảo, công cụ media, màn làm bài 7 dạng
 src/pages/              Thư viện, Soạn đề, Điều khiển phiên, Học sinh, Báo cáo, Cài đặt
 apps-script/            Backend Google Apps Script + hướng dẫn cài đặt
-electron/               Bản cài đặt Windows (Electron, bảo mật sandbox)
 docs/API.md             Hợp đồng API giữa giao diện và Apps Script
 ```
 
@@ -138,5 +126,5 @@ Kiểm thử: `npm test` (chấm điểm 7 dạng, bộ tách đề, chuyển đ
   cho kỳ thi quan trọng.
 - Tệp tải lên qua Apps Script tối đa khoảng **35 MB** (giới hạn gói tin của Google). Video lớn hơn: tải lên
   YouTube/Drive rồi dán link.
-- Nhập giọng nói cần **Chrome hoặc Edge** bản web; bản cài `.exe` chưa hỗ trợ.
+- Nhập giọng nói cần **Chrome hoặc Edge**.
 - Tài khoản Google Workspace của trường có thể chặn chia sẻ "Bất kỳ ai" → dùng Gmail cá nhân để triển khai.

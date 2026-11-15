@@ -27,7 +27,7 @@ Lần đầu, cửa sổ đăng nhập GitHub sẽ hiện ra.
 
 | Biến | Bắt buộc? | Ý nghĩa |
 |---|---|---|
-| `VITE_PUBLIC_URL` | Nên có | Địa chỉ trang ở bước 3. Bản .exe dùng để tạo link/QR cho học sinh |
+| `VITE_PUBLIC_URL` | Không bắt buộc | Địa chỉ trang ở bước 3 (dự phòng khi tạo link/QR cho học sinh) |
 | `VITE_ADMIN_URL` | Khi muốn bắt buộc đăng nhập | Địa chỉ `/exec` của máy chủ tài khoản (phần C) |
 | `VITE_SCRIPT_URL` | Không | Chỉ dùng khi cả trang dùng chung một Apps Script (không khuyến nghị: mỗi giáo viên nên tự cài) |
 
@@ -70,7 +70,3 @@ khóa giáo viên → **Lưu cài đặt**.
 **Trình duyệt và thiết bị**
 - [ ] Chrome và Cốc Cốc trên máy tính; Safari trên iPhone/iPad; Chrome trên Android
 - [ ] Mở trang lần hai gần như tức thì (bộ đệm ngoại tuyến)
-
-## F. Bản cài đặt Windows
-
-Xem `docs/BAN_CAI_DAT_WINDOWS.md`. Tệp cài nằm ở `release\Quickplay-Setup-<phiên bản>.exe`.

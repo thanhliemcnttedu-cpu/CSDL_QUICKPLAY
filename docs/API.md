@@ -1,6 +1,6 @@
 # Hợp đồng API — Google Apps Script (Drive làm CSDL)
 
-Ứng dụng web (Vercel) và bản cài đặt `.exe` (Electron) gọi **cùng một** Web App Apps Script, nên mọi
+Ứng dụng web (Vercel) gọi Web App Apps Script của từng giáo viên, nên mọi
 bản dùng chung một kho dữ liệu trên Google Drive.
 
 ## Giao thức
