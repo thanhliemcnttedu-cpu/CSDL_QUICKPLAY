@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOpenCheck, Download, FolderOpen, Eye, FolderInput, FolderTree, ChevronDown, ChevronUp, DatabaseZap, Star, CopyPlus } from 'lucide-react';
+import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOpenCheck, Eye, FolderInput, FolderTree, ChevronDown, ChevronUp, DatabaseZap, Star, CopyPlus } from 'lucide-react';
 import type { Catalog, Quiz, QuizSummary } from '../lib/types';
-import { download } from '../lib/report';
 import { api } from '../lib/api';
 import { BUILTIN_QUIZZES, newQuiz, sampleQuiz, type BuiltinQuiz } from '../lib/factory';
 import { ALL, NONE, countByNode, emptyCatalog, ensurePath, findNode, inNode, pathOf, placementOf, resolve, type Placement } from '../lib/catalog';
@@ -183,46 +182,6 @@ export default function Library() {
     setBusy(false);
   };
 
-  // Lưu bộ câu hỏi thành tệp .json trên máy của giáo viên (bản sao lưu riêng, mang đi máy khác, gửi cho đồng nghiệp)
-  const saveToFile = async (q: QuizSummary) => {
-    try {
-      const full = await api.getQuiz(q.id);
-      const name = (full.title || 'bo-cau-hoi').replace(/[\/:*?"<>|]+/g, ' ').trim().slice(0, 80);
-      download(`${name}.quickplay.json`, JSON.stringify({ app: 'Quickplay', version: 1, quiz: full }, null, 2), 'application/json');
-      toast('Đã lưu bộ câu hỏi thành tệp .json trên máy.', 'ok');
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    }
-  };
-  // Mở tệp .json từ máy: nạp vào kho đang dùng (Google Drive hoặc trình duyệt) để tổ chức được ngay, không cần giữ máy bật
-  const openFromFile = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json,application/json';
-    input.multiple = true;
-    input.onchange = async () => {
-      let ok = 0;
-      for (const f of Array.from(input.files ?? [])) {
-        try {
-          const data = JSON.parse(await f.text());
-          const quiz = (data?.quiz ?? data) as Quiz;
-          if (!quiz || typeof quiz.title !== 'string' || !Array.isArray(quiz.questions) || quiz.questions.some((x) => !x || typeof x.type !== 'string' || !x.stem || !Array.isArray(x.options)))
-            throw new Error('không đúng định dạng bộ câu hỏi Quickplay');
-          const now = new Date().toISOString();
-          await api.saveQuiz({ ...quiz, id: uid('quiz_'), visibility: 'private', owner: undefined, created_at: quiz.created_at || now, updated_at: now });
-          ok++;
-        } catch (e) {
-          toast(`Không mở được "${f.name}": ${(e as Error).message}.`, 'error');
-        }
-      }
-      if (ok) {
-        toast(`Đã nạp ${ok} bộ câu hỏi từ máy vào thư viện.`, 'ok');
-        load();
-      }
-    };
-    input.click();
-  };
-
   const mine = tab === 'mine';
   const needle = filter.trim().toLowerCase();
   const byName = (q: { title: string }) => q.title.toLowerCase().includes(needle);
@@ -240,7 +199,6 @@ export default function Library() {
       <div className="row between">
         <h1 style={{ margin: 0 }}>Thư viện đề</h1>
         <div className="row lib-actions">
-          <button className="btn" onClick={openFromFile} title="Mở bộ câu hỏi đã lưu thành tệp .json trên máy"><FolderOpen size={18} /> Mở từ máy (.json)</button>
           <button className="btn" onClick={() => setDlg({ kind: 'import' })}><Upload size={18} /> Nhập từ tệp</button>
           <button className="btn accent" onClick={() => setDlg({ kind: 'ai' })}><Sparkles size={18} /> AI sinh đề</button>
           <button className="btn primary" onClick={create} title={inNodeView && current !== NONE ? `Tạo bộ đề trong: ${currentLabel}` : undefined}><Plus size={18} /> Tạo bộ đề</button>
@@ -346,7 +304,6 @@ export default function Library() {
                           <Link className="btn icon" to={`/teacher/edit/${q.id}`} aria-label={`Sửa ${q.title}`} title="Sửa"><Pencil size={18} /></Link>
                           <button className="btn icon" onClick={() => setDlg({ kind: 'move', quiz: q, to: resolve(catalog, q) ? { subject_id: q.subject_id, chapter_id: q.chapter_id, lesson_id: q.lesson_id } : {} })} aria-label={`Chuyển ${q.title} tới môn, chương, bài khác`} title="Chuyển tới…"><FolderInput size={18} /></button>
                           <button className="btn icon" onClick={() => duplicate(q)} aria-label={`Nhân bản ${q.title}`} title="Nhân bản"><Copy size={18} /></button>
-                          <button className="btn icon" onClick={() => saveToFile(q)} aria-label={`Lưu ${q.title} về máy`} title="Lưu về máy (.json)"><Download size={18} /></button>
                           <button className="btn icon danger" onClick={() => remove(q)} aria-label={`Xóa ${q.title}`} title="Xóa"><Trash2 size={18} /></button>
                         </>
                       ) : (

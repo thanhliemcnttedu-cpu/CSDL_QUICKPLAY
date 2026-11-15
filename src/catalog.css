@@ -1,5 +1,7 @@
 /* Thư viện: cây danh mục Môn học → Chương/Chủ đề → Bài */
-.lib-layout { display: grid; gap: 20px; grid-template-columns: 290px minmax(0, 1fr); align-items: start; }
+.lib-layout { display: grid; gap: 20px; grid-template-columns: clamp(300px, 27vw, 420px) minmax(0, 1fr); align-items: start; }
+/* Màn hình rộng: trang thư viện dùng thêm khoảng trống hai bên để cột Môn → Chủ đề → Bài hiện đủ tên */
+.page:has(> .stack > .lib-layout), .page:has(.lib-layout) { max-width: 1480px; }
 .lib-layout.single { grid-template-columns: minmax(0, 1fr); }
 .lib-side { position: sticky; top: 12px; padding: 14px; max-height: calc(100vh - 24px); overflow: auto; }
 .lib-side-toggle { display: none; width: 100%; justify-content: space-between; }
@@ -16,7 +18,7 @@
 .cat-dot { width: 5px; height: 5px; border-radius: 50%; background: #c3cfe2; }
 .cat-name { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 6px 4px 2px; border: 0; background: none; color: var(--fg); font: inherit; font-weight: 600; text-align: left; cursor: pointer; border-radius: 10px; }
 .cat-name > svg { flex: none; color: var(--primary); }
-.cat-name > span { flex: 1 1 auto; min-width: 0; overflow: hidden; line-height: 1.25; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cat-name > span { flex: 1 1 auto; min-width: 0; line-height: 1.3; overflow-wrap: anywhere; } /* hiện đủ tên bài, xuống dòng khi dài */
 .cat-name > em { flex: none; font-style: normal; font-size: 0.78rem; font-weight: 800; min-width: 24px; padding: 1px 7px; border-radius: 999px; background: #fff; border: 1.5px solid var(--border); color: var(--muted-fg); text-align: center; }
 .cat-row.on .cat-name { color: var(--primary-ink); }
 .cat-row.on .cat-name > em { border-color: #9cc3ff; color: var(--primary-ink); }
