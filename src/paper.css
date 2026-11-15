@@ -54,18 +54,52 @@
   .pp-bar { border-radius: 20px; }
 }
 
-/* Máy quét trên điện thoại */
-.ps-wrap { min-height: 100dvh; display: flex; flex-direction: column; gap: 10px; padding: 10px; max-width: 900px; margin: 0 auto; }
-.ps-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.ps-head .pp-count:first-of-type { margin-left: auto; }
-.ps-cam { position: relative; flex: 1 1 auto; min-height: 46dvh; border-radius: 20px; overflow: hidden; background: #0a1730; }
+/* Máy quét trên điện thoại: Câu hỏi → Quét phản hồi → Nộp, xem kết quả → Câu tiếp */
+.ps-wrap { min-height: 100dvh; display: flex; flex-direction: column; gap: 12px; padding: 12px 12px 0; max-width: 720px; margin: 0 auto; }
+.ps-center { justify-content: center; align-items: center; text-align: center; padding-bottom: 24px; }
+.ps-bar { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.ps-qno { font-weight: 800; color: var(--muted-fg); }
+.ps-stem { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 20px; background: #fff; border: 1.5px solid var(--border); }
+.ps-stem > b { font-size: 1.15rem; line-height: 1.4; }
+.ps-media img { max-height: 180px; width: auto; max-width: 100%; border-radius: 12px; }
+.ps-opts { display: flex; flex-direction: column; gap: 10px; }
+.ps-opt { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 16px; background: #fff; border: 1.5px solid var(--border); }
+.ps-opt > b { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary-ink); }
+.ps-opt > div { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-weight: 600; overflow-wrap: anywhere; }
+.ps-opt.res.right { border-color: #2fb866; background: #effaf2; }
+.ps-opt.res.right > b { background: #16a34a; color: #fff; }
+.ps-opt.res.wrong > b { background: #fde4e4; color: #b91c1c; }
+.ps-meter { position: relative; height: 22px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+.ps-meter i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: #f87171; transition: width 300ms ease; }
+.ps-opt.res.right .ps-meter i { background: #22c55e; }
+.ps-meter em { position: absolute; right: 10px; top: 0; bottom: 0; display: grid; place-items: center; font-style: normal; font-weight: 800; }
+.ps-sheet { position: sticky; bottom: 0; margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 0 max(12px, env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(238, 245, 255, 0), var(--bg) 22%); }
+.ps-wide { width: 100%; }
+.ps-resp { display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 44px; border: 1.5px solid var(--border); border-radius: 999px; background: #fff; color: var(--fg); font: inherit; font-size: 1.05rem; cursor: pointer; }
+.ps-roster { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 16px; background: #fff; border: 1.5px solid var(--border); max-height: 40dvh; overflow: auto; }
+.ps-roster-head { display: flex; gap: 6px; align-items: center; font-weight: 700; }
+.ps-roster-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ps-roster-grid span { padding: 6px 8px; border-radius: 10px; background: var(--muted); font-size: 0.9rem; font-weight: 600; color: var(--muted-fg); overflow-wrap: anywhere; }
+.ps-roster-grid span.ok { background: #dcf5e3; color: #0b6a33; }
+.ps-roster-grid span.bad { background: #fde4e4; color: #9b1c1c; }
+.ps-scan { padding-bottom: 0; }
+.ps-cam { position: relative; flex: 1 1 auto; min-height: 58dvh; border-radius: 20px; overflow: hidden; background: #0a1730; }
 .ps-cam video, .ps-cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.ps-corner { position: absolute; width: 44px; height: 44px; border: 4px solid rgba(255, 255, 255, 0.85); pointer-events: none; }
+.ps-corner.tl { top: 14%; left: 8%; border-right: 0; border-bottom: 0; }
+.ps-corner.tr { top: 14%; right: 8%; border-left: 0; border-bottom: 0; }
+.ps-corner.bl { bottom: 14%; left: 8%; border-right: 0; border-top: 0; }
+.ps-corner.br { bottom: 14%; right: 8%; border-left: 0; border-top: 0; }
+.ps-zoom { position: absolute; right: 10px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.ps-zoom span { padding: 4px 10px; border-radius: 999px; background: rgba(15, 23, 42, 0.75); color: #fff; font-weight: 800; }
+.ps-zoom button { width: 48px; height: 48px; border-radius: 14px; border: 0; background: rgba(15, 23, 42, 0.75); color: #fff; display: grid; place-items: center; cursor: pointer; }
 .ps-start { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; padding: 20px; text-align: center; color: #fff; }
-.ps-start p { margin: 0; max-width: 320px; }
-.ps-q { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 16px; background: #fff; border: 1.5px solid var(--border); }
-.ps-q b { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.ps-q span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.ps-actions { display: grid; grid-template-columns: 1fr 1fr 1.3fr auto; gap: 8px; }
-.ps-actions .btn { padding: 8px 10px; min-height: 52px; white-space: normal; line-height: 1.15; }
-.ps-foot { margin: 0; text-align: center; font-size: 0.75rem; color: var(--muted-fg); }
-@media (prefers-reduced-motion: reduce) { .pp-tile, .pp-meter i { transition: none; } }
+.ps-end { margin-top: 12px; }
+.ps-acc { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: 16px; background: var(--muted); font-weight: 700; }
+.ps-acc b { font-size: 1.6rem; }
+.ps-acc b.ok, .ps-score b.ok { color: #16a34a; }
+.ps-acc b.bad, .ps-score b.bad { color: #dc2626; }
+.ps-score { display: flex; flex-direction: column; gap: 4px; max-height: 45dvh; overflow: auto; }
+.ps-score > div { display: flex; justify-content: space-between; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.ps-foot { margin: 0; text-align: center; font-size: 0.78rem; color: var(--muted-fg); }
+@media (prefers-reduced-motion: reduce) { .pp-tile, .pp-meter i, .ps-meter i { transition: none; } }

@@ -1,64 +1,93 @@
-// Máy quét thẻ trên điện thoại của giáo viên: mở từ mã QR trên màn chiếu, không cài ứng dụng, không đăng nhập.
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { ArrowRight, BellRing, Camera, ChartColumn, Square } from 'lucide-react';
-import type { PaperView, Quiz } from '../lib/types';
+// Máy quét thẻ trên điện thoại của giáo viên: mở từ mã QR trên màn chiếu, chạy trên trình duyệt, không cài ứng dụng.
+// Phải đăng nhập đúng tài khoản giáo viên tổ chức buổi học thì mới điều khiển được.
+// Luồng: Câu hỏi → Quét phản hồi (camera, thẻ hiện tên + chữ, xanh = đúng, đỏ = sai) → Nộp (xem kết quả) → Câu tiếp → Tổng kết.
+// Bảng mã thẻ là của riêng Quickplay (paperCard.ts); chỉ tham khảo cách bố trí màn hình của các phần mềm khác.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ChartColumn, ChevronDown, ChevronUp, FastForward, LogIn, LogOut, ScanLine, Send, Users, ZoomIn, ZoomOut, ArrowRight, X } from 'lucide-react';
+import type { PaperView, Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
-import type { PaperHit, PaperOp } from '../lib/paper';
+import { cardOf, type PaperHit, type PaperOp } from '../lib/paper';
 import { detectCards, toGray, type CardHit } from '../lib/paperScan';
+import { currentAccount } from '../lib/account';
 import { OPTION_LABELS, htmlToText } from '../lib/util';
 import { sfx } from '../lib/sound';
 import { Wordmark } from '../components/Logo';
+import { StemMedia } from '../components/MediaView';
 import { Spinner, askConfirm } from '../components/ui';
 import '../paper.css';
 
-const MAX_W = 1600; // bề rộng khung hình đem đi nhận dạng
 const CONFIRM = 2; // thẻ phải đọc giống nhau ở 2 khung hình liên tiếp mới ghi nhận
+const KEEP_MS = 900; // giữ nhãn tên trên thẻ thêm một lúc khi khung hình kế tiếp lỡ không đọc được (đỡ nhấp nháy)
+
+type Stage = 'question' | 'scan' | 'result';
+type Shown = { hit: CardHit; t: number };
 
 export default function PaperScan() {
   const [params] = useSearchParams();
+  const nav = useNavigate();
   const pin = params.get('pin') ?? '';
   const key = params.get('k') ?? '';
+  const account = currentAccount();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [view, setView] = useState<PaperView | null>(null);
+  const [names, setNames] = useState<string[]>([]);
+  const [session, setSession] = useState<Session | null>(null); // dùng cho bảng tổng kết
   const [err, setErr] = useState('');
-  const [camOn, setCamOn] = useState(false);
+  const [stage, setStage] = useState<Stage>('question');
   const [camErr, setCamErr] = useState('');
+  const [listOpen, setListOpen] = useState(false);
+  const [zoom, setZoom] = useState<{ min: number; max: number; v: number } | null>(null);
   const video = useRef<HTMLVideoElement>(null);
   const overlay = useRef<HTMLCanvasElement>(null);
   const work = useRef<HTMLCanvasElement | null>(null);
   const gray = useRef<Uint8Array>();
+  const stream = useRef<MediaStream | null>(null);
   const seen = useRef(new Map<number, { choice: number; n: number }>()); // đang xác nhận
   const sent = useRef(new Map<number, number>()); // đã ghi nhận ở câu hiện tại: thẻ -> phương án
+  const shown = useRef(new Map<number, Shown>());
   const queue = useRef<PaperHit[]>([]);
   const viewRef = useRef<PaperView | null>(null);
   viewRef.current = view;
-  const optCount = quiz && view ? quiz.questions[view.current_index]?.options.length ?? 0 : 0;
-  const optRef = useRef(0);
-  optRef.current = optCount;
+  const q = quiz && view ? quiz.questions[view.current_index] : undefined;
+  const qRef = useRef(q);
+  qRef.current = q;
+  const namesRef = useRef(names);
+  namesRef.current = names;
 
   const apply = useCallback((v: PaperView) => {
     if (viewRef.current && viewRef.current.current_index !== v.current_index) {
       seen.current.clear();
       sent.current.clear();
+      shown.current.clear();
       queue.current = [];
+      setStage('question');
     }
     for (const [card, choice] of Object.entries(v.answers)) sent.current.set(Number(card), choice);
     setView(v);
   }, []);
 
-  // Kết nối: báo cho màn chiếu biết điện thoại đã vào, tải đề
+  // Kết nối: kiểm tra đúng giáo viên tổ chức (đọc được buổi học bằng khóa của tài khoản), tải đề và danh sách lớp
   useEffect(() => {
     if (!pin || !key) return setErr('Liên kết quét không đầy đủ. Hãy quét lại mã QR trên màn chiếu.');
-    Promise.all([api.getSessionQuiz(pin), api.paperAction(pin, key, 'hello')])
-      .then(([r, v]) => {
+    if (!account) return;
+    (async () => {
+      try {
+        const host = await api.hostState(pin).catch(() => {
+          throw new Error('Tài khoản đang đăng nhập không phải tài khoản tổ chức buổi học này. Hãy đăng xuất rồi đăng nhập đúng tài khoản giáo viên đã mở màn chiếu.');
+        });
+        if (host.settings.mode !== 'paper') throw new Error('Phòng này không dùng thẻ giấy.');
+        setNames(host.players.map((p) => p.name));
+        const [r, v] = await Promise.all([api.getSessionQuiz(pin), api.paperAction(pin, key, 'hello')]);
         setQuiz(r.quiz);
         apply(v);
-      })
-      .catch((e) => setErr((e as Error).message));
-  }, [pin, key, apply]);
+      } catch (e) {
+        setErr((e as Error).message);
+      }
+    })();
+  }, [pin, key, account?.username, apply]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Gửi thẻ mới đọc được và đồng bộ trạng thái
+  // Gửi thẻ mới đọc được và đồng bộ trạng thái với màn chiếu
   useEffect(() => {
     if (!quiz) return;
     let stop = false;
@@ -83,39 +112,64 @@ export default function PaperScan() {
 
   const control = async (op: PaperOp) => {
     try {
+      // Gửi nốt các thẻ vừa đọc trước khi chuyển câu
+      const hits = queue.current.splice(0);
+      if (hits.length && viewRef.current) await api.paperAction(pin, key, 'scan', viewRef.current.current_index, hits);
       apply(await api.paperAction(pin, key, op));
     } catch (e) {
       setErr((e as Error).message);
     }
   };
 
-  const startCamera = async () => {
-    setCamErr('');
-    if (!navigator.mediaDevices?.getUserMedia) return setCamErr('Trình duyệt này không mở được camera. Hãy dùng Chrome hoặc Safari và mở trang bằng địa chỉ https.');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
-      const v = video.current!;
-      v.srcObject = stream;
-      await v.play();
-      setCamOn(true);
-      (navigator as Navigator & { wakeLock?: { request(t: string): Promise<unknown> } }).wakeLock?.request('screen').catch(() => {});
-    } catch {
-      setCamErr('Không mở được camera. Hãy cho phép trang này dùng camera rồi bấm lại.');
-    }
+  // ---------- Camera ----------
+  const stopCamera = () => {
+    stream.current?.getTracks().forEach((t) => t.stop());
+    stream.current = null;
+    if (video.current) video.current.srcObject = null;
   };
-  useEffect(() => () => (video.current?.srcObject as MediaStream | null)?.getTracks().forEach((t) => t.stop()), []);
-
-  // Vòng nhận dạng
+  useEffect(() => () => stopCamera(), []);
   useEffect(() => {
-    if (!camOn) return;
+    if (stage !== 'scan') return stopCamera();
+    let cancelled = false;
+    (async () => {
+      setCamErr('');
+      if (!navigator.mediaDevices?.getUserMedia) return setCamErr('Trình duyệt này không mở được camera. Hãy mở trang bằng Chrome hoặc Safari (địa chỉ https).');
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+        if (cancelled) return s.getTracks().forEach((t) => t.stop());
+        stream.current = s;
+        const v = video.current!;
+        v.srcObject = s;
+        await v.play();
+        const caps = (s.getVideoTracks()[0]?.getCapabilities?.() ?? {}) as { zoom?: { min: number; max: number } };
+        setZoom(caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: Math.min(caps.zoom.max, 4), v: caps.zoom.min } : null);
+        (navigator as Navigator & { wakeLock?: { request(t: string): Promise<unknown> } }).wakeLock?.request('screen').catch(() => {});
+      } catch {
+        setCamErr('Không mở được camera. Hãy cho phép trang này dùng camera rồi bấm Quét phản hồi lại.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [stage]);
+  const setZoomTo = (z: number) => {
+    if (!zoom) return;
+    const v = Math.max(zoom.min, Math.min(zoom.max, z));
+    stream.current?.getVideoTracks()[0]?.applyConstraints({ advanced: [{ zoom: v } as MediaTrackConstraintSet] }).catch(() => {});
+    setZoom({ ...zoom, v });
+  };
+
+  // ---------- Vòng nhận dạng ----------
+  useEffect(() => {
+    if (stage !== 'scan') return;
     let raf = 0;
     let last = 0;
+    let maxW = 1600; // tự giảm khi điện thoại xử lý chậm, tăng lại khi nhanh
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
-      const v = video.current, ov = overlay.current, cur = viewRef.current;
-      if (!v || !ov || !v.videoWidth || t - last < 110) return;
+      const v = video.current, ov = overlay.current, cur = viewRef.current, qq = qRef.current;
+      if (!v || !ov || !v.videoWidth || t - last < 90) return;
       last = t;
-      const scale = Math.min(1, MAX_W / v.videoWidth);
+      const t0 = performance.now();
+      const scale = Math.min(1, maxW / v.videoWidth);
       const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
       const cv = (work.current ??= document.createElement('canvas'));
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
@@ -123,95 +177,248 @@ export default function PaperScan() {
       ctx.drawImage(v, 0, 0, w, h);
       gray.current = toGray(ctx.getImageData(0, 0, w, h).data, gray.current);
       const hits: CardHit[] = cur?.state === 'IN_PROGRESS' ? detectCards(gray.current, w, h) : [];
+      const took = performance.now() - t0;
+      maxW = took > 220 ? Math.max(960, maxW - 160) : took < 90 ? Math.min(1600, maxW + 80) : maxW;
 
-      if (ov.width !== w || ov.height !== h) { ov.width = w; ov.height = h; }
-      const g = ov.getContext('2d')!;
-      g.clearRect(0, 0, w, h);
-      const now = new Set<number>();
+      const optN = qq?.options.length ?? 0;
+      const now = performance.now();
+      const visible = new Set<number>();
       for (const hit of hits) {
         if (!cur || hit.card > cur.total) continue; // thẻ không thuộc lớp này
-        now.add(hit.card);
-        const valid = hit.side < optRef.current;
+        visible.add(hit.card);
+        const valid = hit.side < optN;
         const prev = seen.current.get(hit.card);
         const n = prev && prev.choice === hit.side ? prev.n + 1 : 1;
         seen.current.set(hit.card, { choice: hit.side, n });
-        const ok = valid && sent.current.get(hit.card) === hit.side;
-        if (valid && n >= CONFIRM && !ok) {
+        if (valid && n >= CONFIRM && sent.current.get(hit.card) !== hit.side) {
           sent.current.set(hit.card, hit.side);
           queue.current = queue.current.filter((x) => x.card !== hit.card).concat({ card: hit.card, choice: hit.side });
           sfx.pop();
         }
-        const done = valid && sent.current.get(hit.card) === hit.side;
-        g.lineWidth = Math.max(3, w / 260);
-        g.strokeStyle = !valid ? '#94a3b8' : done ? '#22c55e' : '#f59e0b';
+        // Tọa độ nhãn tính theo khung hình gốc để không lệch khi đổi độ phân giải xử lý
+        shown.current.set(hit.card, { hit: { ...hit, corners: hit.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })) as CardHit['corners'] }, t: now });
+      }
+      for (const card of [...seen.current.keys()]) if (!visible.has(card)) seen.current.delete(card);
+
+      // Vẽ nhãn: [chữ] Tên học sinh — ô chữ xanh nếu đúng, đỏ nếu sai, xám khi chưa chắc / không có phương án đó
+      const W = v.videoWidth, H = v.videoHeight;
+      if (ov.width !== W || ov.height !== H) { ov.width = W; ov.height = H; }
+      const g = ov.getContext('2d')!;
+      g.clearRect(0, 0, W, H);
+      const fs = Math.max(20, W / 40);
+      g.font = `800 ${fs}px 'Be Vietnam Pro', system-ui, sans-serif`;
+      g.textBaseline = 'middle';
+      for (const [card, s] of shown.current) {
+        if (now - s.t > KEEP_MS) { shown.current.delete(card); continue; }
+        const { hit } = s;
+        const valid = hit.side < optN;
+        const recorded = sent.current.get(card) === hit.side;
+        const right = valid && !!qq?.options[hit.side]?.is_correct;
+        const color = !valid || !recorded ? '#64748b' : right ? '#16a34a' : '#dc2626';
+        // Khung quanh thẻ
+        g.lineWidth = Math.max(4, W / 240);
+        g.strokeStyle = color;
         g.beginPath();
         hit.corners.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
         g.closePath();
         g.stroke();
-        const cx = (hit.corners[0].x + hit.corners[2].x) / 2, cy = (hit.corners[0].y + hit.corners[2].y) / 2;
-        const fs = Math.max(16, w / 44);
-        g.font = `800 ${fs}px 'Be Vietnam Pro', system-ui, sans-serif`;
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        const label = `${hit.card} · ${OPTION_LABELS[hit.side]}`;
-        const tw = g.measureText(label).width + fs * 0.7;
-        g.fillStyle = g.strokeStyle;
-        g.fillRect(cx - tw / 2, cy - fs * 0.75, tw, fs * 1.5);
+        // Nhãn phía trên thẻ
+        const cx = hit.corners.reduce((a, p) => a + p.x, 0) / 4;
+        const top = Math.min(...hit.corners.map((p) => p.y));
+        const name = (namesRef.current[card - 1] || `Thẻ ${card}`).slice(0, 22);
+        const letter = valid ? OPTION_LABELS[hit.side] : '?';
+        const pad = fs * 0.35, box = fs * 1.35;
+        const nw = g.measureText(name).width;
+        const tw = box + pad + nw + pad * 2;
+        const x0 = Math.max(4, Math.min(W - tw - 4, cx - tw / 2));
+        const y0 = Math.max(4, top - box - fs * 0.4);
+        g.globalAlpha = 0.9;
+        g.fillStyle = '#0f172a';
+        g.fillRect(x0, y0, tw, box);
+        g.globalAlpha = 1;
+        g.fillStyle = color;
+        g.fillRect(x0, y0, box, box);
         g.fillStyle = '#fff';
-        g.fillText(label, cx, cy);
+        g.textAlign = 'center';
+        g.fillText(letter, x0 + box / 2, y0 + box / 2);
+        g.textAlign = 'left';
+        g.fillText(name, x0 + box + pad, y0 + box / 2);
       }
-      for (const card of [...seen.current.keys()]) if (!now.has(card)) seen.current.delete(card);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [camOn]);
+  }, [stage]);
 
-  if (err) return <div className="ps-wrap"><Wordmark size={30} /><div className="alert error"><div>{err}</div></div></div>;
-  if (!quiz || !view) return <div className="ps-wrap"><Spinner label="Đang kết nối máy quét…" /></div>;
+  // ---------- Số liệu câu hiện tại ----------
+  const counts = useMemo(() => {
+    const c = q ? q.options.map(() => 0) : [];
+    for (const ch of Object.values(view?.answers ?? {})) if (c[ch] !== undefined) c[ch]++;
+    return c;
+  }, [q, view?.answers]);
+  const responded = Object.keys(view?.answers ?? {}).length;
 
-  const q = quiz.questions[view.current_index];
-  const done = Object.keys(view.answers).length;
+  const loadSummary = async () => {
+    try { setSession(await api.hostState(pin)); } catch { /* bỏ qua */ }
+  };
+  useEffect(() => {
+    if (view?.state === 'COMPLETED' && !session) loadSummary();
+  }, [view?.state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- Giao diện ----------
+  if (!account) {
+    const back = `/scan?${params.toString()}`;
+    return (
+      <div className="ps-wrap ps-center">
+        <Wordmark size={30} />
+        <div className="card stack" style={{ maxWidth: 420 }}>
+          <h2 style={{ margin: 0 }}>Đăng nhập để điều khiển buổi học</h2>
+          <p className="muted" style={{ margin: 0 }}>Máy quét thẻ chỉ dành cho giáo viên tổ chức buổi học. Thầy cô đăng nhập đúng tài khoản Quickplay đã mở màn chiếu, sau đó máy quét tự mở.</p>
+          <button className="btn primary lg" onClick={() => nav(`/teacher/login?next=${encodeURIComponent(back)}`)}><LogIn size={20} /> Đăng nhập tài khoản giáo viên</button>
+        </div>
+      </div>
+    );
+  }
+  if (err) {
+    return (
+      <div className="ps-wrap ps-center">
+        <Wordmark size={30} />
+        <div className="alert error" role="alert"><div>{err}</div></div>
+        <Link className="btn ghost" to="/teacher">Về trang giáo viên</Link>
+      </div>
+    );
+  }
+  if (!quiz || !view) return <div className="ps-wrap ps-center"><Spinner label="Đang kết nối máy quét…" /></div>;
+
   const ended = view.state === 'COMPLETED';
   const last = view.current_index >= view.question_count - 1;
+
+  // Danh sách tên đã quét: xanh = đúng, đỏ = sai, xám = chưa quét
+  const roster = (
+    <div className="ps-roster">
+      <div className="ps-roster-head"><ChartColumn size={16} /> <b>{responded}/{view.total}</b> đã quét</div>
+      <div className="ps-roster-grid">
+        {Array.from({ length: view.total }, (_, i) => {
+          const ch = view.answers[i + 1];
+          const cls = ch === undefined ? '' : q?.options[ch]?.is_correct ? 'ok' : 'bad';
+          return <span key={i} className={cls}>#{i + 1} {names[i] || `Thẻ ${i + 1}`}{ch !== undefined ? ` · ${OPTION_LABELS[ch]}` : ''}</span>;
+        })}
+      </div>
+    </div>
+  );
+  const respToggle = (
+    <button type="button" className="ps-resp" onClick={() => setListOpen((v) => !v)} aria-expanded={listOpen}>
+      <Users size={18} /> <b>{responded}</b> phản hồi {listOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+    </button>
+  );
+
+  if (ended) {
+    const all = session?.answers ?? [];
+    const right = all.filter((a) => a.correct).length;
+    const acc = all.length ? Math.round((right / all.length) * 100) : 0;
+    const rows = (session?.players ?? []).map((p) => ({ card: cardOf(p.player_id), name: p.name, right: all.filter((a) => a.player_id === p.player_id && a.correct).length, done: all.filter((a) => a.player_id === p.player_id).length }));
+    return (
+      <div className="ps-wrap">
+        <div className="ps-end card stack">
+          <span className="badge red" style={{ alignSelf: 'center' }}>Buổi học đã kết thúc</span>
+          <h2 className="center" style={{ margin: 0 }}>{quiz.title}</h2>
+          <p className="center muted" style={{ margin: 0 }}>{view.question_count} câu hỏi · {view.total} học sinh</p>
+          <div className="ps-acc"><span>Độ chính xác của lớp</span><b className={acc >= 50 ? 'ok' : 'bad'}>{acc}%</b></div>
+          {rows.length > 0 && (
+            <div className="ps-score">
+              {rows.map((r) => (
+                <div key={r.card}><span>#{r.card} {r.name}</span><b className={r.right * 2 >= view.question_count ? 'ok' : 'bad'}>{r.right}/{view.question_count}</b></div>
+              ))}
+            </div>
+          )}
+          <Link className="btn primary lg" to="/teacher/reports"><ChartColumn size={20} /> Xem báo cáo</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const top = (
+    <div className="ps-bar">
+      <button className="btn danger sm" onClick={async () => { if (await askConfirm('Kết thúc buổi học và tạo báo cáo?')) control('end'); }}><LogOut size={16} /> Kết thúc</button>
+      <span className="ps-qno">Câu {view.current_index + 1}/{view.question_count}</span>
+      {stage === 'question' && <button className="btn ghost sm" onClick={async () => { if (await askConfirm('Bỏ qua câu này, chuyển sang câu tiếp theo?')) control('next'); }}><FastForward size={16} /> Bỏ qua</button>}
+      {stage === 'scan' && <button className="btn ghost sm" onClick={() => setStage('question')} aria-label="Đóng camera"><X size={16} /> Đóng</button>}
+    </div>
+  );
+  const stem = q && (
+    <div className="ps-stem">
+      <b>{htmlToText(q.stem.text) || 'Câu hỏi có hình ảnh'}</b>
+      {(q.stem.image_url || q.stem.video) && <div className="ps-media"><StemMedia stem={q.stem} /></div>}
+    </div>
+  );
+
+  if (stage === 'scan') {
+    return (
+      <div className="ps-wrap ps-scan">
+        {top}
+        <div className="ps-cam">
+          <video ref={video} playsInline muted />
+          <canvas ref={overlay} />
+          <span className="ps-corner tl" /><span className="ps-corner tr" /><span className="ps-corner bl" /><span className="ps-corner br" />
+          {zoom && (
+            <div className="ps-zoom">
+              <span>{zoom.v.toFixed(1).replace(/\.0$/, '')}x</span>
+              <button type="button" onClick={() => setZoomTo(zoom.v + 0.5)} aria-label="Phóng to"><ZoomIn size={22} /></button>
+              <button type="button" onClick={() => setZoomTo(zoom.v - 0.5)} aria-label="Thu nhỏ"><ZoomOut size={22} /></button>
+            </div>
+          )}
+          {camErr && <div className="ps-start"><div className="alert error"><div>{camErr}</div></div></div>}
+        </div>
+        <div className="ps-sheet">
+          {respToggle}
+          {listOpen && roster}
+          <button className="btn primary lg ps-wide" onClick={() => { setStage('result'); if (!view.reveal) control('reveal'); }}><Send size={20} /> Nộp</button>
+          <p className="ps-foot">Học sinh giơ thẻ, giữ thẳng, không che ô đen. Lia điện thoại chậm qua từng dãy bàn.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === 'result') {
+    const max = Math.max(1, ...counts);
+    return (
+      <div className="ps-wrap">
+        {top}
+        {stem}
+        {respToggle}
+        {listOpen && roster}
+        <div className="ps-opts">
+          {q?.options.map((o, i) => (
+            <div key={o.option_id} className={`ps-opt res ${o.is_correct ? 'right' : 'wrong'}`}>
+              <b>{OPTION_LABELS[i]}</b>
+              <div>
+                <span>{htmlToText(o.text) || `Phương án ${OPTION_LABELS[i]}`}</span>
+                <div className="ps-meter"><i style={{ width: `${(counts[i] / max) * 100}%` }} /><em>{counts[i]}</em></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="ps-sheet">
+          <button className="btn ghost ps-wide" onClick={() => setStage('scan')}><ScanLine size={18} /> Quét tiếp câu này</button>
+          <button className="btn primary lg ps-wide" onClick={() => control('next')}>{last ? 'Tổng kết' : 'Câu hỏi tiếp theo'} <ArrowRight size={20} /></button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="ps-wrap">
-      <div className="ps-head">
-        <Wordmark size={26} />
-        <span className="pp-count">Câu {view.current_index + 1}/{view.question_count}</span>
-        <span className="pp-count">Đã nhận <b>{done}</b>/{view.total}</span>
+      {top}
+      {stem}
+      <div className="ps-opts">
+        {q?.options.map((o, i) => (
+          <div key={o.option_id} className="ps-opt"><b>{OPTION_LABELS[i]}</b><div><span>{htmlToText(o.text) || `Phương án ${OPTION_LABELS[i]}`}</span></div></div>
+        ))}
       </div>
-
-      <div className="ps-cam">
-        <video ref={video} playsInline muted />
-        <canvas ref={overlay} />
-        {!camOn && (
-          <div className="ps-start">
-            {ended ? <p>Buổi học đã kết thúc. Xem bảng tổng kết trên màn chiếu.</p> : (
-              <>
-                <button className="btn primary lg" onClick={startCamera}><Camera size={22} /> Bắt đầu quét</button>
-                <p className="small">Học sinh xoay thẻ rồi giơ cao. Thầy cô giơ điện thoại lia một vòng quanh lớp.</p>
-              </>
-            )}
-            {camErr && <div className="alert error"><div>{camErr}</div></div>}
-          </div>
-        )}
+      {responded > 0 && <p className="center muted" style={{ margin: 0 }}>Đã nhận {responded}/{view.total} phản hồi ở câu này.</p>}
+      <div className="ps-sheet">
+        <button className="btn primary lg ps-wide" onClick={() => setStage('scan')}><ScanLine size={22} /> Quét phản hồi</button>
+        <p className="ps-foot">Tác giả: Nguyễn Thanh Liêm – Zalo: 0888358363</p>
       </div>
-
-      {!ended && q && (
-        <div className="ps-q">
-          <b>{htmlToText(q.stem.text) || 'Câu hỏi có hình ảnh (xem trên màn chiếu)'}</b>
-          <span className="muted small">{q.options.map((o, i) => `${OPTION_LABELS[i]}. ${htmlToText(o.text)}`).join('   ')}</span>
-        </div>
-      )}
-      {!ended && (
-        <div className="ps-actions">
-          <button className={`btn ${view.remind ? 'accent' : 'ghost'}`} onClick={() => control('remind')}><BellRing size={18} /> Nhắc</button>
-          <button className="btn ghost" onClick={() => control('reveal')}><ChartColumn size={18} /> {view.reveal ? 'Ẩn kết quả' : 'Hiện kết quả'}</button>
-          <button className="btn primary" onClick={() => control('next')}>{last ? 'Tổng kết' : 'Câu tiếp'} <ArrowRight size={18} /></button>
-          <button className="btn danger" onClick={async () => (await askConfirm('Kết thúc buổi học?')) && control('end')} aria-label="Kết thúc buổi học"><Square size={16} /></button>
-        </div>
-      )}
-      <p className="ps-foot">Khung xanh: thẻ đã nhận · Khung vàng: đang đọc · Tác giả: Nguyễn Thanh Liêm – Zalo: 0888358363</p>
     </div>
   );
 }

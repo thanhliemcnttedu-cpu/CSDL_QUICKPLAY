@@ -19,6 +19,9 @@ export default function Login({ role: fixed }: { role?: Role }) {
   const toast = useToast();
   const [params] = useSearchParams();
   const asked = params.get('role');
+  // Đăng nhập xong quay về đúng trang đang dùng dở (ví dụ máy quét thẻ mở từ mã QR trên màn chiếu)
+  const nextRaw = params.get('next') ?? '';
+  const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : null;
   const [role, setRole] = useState<Role | null>(fixed ?? (asked === 'admin' || asked === 'teacher' ? asked : null));
   const [username, setUsername] = useState(role === 'admin' ? DEFAULT_ADMIN_USER : '');
   const [password, setPassword] = useState('');
@@ -31,13 +34,13 @@ export default function Login({ role: fixed }: { role?: Role }) {
   // Đã đăng nhập thì vào thẳng, không hỏi lại mật khẩu (chỉ hỏi lại sau khi bấm Đăng xuất)
   const teacherIn = !!currentAccount();
   const adminIn = !!adminUrl() && adminSignedIn();
-  if (role === 'teacher' && teacherIn) return <Navigate to="/teacher" replace />;
+  if (role === 'teacher' && teacherIn) return <Navigate to={next ?? '/teacher'} replace />;
   if (role === 'admin' && adminIn) return <Navigate to="/admin" replace />;
   if (!role && teacherIn && !adminIn) return <Navigate to="/teacher" replace />;
   if (!role && adminIn && !teacherIn) return <Navigate to="/admin" replace />;
 
   const pick = (r: Role) => {
-    if (r === 'teacher' && teacherIn) return nav('/teacher');
+    if (r === 'teacher' && teacherIn) return nav(next ?? '/teacher');
     if (r === 'admin' && adminIn) return nav('/admin');
     setRole(r);
     setErr('');
@@ -48,7 +51,7 @@ export default function Login({ role: fixed }: { role?: Role }) {
   const submitTeacher = async () => {
     const r = await login(username, password);
     // Lần đầu: chưa có link thư mục và Apps Script → mở Cài đặt để làm Trình cài đặt một lần
-    nav(r.configured ? '/teacher' : '/teacher/settings?first=1', { replace: true });
+    nav(next && r.configured ? next : r.configured ? '/teacher' : '/teacher/settings?first=1', { replace: true });
   };
   const submitAdmin = async () => {
     const bad = 'Tên tài khoản hoặc mật khẩu quản trị không đúng.';
