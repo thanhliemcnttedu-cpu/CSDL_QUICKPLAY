@@ -6,7 +6,7 @@ import { ArrowRight, BellRing, ChartColumn, Download, Home, QrCode, Square } fro
 import type { Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperOp } from '../lib/paper';
-import { loadSettings } from '../lib/settings';
+import { loadSettings, scriptRef } from '../lib/settings';
 import { OPTION_LABELS, htmlToText, sanitizeHtml } from '../lib/util';
 import { buildXlsx, downloadBlob } from '../lib/xlsx';
 import { StemMedia } from '../components/MediaView';
@@ -21,7 +21,7 @@ function scanUrl(pin: string, key: string): string {
   const s = loadSettings();
   const base = location.protocol.startsWith('http') ? location.origin : ((import.meta.env.VITE_PUBLIC_URL as string | undefined) ?? '');
   if (!base) return '';
-  const script = s.backend === 'drive' && s.scriptUrl ? `&s=${encodeURIComponent(s.scriptUrl)}` : '';
+  const script = s.backend === 'drive' && s.scriptUrl ? `&s=${scriptRef(s.scriptUrl)}` : '';
   return `${base.replace(/\/+$/, '')}/quet?pin=${pin}&k=${encodeURIComponent(key)}${script}`;
 }
 

@@ -42,9 +42,28 @@ export function saveSettings(s: AppSettings) {
   }
 }
 
+const EXEC_RE = /^https:\/\/script\.google\.com\/macros\/s\/([\w-]+)\/exec$/;
+
+/**
+ * Phần "s=" trong link gửi cho học sinh. Link Apps Script chuẩn (https://script.google.com/macros/s/<mã>/exec)
+ * chỉ cần ghi <mã> là đủ, nên link ngắn đi khoảng 60 ký tự. Địa chỉ khác (máy chủ thử) thì ghi nguyên.
+ */
+export function scriptRef(scriptUrl: string): string {
+  const m = scriptUrl.trim().match(EXEC_RE);
+  return m ? m[1] : encodeURIComponent(scriptUrl.trim());
+}
+
+/** Đổi phần "s=" trong link trở lại địa chỉ Apps Script (nhận cả link kiểu cũ ghi nguyên địa chỉ). */
+export function scriptUrlOfRef(ref: string): string | null {
+  let v = ref;
+  try { v = decodeURIComponent(ref); } catch { /* giữ nguyên */ }
+  if (/^https?:\/\//i.test(v)) return v;
+  return /^[\w-]{20,200}$/.test(v) ? `https://script.google.com/macros/s/${v}/exec` : null;
+}
+
 /** URL Apps Script có thể đi kèm link tham gia (?s=...) để học sinh không cần cấu hình. */
 export function scriptUrlFromLink(): string | null {
   const m = location.hash.match(/[?&]s=([^&]+)/);
-  return m ? decodeURIComponent(m[1]) : null;
+  return m ? scriptUrlOfRef(m[1]) : null;
 }
 

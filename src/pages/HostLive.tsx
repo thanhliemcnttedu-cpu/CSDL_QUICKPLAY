@@ -12,7 +12,7 @@ import { api } from '../lib/api';
 import { startPolling } from '../lib/pollTimer';
 import type { HostOp } from '../lib/sessionLogic';
 import { answerKey } from '../lib/sessionLogic';
-import { loadSettings } from '../lib/settings';
+import { loadSettings, scriptRef } from '../lib/settings';
 import { htmlToText, sanitizeHtml } from '../lib/util';
 import { Check, X, MessageSquareText } from 'lucide-react';
 import { startMusic } from '../lib/sound';
@@ -29,7 +29,7 @@ export function joinUrl(pin: string): string {
     ? location.origin
     : ((import.meta.env.VITE_PUBLIC_URL as string | undefined) ?? '');
   if (!base) return '';
-  const script = s.backend === 'drive' && s.scriptUrl ? `&s=${encodeURIComponent(s.scriptUrl)}` : '';
+  const script = s.backend === 'drive' && s.scriptUrl ? `&s=${scriptRef(s.scriptUrl)}` : '';
   return `${base.replace(/\/+$/, '')}/join?pin=${pin}${script}`;
 }
 
