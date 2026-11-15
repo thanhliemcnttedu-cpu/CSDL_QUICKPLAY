@@ -1,0 +1,44 @@
+/* Trang quản trị: tận dụng chiều rộng màn hình máy tính */
+.adm-page { max-width: 1440px; }
+.adm-top { display: flex; flex-direction: column; gap: 18px; }
+.adm-side { gap: 14px; min-width: 0; }
+.adm-side > * { margin: 0; }
+/* Đã đăng nhập, màn hình rộng: các thẻ trạng thái (thư mục, phiên đăng nhập, máy chủ) xếp thành hai cột gọn ở đầu trang,
+   ngay dưới là bảng tài khoản dùng hết chiều ngang; bảng hướng dẫn xuống cuối trang */
+@media (min-width: 1100px) {
+  .adm-top.two .adm-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .adm-top.two .adm-side > details[open] { grid-column: 1 / -1; }
+}
+.adm-side:empty { display: none; }
+
+/* Bảng tài khoản: tên đăng nhập và mật khẩu không bị ngắt dòng */
+.adm-table th, .adm-table td { white-space: nowrap; vertical-align: middle; }
+.adm-table td.adm-mono b { font-size: 1.02rem; letter-spacing: 0.02em; }
+.adm-table td:nth-child(3) { white-space: normal; min-width: 160px; }
+.adm-table td:nth-child(5) { white-space: normal; min-width: 160px; overflow-wrap: anywhere; }
+.adm-note { display: block; white-space: normal; font-size: 0.78rem; max-width: 220px; }
+.adm-act-h { text-align: right; }
+.adm-table tbody tr:hover { background: #f6f9ff; }
+
+.adm-table td:last-child .row { justify-content: flex-end; }
+@media (max-width: 760px) { .adm-table td:nth-child(3), .adm-table td:nth-child(5) { min-width: 130px; } }
+
+/* Màn hình hẹp (điện thoại, máy tính bảng dọc): mỗi tài khoản là một thẻ, tên đăng nhập và mật khẩu hiện ngay không phải kéo ngang */
+@media (max-width: 900px) {
+  .adm-table thead { display: none; }
+  .adm-table, .adm-table tbody, .adm-table tr, .adm-table td { display: block; width: 100%; }
+  .adm-table tr { margin-bottom: 10px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 16px; background: #fff; }
+  .adm-table td { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 8px; align-items: center; padding: 4px 0; border: 0; white-space: normal !important; min-width: 0 !important; }
+  .adm-table td::before { content: attr(data-label); font-size: 0.78rem; font-weight: 700; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.02em; }
+  .adm-table td[data-label="#"] { display: none; }
+  .adm-table td.adm-mono b { overflow-wrap: anywhere; }
+  .adm-table td:last-child .row { justify-content: flex-start; }
+  .adm-table tbody tr:hover { background: #fff; }
+  .table-wrap:has(.adm-table) { overflow-x: visible; }
+}
+/* Máy tính bảng: hai thẻ tài khoản một hàng cho đỡ dài trang */
+@media (min-width: 600px) and (max-width: 900px) {
+  .adm-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .adm-table tr { margin-bottom: 0; }
+  .adm-table td { grid-template-columns: 104px minmax(0, 1fr); }
+}

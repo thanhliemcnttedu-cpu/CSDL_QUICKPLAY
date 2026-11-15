@@ -1,7 +1,7 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Check, ChevronRight, Download, Eye, EyeOff, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Check, ChevronRight, Download, Eye, EyeOff, FileSpreadsheet, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminBootOk, adminEmail, adminSignedIn, adminUrl, adminUser, bootAdminPassword, markDefaultAdminPassword, setAdminUrl, usingDefaultAdminPassword, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
@@ -11,6 +11,7 @@ import { ADMIN_SCRIPT_VERSION, buildLinkFile, compareVersion, linkFileName, load
 import { downloadBlob } from '../lib/xlsx';
 import { AdminGuide } from '../components/AdminGuide';
 import '../installer.css';
+import '../admin.css';
 
 const randomPassword = () => {
   const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
@@ -38,18 +39,26 @@ export default function Admin() {
   // Sau khi bước 5 báo liên kết thành công: giữ nguyên màn hình để quản trị thấy tích xanh và tải tệp kết nối, bấm Tiếp tục mới sang bước sau
   // Mật khẩu giáo viên đang được mở xem (tự ẩn sau 30 giây), và phiên bản mã của máy chủ tài khoản
   const [shown, setShown] = useState<Record<string, string>>({});
+  const [pwLoading, setPwLoading] = useState(false);
+  const [hideAll, setHideAll] = useState(false); // ẩn tạm cả cột mật khẩu (khi chiếu màn hình cho người khác xem)
+  // Lấy mật khẩu của mọi tài khoản, 6 tài khoản một lượt để máy chủ không bị dồn
+  const loadAllPw = useCallback(async (list: AccountRow[]) => {
+    const need = list.filter((r) => r.has_pw);
+    if (!need.length) return setShown({});
+    setPwLoading(true);
+    const got: Record<string, string> = {};
+    try {
+      for (let i = 0; i < need.length; i += 6) {
+        const part = await Promise.all(need.slice(i, i + 6).map((r) => adminApi.viewPassword(r.username).then((x) => [r.username, x.password] as const).catch(() => [r.username, ''] as const)));
+        part.forEach(([u, pw]) => (got[u] = pw));
+      }
+      setShown(got);
+    } finally {
+      setPwLoading(false);
+    }
+  }, []);
   const [serverVer, setServerVer] = useState('');
   const outdated = !!serverVer && compareVersion(serverVer, ADMIN_SCRIPT_VERSION) < 0;
-  const showPw = async (username: string) => {
-    if (shown[username] !== undefined) return setShown((m) => { const n = { ...m }; delete n[username]; return n; });
-    try {
-      const r = await adminApi.viewPassword(username);
-      setShown((m) => ({ ...m, [username]: r.password }));
-      window.setTimeout(() => setShown((m) => { const n = { ...m }; delete n[username]; return n; }), 30000);
-    } catch (e) {
-      toast(/không hợp lệ/.test((e as Error).message) ? 'Máy chủ tài khoản đang chạy bản cũ, chưa có chức năng xem mật khẩu. Hãy cập nhật máy chủ (mục bên dưới).' : (e as Error).message, 'error');
-    }
-  };
   const [afterLink, setAfterLink] = useState<null | { label: string; go: () => void }>(null);
   const [store, setStore] = useState<null | { folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>(null); // đang dùng mật khẩu mặc định: nhắc đổi ngay
   const [fg, setFg] = useState<null | { sentTo: string; code: string; next: string; again: string; err: string; busy: boolean }>(null);
@@ -106,6 +115,30 @@ export default function Admin() {
       toast((e as Error).message, 'error');
     }
   };
+  // Xuất danh sách tài khoản, mật khẩu ra Excel
+  const exportXlsx = async () => {
+    if (!rows?.length) return toast('Chưa có tài khoản nào để xuất.', 'info');
+    try {
+      const { buildXlsx, downloadBlob: save } = await import('../lib/xlsx');
+      const fmt = (t?: number) => (t ? new Date(t).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
+      const head = ['STT', 'Tên đăng nhập', 'Họ tên', 'Mật khẩu', 'Mật khẩu do', 'Ngày đặt mật khẩu', 'Email', 'Trạng thái', 'Đã cài kho riêng', 'Đăng nhập gần nhất', 'Ngày cấp'];
+      const body = rows.map((r, i) => [
+        i + 1, r.username, r.name, shown[r.username] ?? '', r.pw_by === 'teacher' ? 'Giáo viên tự đổi' : r.pw_by === 'admin' ? 'Quản trị cấp' : '',
+        fmt(r.pw_at), r.email ?? '', r.locked ? 'Đang khóa' : 'Hoạt động', r.configured ? 'Rồi' : 'Chưa', fmt(r.last_login) || 'Chưa đăng nhập', fmt(r.created_at),
+      ]);
+      const info = [
+        ['Danh sách tài khoản giáo viên Quickplay'],
+        [`Xuất lúc ${fmt(Date.now())} · ${rows.length} tài khoản · trang đăng nhập giáo viên: ${location.origin}/teacher`],
+        ['Tệp có mật khẩu: chỉ lưu ở nơi an toàn, không gửi lên nhóm chung.'],
+        [],
+      ];
+      const day = new Date().toISOString().slice(0, 10);
+      save(`quickplay-tai-khoan-giao-vien-${day}.xlsx`, await buildXlsx([{ name: 'Tài khoản', rows: [...info, head, ...body] }]));
+      toast(`Đã xuất ${rows.length} tài khoản ra Excel.`, 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
   const copy = (text: string, ok: string) => navigator.clipboard.writeText(text).then(() => toast(ok, 'ok')).catch(() => toast('Trình duyệt không cho sao chép. Hãy bôi đen rồi nhấn Ctrl + C.', 'error'));
   const site = location.origin;
   // Bước đang làm trong bảng hướng dẫn
@@ -114,8 +147,10 @@ export default function Admin() {
   const load = useCallback(async () => {
     setBusy(true);
     try {
-      setRows(await adminApi.list());
+      const list = await adminApi.list();
+      setRows(list);
       setStep('in');
+      loadAllPw(list);
       adminApi.storage().then(setStore).catch(() => setStore(null));
       pingScript(adminUrl()).then((r) => setServerVer(r.version)).catch(() => {});
     } catch (e) {
@@ -205,19 +240,21 @@ export default function Admin() {
   const reset = async (r: AccountRow) => {
     if (!(await askConfirm(`Đặt lại mật khẩu cho "${r.username}"?\nGiáo viên sẽ phải nhập lại link thư mục và link Apps Script sau khi đăng nhập (dữ liệu trên Drive của giáo viên không mất).`))) return;
     const password = randomPassword();
-    run(() => adminApi.resetPassword(r.username, password).then(() => setIssued({ username: r.username, password })), 'Đã đặt lại mật khẩu.');
+    run(() => adminApi.resetPassword(r.username, password).then(() => { setIssued({ username: r.username, password }); setShown((m) => ({ ...m, [r.username]: password })); }), 'Đã đặt lại mật khẩu.');
   };
 
   if (step === 'server' && !adminBootOk()) return <Navigate to="/login?role=admin" replace />;
 
   return (
-    <div className="page stack" style={{ gap: 18, maxWidth: 980 }}>
+    <div className="page stack adm-page" style={{ gap: 18 }}>
       <div className="row between">
         <Link to="/" aria-label="Quickplay – Trang chủ"><Wordmark /></Link>
         <span className="badge blue">Quản trị toàn hệ thống</span>
       </div>
 
-      <AdminGuide at={guideAt} site={site} linked={!!envUrl} serverUrl={adminUrl()} copy={copy} />
+      <div className={`adm-top ${step === 'in' ? 'two' : ''}`}>
+      {step !== 'in' && <AdminGuide at={guideAt} site={site} linked={!!envUrl} serverUrl={adminUrl()} copy={copy} />}
+      <div className="adm-side stack">
 
       {step === 'server' && (
         <section className="card stack">
@@ -346,60 +383,65 @@ export default function Admin() {
         </details>
       )}
 
+      </div>
+      </div>
+
       {step === 'in' && rows && (
         <section className="card stack">
           <div className="row between">
             <h2 style={{ margin: 0 }}>Tài khoản giáo viên ({rows.length})</h2>
             <div className="row">
+              <button className="btn ghost" onClick={() => setHideAll((v) => !v)} aria-pressed={hideAll} title="Ẩn hoặc hiện cột mật khẩu (khi chiếu màn hình)">{hideAll ? <><Eye size={18} /> Hiện mật khẩu</> : <><EyeOff size={18} /> Ẩn mật khẩu</>}</button>
               <button className="btn ghost" onClick={load} disabled={busy}><RefreshCw size={18} /> Tải lại</button>
+              <button className="btn success" onClick={exportXlsx} disabled={!rows.length || pwLoading} title={pwLoading ? 'Đang lấy mật khẩu…' : undefined}><FileSpreadsheet size={18} /> Xuất Excel</button>
               <button className="btn primary" onClick={() => setAdd({ username: '', name: '', password: randomPassword() })}><UserPlus size={18} /> Cấp tài khoản</button>
             </div>
           </div>
           <div className="table-wrap">
-            <table className="table">
-              <thead><tr><th>Tài khoản</th><th>Họ tên</th><th>Mật khẩu</th><th>Email</th><th>Trạng thái</th><th>Đã cài kho riêng</th><th>Đăng nhập gần nhất</th><th /></tr></thead>
+            <table className="table adm-table">
+              <thead><tr><th>#</th><th>Tên đăng nhập</th><th>Họ tên</th><th>Mật khẩu</th><th>Email</th><th>Trạng thái</th><th>Kho riêng</th><th>Đăng nhập gần nhất</th><th className="adm-act-h">Thao tác</th></tr></thead>
               <tbody>
-                {rows.map((r) => (
+                {rows.map((r, i) => (
                   <tr key={r.username}>
-                    <td><b>{r.username}</b></td>
-                    <td>{r.name}</td>
-                    <td>
-                      <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
-                        {shown[r.username] !== undefined
-                          ? <b style={{ letterSpacing: '0.04em', overflowWrap: 'anywhere' }}>{shown[r.username] || <span className="muted">(chưa lưu: đặt lại mật khẩu để xem được)</span>}</b>
-                          : <span className="muted">••••••</span>}
-                        <button className="btn icon sm ghost" onClick={() => showPw(r.username)} aria-label={shown[r.username] !== undefined ? `Ẩn mật khẩu của ${r.username}` : `Xem mật khẩu của ${r.username}`} title={shown[r.username] !== undefined ? 'Ẩn' : 'Xem mật khẩu'}>
-                          {shown[r.username] !== undefined ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                      </span>
-                      {r.pw_by === 'teacher' && <small className="muted">giáo viên đã tự đổi{r.pw_at ? ` ngày ${new Date(r.pw_at).toLocaleDateString('vi-VN')}` : ''}</small>}
+                    <td className="muted" data-label="#">{i + 1}</td>
+                    <td className="adm-mono" data-label="Tên đăng nhập"><b>{r.username}</b></td>
+                    <td data-label="Họ tên">{r.name}</td>
+                    <td className="adm-mono" data-label="Mật khẩu">
+                      {hideAll ? <span className="muted">••••••</span>
+                        : shown[r.username] ? <b>{shown[r.username]}</b>
+                        : pwLoading && r.has_pw ? <span className="muted">đang lấy…</span>
+                        : <span className="muted adm-note">chưa lưu (bấm Đặt lại mật khẩu để xem được)</span>}
+                      {r.pw_by === 'teacher' && <small className="muted adm-note">giáo viên tự đổi{r.pw_at ? ` ${new Date(r.pw_at).toLocaleDateString('vi-VN')}` : ''}</small>}
                     </td>
-                    <td style={{ overflowWrap: 'anywhere' }}>{r.email || (r.has_email ? 'Đã khai báo' : <span className="muted">Chưa</span>)}</td>
-                    <td>{r.locked ? <span className="badge red">Đang khóa</span> : <span className="badge green">Hoạt động</span>}</td>
-                    <td>{r.configured ? 'Rồi' : 'Chưa'}</td>
-                    <td>{r.last_login ? new Date(r.last_login).toLocaleString('vi-VN') : 'Chưa đăng nhập'}</td>
-                    <td>
+                    <td style={{ overflowWrap: 'anywhere' }} data-label="Email">{r.email || (r.has_email ? 'Đã khai báo' : <span className="muted">Chưa</span>)}</td>
+                    <td data-label="Trạng thái">{r.locked ? <span className="badge red">Đang khóa</span> : <span className="badge green">Hoạt động</span>}</td>
+                    <td data-label="Kho riêng">{r.configured ? 'Rồi' : 'Chưa'}</td>
+                    <td data-label="Đăng nhập gần nhất">{r.last_login ? new Date(r.last_login).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : <span className="muted">Chưa đăng nhập</span>}</td>
+                    <td data-label="Thao tác">
                       <span className="row" style={{ gap: 6, flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
-                        <button className="btn sm" onClick={() => run(() => adminApi.setLocked(r.username, !r.locked), r.locked ? 'Đã mở khóa.' : 'Đã khóa tài khoản.')}>
-                          {r.locked ? <><LockOpen size={16} /> Mở khóa</> : <><Lock size={16} /> Khóa</>}
+                        <button className="btn icon sm" onClick={() => run(() => adminApi.setLocked(r.username, !r.locked), r.locked ? 'Đã mở khóa.' : 'Đã khóa tài khoản.')}
+                          aria-label={`${r.locked ? 'Mở khóa' : 'Khóa'} tài khoản ${r.username}`} title={r.locked ? 'Mở khóa' : 'Khóa tài khoản'}>
+                          {r.locked ? <LockOpen size={16} /> : <Lock size={16} />}
                         </button>
-                        <button className="btn sm" onClick={() => reset(r)}><KeyRound size={16} /> Đặt lại mật khẩu</button>
+                        <button className="btn icon sm" onClick={() => reset(r)} aria-label={`Đặt lại mật khẩu cho ${r.username}`} title="Đặt lại mật khẩu"><KeyRound size={16} /></button>
                         <button className="btn icon sm danger" aria-label={`Xóa tài khoản ${r.username}`} onClick={async () => (await askConfirm(`Xóa tài khoản "${r.username}"? Dữ liệu trên Drive của giáo viên không bị xóa.`)) && run(() => adminApi.remove(r.username), 'Đã xóa tài khoản.')}><Trash2 size={16} /></button>
                       </span>
                     </td>
                   </tr>
                 ))}
-                {!rows.length && <tr><td colSpan={8} className="muted">Chưa có tài khoản nào. Bấm “Cấp tài khoản”.</td></tr>}
+                {!rows.length && <tr><td colSpan={9} className="muted">Chưa có tài khoản nào. Bấm “Cấp tài khoản”.</td></tr>}
               </tbody>
             </table>
           </div>
           <p className="help" style={{ margin: 0 }}>
-            Máy chủ tài khoản giữ tên tài khoản, email và mật khẩu của giáo viên (quản trị bấm biểu tượng con mắt để xem, kể cả mật khẩu giáo viên đã tự đổi).
+            Máy chủ tài khoản giữ tên tài khoản, email và mật khẩu của giáo viên (kể cả mật khẩu giáo viên đã tự đổi). Bấm <b>Ẩn mật khẩu</b> trước khi chiếu màn hình cho người khác xem.
             Bộ câu hỏi và kết quả học sinh nằm trong Google Drive riêng của từng giáo viên. Lưu ý: vì quản trị xem được mật khẩu, về kỹ thuật quản trị có thể đăng nhập thay giáo viên;
             hãy giữ kín tài khoản quản trị. Tệp sao lưu trên Google Drive không chứa mật khẩu dạng xem được.
           </p>
         </section>
       )}
+
+      {step === 'in' && <AdminGuide at={guideAt} site={site} linked={!!envUrl} serverUrl={adminUrl()} copy={copy} />}
 
       {add && (
         <Modal title="Cấp tài khoản giáo viên" onClose={() => setAdd(null)} footer={<button className="btn primary" onClick={create}><Plus size={18} /> Tạo tài khoản</button>}>
