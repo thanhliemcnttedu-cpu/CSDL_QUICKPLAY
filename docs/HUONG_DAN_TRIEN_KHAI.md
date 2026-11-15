@@ -6,10 +6,10 @@ Dành cho tác giả/quản trị. Làm theo đúng thứ tự; mỗi phần kho
 
 1. Vào <https://github.com/new>, đặt tên kho (ví dụ `quickplay`), chọn **Private** (riêng tư) hoặc **Public**, **không** tích
    "Add a README". Bấm **Create repository**.
-2. Mở cửa sổ lệnh tại thư mục dự án, chạy lần lượt (thay `TEN-TAI-KHOAN`):
+2. Mở cửa sổ lệnh tại thư mục dự án, chạy lần lượt (kho hiện tại: `thanhliemcnttedu-cpu/CSDL_QUICKPLAY`, đã đẩy lên lần đầu):
 
 ```bash
-git remote add origin https://github.com/TEN-TAI-KHOAN/quickplay.git
+git remote add origin https://github.com/thanhliemcnttedu-cpu/CSDL_QUICKPLAY.git
 ```
 
 ```bash
@@ -20,7 +20,7 @@ Lần đầu, cửa sổ đăng nhập GitHub sẽ hiện ra.
 
 ## B. Đưa lên Vercel
 
-1. Vào <https://vercel.com/new>, đăng nhập bằng GitHub, chọn kho `quickplay` → **Import**.
+1. Vào <https://vercel.com/new>, đăng nhập bằng GitHub, chọn kho `CSDL_QUICKPLAY` → **Import**.
 2. Vercel tự nhận cấu hình từ `vercel.json` (Vite, thư mục `dist`). Bấm **Deploy**.
 3. Sau khi xong, chép địa chỉ trang (ví dụ `https://quickplay-abc.vercel.app`).
 4. Vào **Settings → Environment Variables**, thêm các biến cần dùng rồi **Redeploy**:
