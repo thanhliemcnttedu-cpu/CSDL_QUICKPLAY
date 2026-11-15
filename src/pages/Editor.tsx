@@ -166,8 +166,7 @@ export default function Editor() {
         </div>
       </div>
       <div className="row">
-        <PlacementPicker catalog={catalog} value={quiz} legacySubject={quiz.subject} onChange={(p) => update({ ...quiz, subject_id: p.subject_id, chapter_id: p.chapter_id, lesson_id: p.lesson_id, subject: p.subject ?? quiz.subject })} />
-        <label className="field"><span>Lớp</span><input className="input" value={quiz.grade ?? ''} onChange={(e) => update({ ...quiz, grade: e.target.value })} placeholder="VD: Lớp 5" /></label>
+        <PlacementPicker catalog={catalog} value={quiz} legacySubject={quiz.subject} onChange={(p) => update({ ...quiz, subject_id: p.subject_id, chapter_id: p.chapter_id, lesson_id: p.lesson_id, subject: p.subject ?? quiz.subject, grade: p.grade ?? quiz.grade })} />
         <label className="field"><span>Chia sẻ</span>
           <select className="input" value={quiz.visibility} onChange={(e) => update({ ...quiz, visibility: e.target.value as Quiz['visibility'] })}>
             <option value="private">Riêng tư</option>

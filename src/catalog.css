@@ -11,6 +11,8 @@
 .cat-row { display: flex; align-items: center; gap: 2px; border-radius: 12px; min-height: 40px; }
 .cat-row.d1 { padding-left: 16px; }
 .cat-row.d2 { padding-left: 32px; }
+.cat-row.d3 { padding-left: 48px; }
+.cat-row.d0 > .cat-name { font-weight: 700; }
 .cat-row:hover { background: var(--muted); }
 .cat-row.on { background: var(--primary-soft); }
 .cat-tog { flex: none; width: 26px; height: 36px; display: grid; place-items: center; border: 0; background: none; color: var(--muted-fg); cursor: pointer; border-radius: 8px; padding: 0; }

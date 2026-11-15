@@ -4,7 +4,7 @@ import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOp
 import type { Catalog, Quiz, QuizSummary } from '../lib/types';
 import { api } from '../lib/api';
 import { BUILTIN_QUIZZES, newQuiz, sampleQuiz, type BuiltinQuiz } from '../lib/factory';
-import { ALL, NONE, countByNode, emptyCatalog, ensurePath, findNode, inNode, pathOf, placementOf, resolve, type Placement } from '../lib/catalog';
+import { ALL, NONE, UNGRADED, countByNode, emptyCatalog, ensurePath, gradeOfId, inNode, isGradeId, nodeExists, pathOf, placementOf, resolve, type Placement } from '../lib/catalog';
 import { formatDate, uid } from '../lib/util';
 import { Modal, Spinner, useToast, askConfirm } from '../components/ui';
 import { ImportDialog } from '../components/ImportDialog';
@@ -63,9 +63,10 @@ export default function Library() {
   }, [load]);
 
   // Nút đang chọn đã bị xóa (hoặc danh mục đổi ở máy khác) thì quay về "Tất cả bộ đề"
-  const current = node === ALL || node === NONE || findNode(catalog, node) ? node : ALL;
+  const current = node === ALL || node === NONE || nodeExists(catalog, node) ? node : ALL;
   const counts = useMemo(() => countByNode(catalog, items ?? []), [catalog, items]);
-  const currentLabel = current === ALL ? 'Tất cả bộ đề' : current === NONE ? 'Chưa phân loại' : pathOf(catalog, placementOf(catalog, current) ?? {});
+  const onGrade = isGradeId(current); // đang chọn một khối lớp (bộ đề nằm trong môn / chủ đề / bài của lớp đó)
+  const currentLabel = current === ALL ? 'Tất cả bộ đề' : current === NONE ? 'Chưa phân loại' : onGrade ? (current === UNGRADED ? 'Môn chưa xếp lớp' : gradeOfId(current)) : pathOf(catalog, placementOf(catalog, current) ?? {});
 
   const saveCatalog = async (next: Catalog) => {
     const before = catalog;
@@ -120,14 +121,14 @@ export default function Library() {
   // ----- Bộ câu hỏi mặc định của Quickplay (Tiếng Việt 1, Tiếng Anh 1) -----
   /** Chép một bộ mặc định vào thư viện của giáo viên, đặt đúng Môn › Chương › Bài mẫu (tạo danh mục nếu chưa có). */
   const copyBuiltin = async (b: BuiltinQuiz, cat: Catalog): Promise<{ catalog: Catalog; quiz: Quiz }> => {
-    const r = ensurePath(cat, ...b.path);
+    const r = ensurePath(cat, ...b.path, b.grade);
     const now = new Date().toISOString();
     const quiz = await api.saveQuiz({ ...b.make(), ...r.placement, id: uid('quiz_'), visibility: 'private', created_at: now, updated_at: now });
     return { catalog: r.catalog, quiz };
   };
   /** Bản đã chép của bộ mặc định trong thư viện (cùng tên, nằm đúng bài mẫu) – để không chép trùng khi bấm Tổ chức / Dùng bộ này. */
   const existingCopy = (b: BuiltinQuiz) =>
-    (items ?? []).find((q) => q.title === b.title && pathOf(catalog, q) === b.path.join(' › '));
+    (items ?? []).find((q) => q.title === b.title && pathOf(catalog, q) === [b.grade, ...b.path].join(' › '));
 
   const useBuiltin = async (b: BuiltinQuiz, thenHost: boolean) => {
     if (busy) return;
@@ -162,7 +163,7 @@ export default function Library() {
     try {
       const had = BUILTIN_QUIZZES.filter((b) => existingCopy(b)).length;
       let cat = catalog;
-      for (const b of BUILTIN_QUIZZES) cat = ensurePath(cat, ...b.path).catalog;
+      for (const b of BUILTIN_QUIZZES) cat = ensurePath(cat, ...b.path, b.grade).catalog;
       const added = cat.subjects.length - catalog.subjects.length;
       if (cat !== catalog) cat = await api.saveCatalog(cat);
       setCatalog(cat);
@@ -232,7 +233,8 @@ export default function Library() {
             <p className="lib-crumb">
               <FolderTree size={18} /> {currentLabel}
               <span className="badge blue">{counts[current] ?? 0} bộ đề</span>
-              {current !== NONE && <button className="btn sm primary" onClick={create}><Plus size={16} /> Tạo bộ đề trong mục này</button>}
+              {current !== NONE && !onGrade && <button className="btn sm primary" onClick={create}><Plus size={16} /> Tạo bộ đề trong mục này</button>}
+              {onGrade && <span className="muted small">Chọn một môn, chủ đề hoặc bài của lớp này để tạo bộ đề bên trong.</span>}
             </p>
           )}
           {!list ? (
@@ -244,10 +246,11 @@ export default function Library() {
               <p className="muted">
                 {!mine || needle ? 'Thử gõ từ khóa khác hoặc xóa ô tìm kiếm.'
                   : current === NONE ? 'Mọi bộ đề đều đã được xếp vào môn học.'
+                  : onGrade ? 'Bấm dấu + cạnh tên lớp để thêm môn học, rồi thêm chủ đề và bài; bộ đề nằm trong môn, chủ đề hoặc bài.'
                   : inNodeView ? 'Bấm "Tạo bộ đề trong mục này", hoặc dùng nút "Chuyển tới…" trên thẻ của một bộ đề có sẵn để đưa vào đây.'
                   : 'Tạo bộ đề đầu tiên, nhập từ tệp Word, hoặc thêm dữ liệu mẫu môn Tiếng Việt và Tiếng Anh đủ mọi dạng câu hỏi.'}
               </p>
-              {mine && !needle && current !== NONE && (
+              {mine && !needle && current !== NONE && !onGrade && (
                 <div className="row" style={{ justifyContent: 'center' }}>
                   {!inNodeView && <button className="btn" onClick={addSample}>Thêm bộ đề mẫu</button>}
                   {!inNodeView && <button className="btn" onClick={addDemoData} disabled={busy}><DatabaseZap size={18} /> Thêm dữ liệu mẫu (Tiếng Việt, Tiếng Anh)</button>}

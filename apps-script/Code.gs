@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.0';
+var APP_VERSION = '1.5.1';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -565,10 +565,19 @@ function cleanCatalog_(raw) {
     (Array.isArray(arr) ? arr : []).forEach(function (x) { var n = fn(x); if (n) out.push(n); });
     return out;
   };
-  return {
-    subjects: list(raw && raw.subjects, function (s) {
+  // Khối lớp (1.5.1): mỗi môn ghi tên lớp của mình; `grades` là thứ tự các lớp hiển thị (kể cả lớp chưa có môn)
+  var gradeName = function (g) { return typeof g === 'string' ? g.replace(/\s+/g, ' ').trim().slice(0, 80) : ''; };
+  var out = {};
+  if (raw && Array.isArray(raw.grades)) {
+    var seen = {};
+    out.grades = [];
+    raw.grades.slice(0, 60).forEach(function (g) { var n = gradeName(g); if (n && !seen[n]) { seen[n] = true; out.grades.push(n); } });
+  }
+  out.subjects = list(raw && raw.subjects, function (s) {
       var sub = node(s);
       if (!sub) return null;
+      var g = gradeName(s.grade);
+      if (g) sub.grade = g;
       sub.chapters = list(s.chapters, function (c) {
         var ch = node(c);
         if (!ch) return null;
@@ -576,8 +585,8 @@ function cleanCatalog_(raw) {
         return ch;
       });
       return sub;
-    })
-  };
+    });
+  return out;
 }
 
 function actGetCatalog_() {

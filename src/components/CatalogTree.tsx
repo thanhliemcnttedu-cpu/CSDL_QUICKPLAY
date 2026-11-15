@@ -1,17 +1,21 @@
-// Cây danh mục của giáo viên: Môn học → Chương/Chủ đề → Bài, và bộ ba ô chọn vị trí cho một bộ đề.
+// Cây danh mục của giáo viên: Khối lớp → Môn học → Chương/Chủ đề → Bài, và các ô chọn vị trí cho một bộ đề.
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, ChevronDown, ChevronRight, FileText, FolderPlus, Inbox, Layers, LibraryBig, Pencil, Plus, Trash2 } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, FileText, FolderPlus, GraduationCap, Inbox, Layers, LibraryBig, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Catalog } from '../lib/types';
-import { ALL, NONE, MAX_NAME, addChapter, addLesson, addSubject, findNode, idsUnder, removeNode, renameNode, resolve, type NodeKind, type Placement } from '../lib/catalog';
+import {
+  ALL, NONE, MAX_NAME, UNGRADED, addChapter, addGrade, addLesson, addSubject, findNode, gradeId, gradesOf, idsUnder, removeGrade, removeNode, renameGrade, renameNode,
+  resolve, setSubjectGrade, subjectsOfGrade, type NodeKind, type Placement,
+} from '../lib/catalog';
 import { Modal, askConfirm } from './ui';
 import '../catalog.css';
 
-const KIND_LABEL: Record<NodeKind, string> = { subject: 'môn học', chapter: 'chương / chủ đề', lesson: 'bài' };
+type Kind = NodeKind | 'grade';
+const KIND_LABEL: Record<Kind, string> = { grade: 'khối lớp', subject: 'môn học', chapter: 'chương / chủ đề', lesson: 'bài' };
 
 type NameDialog =
-  | { mode: 'add'; kind: NodeKind; parentId?: string; parentName?: string }
-  | { mode: 'rename'; kind: NodeKind; id: string; old: string };
+  | { mode: 'add'; kind: Kind; parentId?: string; parentName?: string; grade?: string }
+  | { mode: 'rename'; kind: Kind; id: string; old: string; grade?: string };
 
 export function CatalogTree({ catalog, counts, selected, onSelect, onChange, footer }: {
   catalog: Catalog;
@@ -25,26 +29,44 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [dlg, setDlg] = useState<NameDialog | null>(null);
   const [name, setName] = useState('');
+  const [toGrade, setToGrade] = useState(''); // đổi tên môn: có thể chuyển môn sang lớp khác
   const [err, setErr] = useState('');
+  const grades = gradesOf(catalog);
+  const ungraded = subjectsOfGrade(catalog, '');
 
   const toggle = (id: string) => setClosed((s) => {
     const n = new Set(s);
     n.has(id) ? n.delete(id) : n.add(id);
     return n;
   });
+  const expand = (id?: string) => id && setClosed((s) => { const n = new Set(s); n.delete(id); return n; });
   const open = (d: NameDialog) => {
     setDlg(d);
     setName(d.mode === 'rename' ? d.old : '');
+    setToGrade(d.grade ?? '');
     setErr('');
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!dlg) return;
     try {
-      if (dlg.mode === 'rename') onChange(renameNode(catalog, dlg.id, name));
-      else {
-        const r = dlg.kind === 'subject' ? addSubject(catalog, name) : dlg.kind === 'chapter' ? addChapter(catalog, dlg.parentId!, name) : addLesson(catalog, dlg.parentId!, name);
-        if (dlg.parentId) setClosed((s) => { const n = new Set(s); n.delete(dlg.parentId!); return n; });
+      if (dlg.mode === 'rename') {
+        if (dlg.kind === 'grade') {
+          const next = renameGrade(catalog, dlg.old, name);
+          onChange(next);
+          if (selected === gradeId(dlg.old)) onSelect(gradeId(name.replace(/\s+/g, ' ').trim()));
+        } else {
+          let next = renameNode(catalog, dlg.id, name);
+          if (dlg.kind === 'subject' && toGrade !== (dlg.grade ?? '')) next = setSubjectGrade(next, dlg.id, toGrade);
+          onChange(next);
+        }
+      } else if (dlg.kind === 'grade') {
+        const next = addGrade(catalog, name);
+        onChange(next);
+        onSelect(gradeId(gradesOf(next).at(-1)!));
+      } else {
+        const r = dlg.kind === 'subject' ? addSubject(catalog, name, toGrade) : dlg.kind === 'chapter' ? addChapter(catalog, dlg.parentId!, name) : addLesson(catalog, dlg.parentId!, name);
+        expand(dlg.kind === 'subject' ? gradeId(toGrade) : dlg.parentId);
         onChange(r.catalog);
         onSelect(r.id);
       }
@@ -66,13 +88,22 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
     const r = removeNode(catalog, id);
     onChange(r.catalog, r.removed);
   };
+  const dropGrade = async (g: string) => {
+    try {
+      const next = removeGrade(catalog, g); // lớp còn môn thì báo lỗi, không xóa
+      if (!(await askConfirm(`Xóa khối lớp "${g}" khỏi danh mục? (Lớp này chưa có môn học nào.)`, { danger: true, okLabel: 'Xóa lớp này' }))) return;
+      onChange(next, [gradeId(g)]);
+    } catch (ex) {
+      await askConfirm((ex as Error).message, { okLabel: 'Đã hiểu' });
+    }
+  };
 
-  const row = (o: { id: string; label: string; depth: number; icon: React.ReactNode; kind?: NodeKind; hasKids?: boolean; childKind?: NodeKind }) => {
+  const row = (o: { id: string; label: string; depth: number; icon: React.ReactNode; hasKids?: boolean; canToggle?: boolean; acts?: React.ReactNode }) => {
     const on = selected === o.id;
     const isClosed = closed.has(o.id);
     return (
       <div className={`cat-row d${o.depth} ${on ? 'on' : ''}`} key={o.id}>
-        {o.childKind ? (
+        {o.canToggle ? (
           <button type="button" className="cat-tog" onClick={() => toggle(o.id)} aria-label={isClosed ? `Mở ${o.label}` : `Thu gọn ${o.label}`} aria-expanded={!isClosed} disabled={!o.hasKids}>
             {o.hasKids ? (isClosed ? <ChevronRight size={16} /> : <ChevronDown size={16} />) : <span className="cat-dot" />}
           </button>
@@ -80,56 +111,89 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
         <button type="button" className="cat-name" onClick={() => onSelect(o.id)} aria-current={on ? 'true' : undefined} title={o.label}>
           {o.icon}<span>{o.label}</span><em>{counts[o.id] ?? 0}</em>
         </button>
-        {o.kind && (
-          <span className="cat-acts">
-            {o.childKind && (
-              <button type="button" onClick={() => open({ mode: 'add', kind: o.childKind!, parentId: o.id, parentName: o.label })} aria-label={`Thêm ${KIND_LABEL[o.childKind]} trong ${o.label}`} title={`Thêm ${KIND_LABEL[o.childKind]}`}><Plus size={15} /></button>
-            )}
-            <button type="button" onClick={() => open({ mode: 'rename', kind: o.kind!, id: o.id, old: o.label })} aria-label={`Đổi tên ${o.label}`} title="Đổi tên"><Pencil size={14} /></button>
-            <button type="button" className="del" onClick={() => remove(o.id)} aria-label={`Xóa ${o.label}`} title="Xóa (không xóa bộ đề)"><Trash2 size={14} /></button>
-          </span>
-        )}
+        {o.acts && <span className="cat-acts">{o.acts}</span>}
       </div>
     );
   };
-
-  return (
-    <nav className="cat-tree" aria-label="Danh mục môn học">
-      {row({ id: ALL, label: 'Tất cả bộ đề', depth: 0, icon: <LibraryBig size={16} /> })}
-      {row({ id: NONE, label: 'Chưa phân loại', depth: 0, icon: <Inbox size={16} /> })}
-      <div className="cat-sep"><span>Môn học</span></div>
-      {catalog.subjects.length === 0 && <p className="cat-empty">Chưa có môn học nào. Thêm môn, rồi thêm chương hoặc chủ đề và các bài để xếp bộ đề cho gọn.</p>}
-      {catalog.subjects.map((s) => (
-        <div key={s.id}>
-          {row({ id: s.id, label: s.name, depth: 0, icon: <BookOpen size={16} />, kind: 'subject', childKind: 'chapter', hasKids: s.chapters.length > 0 })}
-          {!closed.has(s.id) && s.chapters.map((c) => (
-            <div key={c.id}>
-              {row({ id: c.id, label: c.name, depth: 1, icon: <Layers size={15} />, kind: 'chapter', childKind: 'lesson', hasKids: c.lessons.length > 0 })}
-              {!closed.has(c.id) && c.lessons.map((l) => row({ id: l.id, label: l.name, depth: 2, icon: <FileText size={15} />, kind: 'lesson' }))}
-            </div>
-          ))}
+  const nodeActs = (id: string, label: string, kind: NodeKind, childKind?: NodeKind, grade?: string) => (
+    <>
+      {childKind && <button type="button" onClick={() => open({ mode: 'add', kind: childKind, parentId: id, parentName: label })} aria-label={`Thêm ${KIND_LABEL[childKind]} trong ${label}`} title={`Thêm ${KIND_LABEL[childKind]}`}><Plus size={15} /></button>}
+      <button type="button" onClick={() => open({ mode: 'rename', kind, id, old: label, grade })} aria-label={`Đổi tên ${label}`} title={kind === 'subject' ? 'Đổi tên / chuyển lớp' : 'Đổi tên'}><Pencil size={14} /></button>
+      <button type="button" className="del" onClick={() => remove(id)} aria-label={`Xóa ${label}`} title="Xóa (không xóa bộ đề)"><Trash2 size={14} /></button>
+    </>
+  );
+  const subjectRows = (g: string, depth: number) => subjectsOfGrade(catalog, g).map((s) => (
+    <div key={s.id}>
+      {row({ id: s.id, label: s.name, depth, icon: <BookOpen size={16} />, canToggle: true, hasKids: s.chapters.length > 0, acts: nodeActs(s.id, s.name, 'subject', 'chapter', s.grade ?? '') })}
+      {!closed.has(s.id) && s.chapters.map((c) => (
+        <div key={c.id}>
+          {row({ id: c.id, label: c.name, depth: depth + 1, icon: <Layers size={15} />, canToggle: true, hasKids: c.lessons.length > 0, acts: nodeActs(c.id, c.name, 'chapter', 'lesson') })}
+          {!closed.has(c.id) && c.lessons.map((l) => row({ id: l.id, label: l.name, depth: depth + 2, icon: <FileText size={15} />, acts: nodeActs(l.id, l.name, 'lesson') }))}
         </div>
       ))}
-      <button type="button" className="btn sm cat-add" onClick={() => open({ mode: 'add', kind: 'subject' })}><FolderPlus size={16} /> Thêm môn học</button>
+    </div>
+  ));
+
+  return (
+    <nav className="cat-tree" aria-label="Danh mục khối lớp, môn học">
+      {row({ id: ALL, label: 'Tất cả bộ đề', depth: 0, icon: <LibraryBig size={16} /> })}
+      {row({ id: NONE, label: 'Chưa phân loại', depth: 0, icon: <Inbox size={16} /> })}
+      <div className="cat-sep"><span>Khối lớp</span></div>
+      {grades.map((g) => {
+        const id = gradeId(g);
+        const n = subjectsOfGrade(catalog, g).length;
+        return (
+          <div key={id}>
+            {row({
+              id, label: g, depth: 0, icon: <GraduationCap size={17} />, canToggle: true, hasKids: n > 0,
+              acts: (
+                <>
+                  <button type="button" onClick={() => open({ mode: 'add', kind: 'subject', parentName: g, grade: g })} aria-label={`Thêm môn học trong ${g}`} title="Thêm môn học"><Plus size={15} /></button>
+                  <button type="button" onClick={() => open({ mode: 'rename', kind: 'grade', id, old: g })} aria-label={`Đổi tên ${g}`} title="Đổi tên"><Pencil size={14} /></button>
+                  <button type="button" className="del" onClick={() => dropGrade(g)} aria-label={`Xóa ${g}`} title="Xóa khối lớp (khi chưa có môn)"><Trash2 size={14} /></button>
+                </>
+              ),
+            })}
+            {!closed.has(id) && subjectRows(g, 1)}
+          </div>
+        );
+      })}
+      {ungraded.length > 0 && (
+        <div>
+          {row({ id: UNGRADED, label: 'Môn chưa xếp lớp', depth: 0, icon: <Inbox size={16} />, canToggle: true, hasKids: true })}
+          {!closed.has(UNGRADED) && subjectRows('', 1)}
+          {!closed.has(UNGRADED) && <p className="cat-empty" style={{ paddingLeft: 26 }}>Bấm bút chì cạnh tên môn để chuyển môn vào một khối lớp.</p>}
+        </div>
+      )}
+      <button type="button" className="btn sm cat-add" onClick={() => open({ mode: 'add', kind: 'grade' })}><FolderPlus size={16} /> Thêm khối lớp</button>
       {footer}
 
       {dlg && (
         <Modal
-          title={dlg.mode === 'rename' ? `Đổi tên ${KIND_LABEL[dlg.kind]}` : dlg.kind === 'subject' ? 'Thêm môn học' : `Thêm ${KIND_LABEL[dlg.kind]} trong "${dlg.parentName}"`}
+          title={dlg.mode === 'rename' ? `Đổi tên ${KIND_LABEL[dlg.kind]}` : dlg.kind === 'grade' ? 'Thêm khối lớp' : `Thêm ${KIND_LABEL[dlg.kind]} trong "${dlg.parentName}"`}
           onClose={() => setDlg(null)}
-          footer={<><button type="button" className="btn" onClick={() => setDlg(null)}>Hủy</button><button type="submit" form="cat-name-form" className="btn primary">{dlg.mode === 'rename' ? 'Lưu tên mới' : 'Thêm'}</button></>}
+          footer={<><button type="button" className="btn" onClick={() => setDlg(null)}>Hủy</button><button type="submit" form="cat-name-form" className="btn primary">{dlg.mode === 'rename' ? 'Lưu' : 'Thêm'}</button></>}
         >
           <form id="cat-name-form" className="stack" onSubmit={submit}>
             <label className="field">
               <span>Tên {KIND_LABEL[dlg.kind]}</span>
               <input
                 className="input" autoFocus maxLength={MAX_NAME} value={name} onChange={(e) => { setName(e.target.value); setErr(''); }}
-                placeholder={dlg.kind === 'subject' ? 'VD: Tiếng Việt' : dlg.kind === 'chapter' ? 'VD: Chủ đề 1: Em yêu trường em' : 'VD: Bài 1: Ôn tập từ và câu'}
+                placeholder={dlg.kind === 'grade' ? 'VD: Lớp 6' : dlg.kind === 'subject' ? 'VD: Tiếng Việt' : dlg.kind === 'chapter' ? 'VD: Chủ đề 1: Em yêu trường em' : 'VD: Bài 1: Ôn tập từ và câu'}
                 aria-invalid={!!err}
               />
             </label>
+            {dlg.mode === 'rename' && dlg.kind === 'subject' && (
+              <label className="field">
+                <span>Khối lớp</span>
+                <select className="input" value={toGrade} onChange={(e) => { setToGrade(e.target.value); setErr(''); }}>
+                  <option value="">Chưa xếp lớp</option>
+                  {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </label>
+            )}
             {err && <div className="alert error" role="alert"><div>{err}</div></div>}
-            {dlg.mode === 'rename' && <p className="muted small" style={{ margin: 0 }}>Đổi tên không làm thay đổi các bộ đề bên trong.</p>}
+            {dlg.mode === 'rename' && <p className="muted small" style={{ margin: 0 }}>Đổi tên{dlg.kind === 'subject' ? ' hoặc chuyển lớp' : ''} không làm thay đổi các bộ đề bên trong.</p>}
           </form>
         </Modal>
       )}
@@ -137,11 +201,11 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
   );
 }
 
-/** Ba ô chọn phụ thuộc nhau: Môn học → Chương/Chủ đề → Bài. Trả về vị trí mới kèm tên môn (để ghi vào trường subject dạng chữ). */
+/** Các ô chọn phụ thuộc nhau: Khối lớp → Môn học → Chương/Chủ đề → Bài. Trả về vị trí mới kèm tên môn và tên lớp (để ghi vào bộ đề). */
 export function PlacementPicker({ catalog, value, onChange, legacySubject, manageLink = true }: {
   catalog: Catalog;
   value: Placement;
-  onChange: (p: Placement & { subject?: string }) => void;
+  onChange: (p: Placement & { subject?: string; grade?: string }) => void;
   /** Tên môn dạng chữ của bộ đề cũ (chưa gắn vào danh mục) */
   legacySubject?: string;
   manageLink?: boolean;
@@ -150,28 +214,42 @@ export function PlacementPicker({ catalog, value, onChange, legacySubject, manag
   const subject = f?.subject;
   const chapter = f?.chapter;
   const lesson = f?.lesson;
+  // Lớp đang xem: lớp của môn đã chọn; chưa chọn môn thì theo ô Khối lớp
+  const [pickedGrade, setPickedGrade] = useState<string | null>(null);
+  const grades = gradesOf(catalog);
+  const hasUngraded = subjectsOfGrade(catalog, '').length > 0;
+  const grade = subject ? subject.grade ?? '' : pickedGrade ?? (hasUngraded || !grades.length ? '' : grades.find((g) => subjectsOfGrade(catalog, g).length) ?? grades[0]);
+  const subjects = subjectsOfGrade(catalog, grade);
+  const at = (p: Placement) => (subject ? { ...p, subject: subject.name, grade: subject.grade } : p);
   return (
     <div className="place-pick">
       <label className="field">
+        <span>Khối lớp</span>
+        <select className="input" value={grade} onChange={(e) => { setPickedGrade(e.target.value); onChange({}); }}>
+          {(hasUngraded || !grades.length) && <option value="">Chưa xếp lớp</option>}
+          {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+      </label>
+      <label className="field">
         <span>Môn học</span>
-        <select className="input" value={subject?.id ?? ''} onChange={(e) => {
+        <select className="input" value={subject?.id ?? ''} disabled={!subjects.length} onChange={(e) => {
           const s = catalog.subjects.find((x) => x.id === e.target.value);
-          onChange(s ? { subject_id: s.id, subject: s.name } : {});
+          onChange(s ? { subject_id: s.id, subject: s.name, grade: s.grade } : {});
         }}>
-          <option value="">Chưa phân loại</option>
-          {catalog.subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          <option value="">{subjects.length ? 'Chưa phân loại' : 'Lớp này chưa có môn'}</option>
+          {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       </label>
       <label className="field">
         <span>Chương / Chủ đề</span>
-        <select className="input" value={chapter?.id ?? ''} disabled={!subject || !subject.chapters.length} onChange={(e) => onChange({ subject_id: subject!.id, subject: subject!.name, chapter_id: e.target.value || undefined })}>
+        <select className="input" value={chapter?.id ?? ''} disabled={!subject || !subject.chapters.length} onChange={(e) => onChange(at({ subject_id: subject!.id, chapter_id: e.target.value || undefined }))}>
           <option value="">{subject && !subject.chapters.length ? 'Môn này chưa có chương' : 'Không chọn'}</option>
           {subject?.chapters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </label>
       <label className="field">
         <span>Bài</span>
-        <select className="input" value={lesson?.id ?? ''} disabled={!chapter || !chapter.lessons.length} onChange={(e) => onChange({ subject_id: subject!.id, subject: subject!.name, chapter_id: chapter!.id, lesson_id: e.target.value || undefined })}>
+        <select className="input" value={lesson?.id ?? ''} disabled={!chapter || !chapter.lessons.length} onChange={(e) => onChange(at({ subject_id: subject!.id, chapter_id: chapter!.id, lesson_id: e.target.value || undefined }))}>
           <option value="">{chapter && !chapter.lessons.length ? 'Chương này chưa có bài' : 'Không chọn'}</option>
           {chapter?.lessons.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
@@ -179,7 +257,7 @@ export function PlacementPicker({ catalog, value, onChange, legacySubject, manag
       {(!subject && legacySubject) || (manageLink && !catalog.subjects.length) ? (
         <p className="place-note muted small">
           {!subject && legacySubject && <>Bộ đề này đang ghi môn "{legacySubject}" nhưng chưa được xếp vào danh mục. </>}
-          {manageLink && !catalog.subjects.length && <>Chưa có môn học nào trong danh mục. <Link to="/teacher">Mở Thư viện để thêm môn, chương, bài</Link>.</>}
+          {manageLink && !catalog.subjects.length && <>Chưa có môn học nào trong danh mục. <Link to="/teacher">Mở Thư viện để thêm khối lớp, môn, chủ đề, bài</Link>.</>}
         </p>
       ) : null}
     </div>

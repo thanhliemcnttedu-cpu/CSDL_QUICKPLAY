@@ -235,12 +235,14 @@ export interface BuiltinQuiz {
   title: string;
   /** Vị trí mẫu trong danh mục: Môn › Chương/Chủ đề › Bài */
   path: [string, string, string];
+  /** Khối lớp của bộ mẫu */
+  grade: string;
   make: () => Quiz;
 }
 
 export const BUILTIN_QUIZZES: BuiltinQuiz[] = [
-  { id: 'builtin_tieng_viet_1', title: 'Tiếng Việt 1', path: ['Tiếng Việt', 'Chủ đề 1: Em yêu trường em', 'Bài 1: Ôn tập từ và câu'], make: vietnameseDemoQuiz },
-  { id: 'builtin_tieng_anh_1', title: 'Tiếng Anh 1', path: ['Tiếng Anh', 'Unit 1: Hello', 'Lesson 1: Greetings'], make: englishDemoQuiz },
+  { id: 'builtin_tieng_viet_1', title: 'Tiếng Việt 1', path: ['Tiếng Việt', 'Chủ đề 1: Em yêu trường em', 'Bài 1: Ôn tập từ và câu'], grade: 'Lớp 1', make: vietnameseDemoQuiz },
+  { id: 'builtin_tieng_anh_1', title: 'Tiếng Anh 1', path: ['Tiếng Anh', 'Unit 1: Hello', 'Lesson 1: Greetings'], grade: 'Lớp 1', make: englishDemoQuiz },
 ];
 
 export const builtinQuiz = (id: string): Quiz | null => BUILTIN_QUIZZES.find((b) => b.id === id)?.make() ?? null;

@@ -91,8 +91,10 @@ export type QuizSummary = Pick<Quiz, 'id' | 'title' | 'subject' | 'subject_id' |
 // ---------- Danh mục: Môn học → Chương/Chủ đề → Bài ----------
 export interface CatalogLesson { id: string; name: string }
 export interface CatalogChapter { id: string; name: string; lessons: CatalogLesson[] }
-export interface CatalogSubject { id: string; name: string; chapters: CatalogChapter[] }
-export interface Catalog { subjects: CatalogSubject[]; updated_at?: string }
+/** `grade`: khối lớp chứa môn này (VD "Lớp 1"); môn cũ chưa xếp lớp thì bỏ trống */
+export interface CatalogSubject { id: string; name: string; chapters: CatalogChapter[]; grade?: string }
+/** `grades`: danh sách khối lớp theo thứ tự hiển thị (kể cả lớp chưa có môn); bỏ trống = Lớp 1 … Lớp 5 */
+export interface Catalog { subjects: CatalogSubject[]; grades?: string[]; updated_at?: string }
 
 // ---------- Phiên tổ chức ----------
 export type SessionMode = 'classic_live' | 'instructor_paced' | 'homework' | 'paper'; // paper = chế độ giấy (quét thẻ)
