@@ -2,7 +2,7 @@
 // sao chép – dán – triển khai, không phải chạy hàm setup() hay tìm khóa trong nhật ký.
 
 /** Phiên bản mã máy chủ đang đi kèm phần mềm (phải trùng APP_VERSION / ADMIN_VERSION trong hai tệp Code.gs). */
-export const SCRIPT_VERSION = '1.3.0';
+export const SCRIPT_VERSION = '1.4.0';
 /** Phiên bản mã máy chủ tài khoản (ADMIN_VERSION trong apps-script-admin/Code.gs). */
 export const ADMIN_SCRIPT_VERSION = '1.6.0';
 
@@ -62,7 +62,7 @@ export async function loadScriptCode(kind: InstallKind): Promise<string> {
 }
 
 /** Hỏi máy chủ Apps Script tên và phiên bản (không cần khóa). */
-export async function pingScript(url: string): Promise<{ name: string; version: string }> {
+export async function pingScript(url: string): Promise<{ name: string; version: string; self_update?: boolean }> {
   let res: Response;
   try {
     res = await fetch(url.trim(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'ping' }), redirect: 'follow' });
@@ -70,7 +70,7 @@ export async function pingScript(url: string): Promise<{ name: string; version: 
     throw new Error('Không mở được link này. Kiểm tra mạng Internet, và bản triển khai đã đặt "Người có quyền truy cập: Bất kỳ ai" chưa.');
   }
   try {
-    const j = JSON.parse(await res.text()) as { ok: boolean; data?: { name: string; version: string }; error?: string };
+    const j = JSON.parse(await res.text()) as { ok: boolean; data?: { name: string; version: string; self_update?: boolean }; error?: string };
     if (j.ok && j.data) return j.data;
     throw new Error(j.error || 'Máy chủ trả lời không đúng.');
   } catch (e) {

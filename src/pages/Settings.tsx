@@ -9,6 +9,7 @@ import type { Quiz } from '../lib/types';
 import { useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller, type InstallResult } from '../components/ScriptInstaller';
 import { SCRIPT_VERSION, compareVersion, pingScript } from '../lib/installer';
+import { ScriptUpdatePanel } from '../components/ScriptUpdate';
 import { ProgressLine, lastFullBackup, useFullBackup, useRestore } from '../components/BackupTools';
 import { checkDriveSpace, driveSpace, fmtGB, type DriveSpace } from '../lib/driveFull';
 import { formatBytes } from '../lib/util';
@@ -270,6 +271,7 @@ export default function Settings() {
             {outdated && <div className="alert warn" role="status"><div><b>Apps Script của thầy cô đang chạy mã cũ</b> (phiên bản {(server as { version: string }).version}, phần mềm cần {SCRIPT_VERSION}). Chọn thẻ <b>Cập nhật bản mới</b> trong Trình cài đặt bên dưới và làm 5 bước; link và dữ liệu giữ nguyên.</div></div>}
 
             <ScriptInstaller kind="teacher" current={{ scriptUrl: saved.scriptUrl, key: saved.teacherKey, folderUrl: saved.folderUrl }} onDone={installed} />
+            {connected && <ScriptUpdatePanel />}
 
             <details className="card tight" open={connected && !first}>
               <summary style={{ cursor: 'pointer', fontWeight: 700 }}><FolderOpen size={16} style={{ verticalAlign: '-2px' }} /> Thư mục và Apps Script đang dùng (sửa tay)</summary>

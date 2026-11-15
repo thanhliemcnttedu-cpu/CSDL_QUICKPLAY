@@ -27,6 +27,15 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 Apps Script ghi một tệp `.json` duy nhất vào thư mục lưu trữ, tên theo tên đăng nhập và thời điểm lưu, ví dụ `035091005725_15_11_2026_12h45.json`.
 Tệp gộp cũ của cùng tài khoản được chuyển vào Thùng rác. Nếu đã chọn thư mục trên máy tính (Cài đặt → Sao lưu và khôi phục), tệp này cũng được ghi vào đó.
 
+**Tự cập nhật (từ bản 1.4.0):** khi Quickplay phát hành bản mới, Apps Script tự tải mã mới từ trang Quickplay
+(`https://quickplay-delta.vercel.app/apps-script/`), kiểm tra mã băm SHA-256, ghi đè mã của chính nó, tạo phiên bản mới
+và chuyển link `/exec` đang dùng sang phiên bản đó. Link, khóa giáo viên và dữ liệu giữ nguyên; không cập nhật khi đang có buổi học trực tiếp.
+Cần làm **một lần**:
+1. Dán tệp cấu hình `appsscript.json` (nút **Sao chép tệp cấu hình** trong Trình cài đặt): **⚙ Cài đặt dự án** → tích *Hiển thị tệp kê khai "appsscript.json"* →
+   mở tệp đó trong Trình chỉnh sửa, xóa hết, dán, lưu → triển khai phiên bản mới, Google hỏi quyền thì **Cho phép** (thêm quyền "quản lý dự án Apps Script").
+2. Bật **Google Apps Script API** tại https://script.google.com/home/usersettings bằng Gmail đang chạy Apps Script.
+Bản mới nào cần thêm quyền Google mới thì không tự cập nhật được (Google bắt chủ dự án tự cấp quyền): phần mềm sẽ báo cập nhật tay.
+
 **Sao lưu toàn bộ và chuyển Drive (từ bản 1.3.0):** Apps Script đọc hàng loạt bộ câu hỏi, kết quả buổi học, ảnh và âm thanh để phần mềm đóng gói
 một tệp sao lưu toàn bộ (đọc được cả khi Drive đã đầy), báo dung lượng Drive để cảnh báo khi sắp đầy, nhận khôi phục hàng loạt lên Drive mới,
 và nén lại ảnh/âm thanh cũ để tiết kiệm dung lượng. Khi Drive đầy, mọi lỗi ghi được báo rõ "Google Drive đã đầy".

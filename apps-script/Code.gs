@@ -18,7 +18,10 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.3.0';
+var APP_VERSION = '1.4.0';
+// Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
+// Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
+var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
 
 // Trình cài đặt trong phần mềm Quickplay điền sẵn hai giá trị này khi thầy cô bấm "Sao chép mã",
 // nhờ đó không phải chạy hàm setup() hay tìm khóa trong nhật ký. Để trống nếu cài thủ công theo hướng dẫn.
@@ -69,7 +72,7 @@ function doGet(e) {
   try {
     var action = e && e.parameter ? String(e.parameter.action || '') : '';
     if (action === 'ping') {
-      return json_({ ok: true, data: { name: APP_NAME, version: APP_VERSION } });
+      return json_({ ok: true, data: { name: APP_NAME, version: APP_VERSION, self_update: true } });
     }
     return json_({
       ok: true,
@@ -120,7 +123,9 @@ function doPost(e) {
 /** Bảng định tuyến: action → hàm xử lý; teacher=true là hành động 🔒. */
 function getRoutes_() {
   return {
-    ping: { teacher: false, fn: function () { return { name: APP_NAME, version: APP_VERSION }; } },
+    ping: { teacher: false, fn: function () { return { name: APP_NAME, version: APP_VERSION, self_update: true }; } },
+    updateCheck: { teacher: true, fn: actUpdateCheck_ },
+    selfUpdate: { teacher: true, fn: actSelfUpdate_ },
     verifyTeacher: { teacher: true, fn: function () { return { ok: true }; } },
 
     listQuizzes: { teacher: true, fn: actListQuizzes_ },
@@ -2266,6 +2271,132 @@ function actSwapMedia_(req) {
     });
   }
   return r;
+}
+
+// ============================================================================
+// TỰ CẬP NHẬT: Apps Script tự thay mã của chính nó bằng bản mới do Quickplay phát hành
+// ============================================================================
+// Cách chạy: phần mềm thấy Apps Script cũ hơn bản cần → gửi selfUpdate (kèm khóa giáo viên) →
+//   1. tải latest.json, Code.gs, appsscript.json từ UPDATE_BASE (địa chỉ cố định của Quickplay);
+//   2. kiểm tra mã băm SHA-256, tên ứng dụng và số phiên bản;
+//   3. dùng Apps Script API (quyền của chính chủ dự án) ghi đè mã, tạo phiên bản mới,
+//      chuyển bản triển khai đang dùng sang phiên bản đó → link /exec giữ nguyên, dữ liệu và khóa giữ nguyên.
+// Điều kiện (làm một lần): tệp appsscript.json có quyền script.projects và script.deployments,
+// và chủ dự án đã bật "Google Apps Script API" tại https://script.google.com/home/usersettings
+// Bản mới cần thêm quyền Google mới thì KHÔNG tự cập nhật (Google bắt chủ dự án tự cấp quyền): phần mềm báo cập nhật tay.
+var SCRIPT_API = 'https://script.googleapis.com/v1/projects/';
+
+function updateBase_() {
+  var b = PropertiesService.getScriptProperties().getProperty('UPDATE_BASE') || UPDATE_BASE_DEFAULT;
+  return b.charAt(b.length - 1) === '/' ? b : b + '/';
+}
+
+function sha256Hex_(text) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+function versionCmp_(a, b) {
+  var x = String(a).split('.'), y = String(b).split('.');
+  for (var i = 0; i < Math.max(x.length, y.length); i++) {
+    var d = (Number(x[i]) || 0) - (Number(y[i]) || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+/** Gọi Apps Script API bằng quyền của chủ dự án. Lỗi được đổi thành thông báo có mã để phần mềm hướng dẫn. */
+function scriptApi_(method, path, body) {
+  var res = UrlFetchApp.fetch(SCRIPT_API + ScriptApp.getScriptId() + path, {
+    method: method, contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    payload: body ? JSON.stringify(body) : undefined
+  });
+  var code = res.getResponseCode();
+  var text = res.getContentText();
+  if (code >= 200 && code < 300) return text ? JSON.parse(text) : {};
+  if (/has not been used|is disabled|has not enabled|SERVICE_DISABLED|User has not enabled the Apps Script API/i.test(text)) {
+    throw userError_('API_OFF: Chưa bật Google Apps Script API. Mở https://script.google.com/home/usersettings bằng Gmail đang chạy Apps Script này và bật "Google Apps Script API", rồi bấm Kiểm tra lại.');
+  }
+  if (code === 403 || /insufficient.*scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT|PERMISSION_DENIED/i.test(text)) {
+    throw userError_('SCOPES: Apps Script chưa có quyền tự cập nhật. Hãy cập nhật tay một lần bằng Trình cài đặt (dán cả mã và tệp cấu hình appsscript.json), sau đó các bản mới sẽ tự cập nhật.');
+  }
+  throw userError_('Apps Script API báo lỗi ' + code + ': ' + text.slice(0, 200));
+}
+
+/** Kiểm tra đã đủ điều kiện tự cập nhật chưa (bật API, có quyền). */
+function actUpdateCheck_() {
+  var content = scriptApi_('get', '/content');
+  var dep = scriptApi_('get', '/deployments');
+  return { ready: true, files: (content.files || []).length, deployments: (dep.deployments || []).length, version: APP_VERSION };
+}
+
+/** Có buổi học trực tiếp đang diễn ra không (bài tập về nhà không tính: cập nhật không ảnh hưởng). */
+function hasLiveSession_() {
+  var now = Date.now();
+  return readSessionIndex_().some(function (e) {
+    return e && e.state !== 'COMPLETED' && e.mode !== 'homework' && now - (e.created_at || 0) < STALE_LIVE_SESSION_MS;
+  });
+}
+
+function actSelfUpdate_(req) {
+  if (!req.force && hasLiveSession_()) {
+    throw userError_('BUSY: Đang có buổi học trực tiếp, để buổi học xong rồi Apps Script mới tự cập nhật.');
+  }
+  var base = updateBase_();
+  var get = function (name) {
+    var r = UrlFetchApp.fetch(base + name + '?t=' + Date.now(), { muteHttpExceptions: true, followRedirects: true });
+    if (r.getResponseCode() !== 200) throw userError_('Không tải được ' + name + ' từ ' + base + ' (mã ' + r.getResponseCode() + ').');
+    return r.getContentText('UTF-8');
+  };
+  var latest = JSON.parse(get('latest.json'));
+  if (!latest || !latest.version) throw userError_('Tệp phát hành latest.json không hợp lệ.');
+  if (versionCmp_(latest.version, APP_VERSION) <= 0) return { updated: false, from: APP_VERSION, to: APP_VERSION };
+  var code = get('Code.gs');
+  var manifest = get('appsscript.json');
+  if (sha256Hex_(code) !== latest.code_sha256 || sha256Hex_(manifest) !== latest.manifest_sha256) {
+    throw userError_('Mã tải về không khớp mã băm phát hành, đã dừng cập nhật để an toàn. Thử lại sau ít phút.');
+  }
+  var m = code.match(/var APP_NAME = '([^']+)';[\s\S]*?var APP_VERSION = '([\d.]+)';/);
+  if (!m || m[1] !== APP_NAME || m[2] !== latest.version) throw userError_('Mã tải về không phải mã Apps Script giáo viên của Quickplay.');
+
+  // quyền Google của bản mới phải nằm trong quyền đã cấp; thêm quyền mới thì chủ dự án phải tự cấp → cập nhật tay
+  var current = scriptApi_('get', '/content');
+  var curManifest = null;
+  (current.files || []).forEach(function (f) { if (f.name === 'appsscript') curManifest = JSON.parse(f.source); });
+  var have = (curManifest && curManifest.oauthScopes) || [];
+  var want = JSON.parse(manifest).oauthScopes || [];
+  var missing = want.filter(function (s) { return have.indexOf(s) < 0; });
+  if (missing.length) {
+    throw userError_('MANUAL: Bản ' + latest.version + ' cần thêm quyền Google (' + missing.join(', ') + '). Hãy cập nhật tay một lần bằng Trình cài đặt → Cập nhật bản mới.');
+  }
+
+  // giữ lại khóa giáo viên và thư mục đang dùng (mã mới không điền sẵn)
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('TEACHER_KEY') && PRESET_TEACHER_KEY) props.setProperty('TEACHER_KEY', PRESET_TEACHER_KEY);
+  if (!props.getProperty('ROOT_FOLDER_ID')) props.setProperty('ROOT_FOLDER_ID', folder_('root').getId());
+
+  // bản triển khai cần chuyển: đúng link /exec phần mềm đang dùng (hoặc mọi bản triển khai ứng dụng web nếu không rõ)
+  var deps = (scriptApi_('get', '/deployments').deployments || []).filter(function (d) {
+    return (d.entryPoints || []).some(function (p) { return p.entryPointType === 'WEB_APP'; });
+  });
+  var execId = (String(req.exec_url || '').match(/\/macros\/s\/([\w-]+)\/exec/) || [])[1];
+  var targets = execId ? deps.filter(function (d) { return d.deploymentId === execId; }) : deps;
+  if (!targets.length) throw userError_('Không tìm thấy bản triển khai ứng dụng web của link đang dùng.');
+
+  scriptApi_('put', '/content', { files: [
+    { name: 'appsscript', type: 'JSON', source: manifest },
+    { name: 'Code', type: 'SERVER_JS', source: code }
+  ] });
+  var ver = scriptApi_('post', '/versions', { description: 'Quickplay ' + latest.version + ' (tự cập nhật)' });
+  targets.forEach(function (d) {
+    scriptApi_('put', '/deployments/' + d.deploymentId, { deploymentConfig: {
+      scriptId: ScriptApp.getScriptId(), versionNumber: ver.versionNumber, manifestFileName: 'appsscript',
+      description: 'Quickplay ' + latest.version
+    } });
+  });
+  props.setProperty('LAST_SELF_UPDATE', JSON.stringify({ from: APP_VERSION, to: latest.version, at: new Date().toISOString() }));
+  return { updated: true, from: APP_VERSION, to: latest.version, version_number: ver.versionNumber, deployments: targets.length };
 }
 
 // ============================================================================

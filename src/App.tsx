@@ -4,6 +4,7 @@ import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLi
 import { LightboxProvider, Spinner, ToastProvider, askConfirm } from './components/ui';
 import { loadSettings } from './lib/settings';
 import { DriveFullBanner } from './components/BackupTools';
+import { ScriptUpdateNotice } from './components/ScriptUpdate';
 import { accountRequired, checkSession, currentAccount, logout } from './lib/account';
 import { Wordmark } from './components/Logo';
 import './devices.css';
@@ -103,7 +104,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
         </nav>
         <AccountChip />
       </header>
-      <main className="page"><DriveFullBanner />{children}</main>
+      <main className="page"><ScriptUpdateNotice /><DriveFullBanner />{children}</main>
       <AppFooter />
     </>
   );

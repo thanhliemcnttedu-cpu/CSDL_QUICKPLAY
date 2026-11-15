@@ -1,10 +1,52 @@
 // Máy chủ Apps Script giáo viên giả lập (Google Drive ảo trong bộ nhớ) để thử giao diện sao lưu/khôi phục.
 // node apps-script/mock-server.cjs  (cổng 5182)   — khóa giáo viên: dev-teacher-key
 // GET /full=1 → Drive đầy (mọi lần ghi báo lỗi quota) ; /full=0 → bình thường ; /reset → Drive mới trống
+// Tự cập nhật: OLD_VERSION=1.3.9 → chạy mã với số phiên bản cũ hơn bản trong kho để thử selfUpdate;
+//   GET /api=0 → giả lập chưa bật Google Apps Script API ; /api=1 → đã bật ; /scopes=0 → dự án chưa có tệp cấu hình quyền
 const fs = require('fs');
 const http = require('http');
-const code = fs.readFileSync(process.argv[2] || require('path').join(__dirname, 'Code.gs'), 'utf8');
-const PORT = Number(process.argv[3] || 5182);
+const path = require('path');
+const crypto = require('crypto');
+const ARGS = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const OLD = process.env.OLD_VERSION || (process.argv.find((a) => a.startsWith('--old=')) || '').slice(6);
+const REPO_CODE = fs.readFileSync(ARGS[0] || path.join(__dirname, 'Code.gs'), 'utf8');
+const REPO_MANIFEST = fs.readFileSync(path.join(__dirname, 'appsscript.json'), 'utf8');
+let code = OLD ? REPO_CODE.replace(/var APP_VERSION = '[\d.]+';/, `var APP_VERSION = '${OLD}';`) : REPO_CODE;
+// Apps Script API giả lập
+let apiOn = true, scopesOn = true, pendingFiles = null, versionNo = 0;
+const manifestNow = () => (scopesOn ? REPO_MANIFEST : JSON.stringify({ ...JSON.parse(REPO_MANIFEST), oauthScopes: JSON.parse(REPO_MANIFEST).oauthScopes.filter((x) => !/script\.(projects|deployments)/.test(x)) }));
+const sha = (t) => crypto.createHash('sha256').update(t, 'utf8').digest('hex');
+const reply = (code_, obj) => ({ getResponseCode: () => code_, getContentText: () => (typeof obj === 'string' ? obj : JSON.stringify(obj)) });
+function fakeFetch(url, opts = {}) {
+  const u = String(url);
+  if (u.startsWith('http://mock-update/')) {
+    const name = u.slice('http://mock-update/'.length).split('?')[0];
+    if (name === 'Code.gs') return reply(200, REPO_CODE);
+    if (name === 'appsscript.json') return reply(200, REPO_MANIFEST);
+    if (name === 'latest.json') return reply(200, { version: REPO_CODE.match(/var APP_VERSION = '([\d.]+)';/)[1], code_sha256: sha(REPO_CODE), manifest_sha256: sha(REPO_MANIFEST) });
+    return reply(404, 'not found');
+  }
+  if (u.startsWith('https://script.googleapis.com/v1/projects/')) {
+    if (!apiOn) return reply(403, { error: { code: 403, message: 'User has not enabled the Apps Script API. Enable it by visiting https://script.google.com/home/usersettings', status: 'PERMISSION_DENIED' } });
+    if (!scopesOn) return reply(403, { error: { code: 403, message: 'Request had insufficient authentication scopes.', status: 'PERMISSION_DENIED', details: [{ reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' }] } });
+    const rest = u.replace(/^https:\/\/script\.googleapis\.com\/v1\/projects\/[^/]+/, '');
+    const m = String(opts.method || 'get').toLowerCase();
+    const body = opts.payload ? JSON.parse(opts.payload) : null;
+    if (rest === '/content' && m === 'get') return reply(200, { files: [{ name: 'appsscript', type: 'JSON', source: manifestNow() }, { name: 'Code', type: 'SERVER_JS', source: code }] });
+    if (rest === '/content' && m === 'put') { pendingFiles = body.files; return reply(200, body); }
+    if (rest === '/versions' && m === 'post') return reply(200, { versionNumber: ++versionNo });
+    if (rest === '/deployments' && m === 'get') return reply(200, { deployments: [{ deploymentId: 'HEAD-x', entryPoints: [] }, { deploymentId: 'AKfyMOCK', entryPoints: [{ entryPointType: 'WEB_APP', webApp: { url: 'http://localhost:' + PORT } }] }] });
+    if (rest.startsWith('/deployments/') && m === 'put') {
+      // bản triển khai chuyển sang phiên bản mới: từ yêu cầu sau, máy chủ chạy mã mới
+      const next = pendingFiles.find((f) => f.name === 'Code').source;
+      setTimeout(() => { code = next; api = build(); console.log('*** Đã chuyển sang mã mới', code.match(/var APP_VERSION = '([\d.]+)';/)[1]); }, 0);
+      return reply(200, { deploymentId: rest.split('/')[2], deploymentConfig: body.deploymentConfig });
+    }
+    return reply(400, 'unsupported ' + m + ' ' + rest);
+  }
+  throw new Error('Không có mạng trong máy chủ giả lập: ' + u);
+}
+const PORT = Number(process.argv.slice(2).filter((a) => !a.startsWith('--'))[1] || 5182);
 let idn = 0, files, byId, root, props, full = false;
 const iter = (arr) => { let i = 0; return { hasNext: () => i < arr.length, next: () => arr[i++] }; };
 function guard() { if (full) throw new Error("Exception: The user's Drive storage quota has been exceeded."); }
@@ -28,7 +70,7 @@ function mkFolder(name) {
 function reset() {
   files = {}; byId = {};
   root = mkFolder('QUICKPLAY_DATA'); byId[root.id] = root;
-  props = new Map([['ROOT_FOLDER_ID', root.id], ['TEACHER_KEY', 'dev-teacher-key']]);
+  props = new Map([['ROOT_FOLDER_ID', root.id], ['TEACHER_KEY', 'dev-teacher-key'], ['UPDATE_BASE', 'http://mock-update/']]);
 }
 reset();
 const cache = new Map();
@@ -41,13 +83,14 @@ const stubs = {
     Access: { ANYONE_WITH_LINK: 1 }, Permission: { VIEW: 1 } },
   LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }) },
   CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v), remove: (k) => cache.delete(k), getAll: (ks) => Object.fromEntries(ks.filter((k) => cache.has(k)).map((k) => [k, cache.get(k)])), putAll: (o) => Object.entries(o).forEach(([k, v]) => cache.set(k, v)), removeAll: (ks) => ks.forEach((k) => cache.delete(k)) }) },
-  Utilities: { formatDate: () => '15_11_2026_12h50', base64Encode: (b) => Buffer.from(b).toString('base64'), base64Decode: (s) => Buffer.from(s, 'base64'), newBlob: (data, mime, name) => ({ name, data: Buffer.from(data), mime }), getUuid: () => require('crypto').randomUUID(), computeDigest: () => [], DigestAlgorithm: {}, sleep() {} },
+  Utilities: { formatDate: () => '15_11_2026_12h50', base64Encode: (b) => Buffer.from(b).toString('base64'), base64Decode: (s) => Buffer.from(s, 'base64'), newBlob: (data, mime, name) => ({ name, data: Buffer.from(data), mime }), getUuid: () => require('crypto').randomUUID(), computeDigest: (alg, text) => Array.from(crypto.createHash('sha256').update(String(text), 'utf8').digest()).map((b) => (b > 127 ? b - 256 : b)), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' }, sleep() {} },
   ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ t, setMimeType() { return this; } }) },
   Logger: { log() {} }, Session: { getScriptTimeZone: () => 'Asia/Ho_Chi_Minh' }, console: { log() {}, warn() {} },
-  ScriptApp: { getProjectTriggers: () => [] }, UrlFetchApp: {}, MailApp: {},
+  ScriptApp: { getProjectTriggers: () => [], getScriptId: () => 'mock-script', getOAuthToken: () => 'mock-token' }, UrlFetchApp: { fetch: fakeFetch }, MailApp: {},
 };
 const names = Object.keys(stubs);
-const api = new Function(...names, code + '\nreturn { doPost };')(...names.map((n) => stubs[n]));
+const build = () => new Function(...names, code + '\nreturn { doPost };')(...names.map((n) => stubs[n]));
+let api = build();
 
 http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -57,8 +100,12 @@ http.createServer((req, res) => {
     if (req.url.includes('full=1')) full = true;
     if (req.url.includes('full=0')) full = false;
     if (req.url.includes('reset')) { full = false; reset(); }
+    if (req.url.includes('api=0')) apiOn = false;
+    if (req.url.includes('api=1')) apiOn = true;
+    if (req.url.includes('scopes=0')) scopesOn = false;
+    if (req.url.includes('scopes=1')) scopesOn = true;
     res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify({ full, files: Object.values(files).filter((f) => !f.trashed).map((f) => [f.name, f.content.length]), trashed: Object.values(files).filter((f) => f.trashed).length }));
+    return res.end(JSON.stringify({ version: code.match(/var APP_VERSION = '([\d.]+)';/)[1], apiOn, scopesOn, full, files: Object.values(files).filter((f) => !f.trashed).map((f) => [f.name, f.content.length]), trashed: Object.values(files).filter((f) => f.trashed).length }));
   }
   let body = '';
   req.on('data', (c) => (body += c));

@@ -12,6 +12,12 @@ Từ lần sau, đăng nhập ở máy nào phần mềm cũng tự kết nối 
 Chưa cài Apps Script vẫn dùng thử được ở chế độ **"Chỉ máy này"** (dữ liệu nằm trong trình duyệt của máy đang dùng,
 học sinh chỉ vào được từ cùng máy).
 
+## Tự cập nhật Apps Script
+
+Từ bản 1.4.0, Apps Script của thầy cô **tự cập nhật** khi Quickplay có bản mới (giữ nguyên link, khóa và dữ liệu; không cập nhật giữa buổi học).
+Chỉ cần làm một lần: dán tệp cấu hình `appsscript.json` và bật **Google Apps Script API** (hướng dẫn và nút bấm ở **Cài đặt → Tự cập nhật Apps Script**).
+Bấm **Kiểm tra điều kiện** để chắc đã sẵn sàng.
+
 ## Sao lưu, khôi phục và chuyển sang Google Drive mới
 
 **Cài đặt → Sao lưu và khôi phục → Tải file sao lưu toàn bộ** tạo MỘT tệp `quickplay-saoluu_<tên đăng nhập>_<ngày>_<tháng>_<năm>_<giờ>h<phút>.json` gồm:
