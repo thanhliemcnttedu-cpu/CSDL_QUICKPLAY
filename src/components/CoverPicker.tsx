@@ -1,8 +1,8 @@
 // Ảnh bìa của bộ câu hỏi: dán, tải lên, hoặc dùng lại ảnh bìa giáo viên đã tải lên trước đây (không tải trùng).
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ClipboardPaste, ImagePlus, Images, Link2, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
-import { IMAGE_ACCEPT, imageFromPaste, pickFile, readClipboardImage, useImageUpload } from './MediaTools';
+import { clipboardImage, imageFromPaste, pickFile, useImageUpload } from './MediaTools';
 import { Modal, Spinner, useToast } from './ui';
 import '../cover.css';
 
@@ -31,10 +31,32 @@ export function CoverPicker({ value, title, onChange }: { value?: string; title:
       toast('Đã đặt ảnh bìa.', 'ok');
     }
   };
+  // Bấm "Dán ảnh" mà trình duyệt không cho đọc bộ nhớ tạm: chờ người dùng nhấn Ctrl+V (cách này trình duyệt luôn cho phép)
+  const frame = useRef<HTMLDivElement>(null);
+  const [armed, setArmed] = useState(false);
+  const putRef = useRef(put);
+  putRef.current = put;
+  useEffect(() => {
+    if (!armed) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const f = imageFromPaste(e);
+      if (!f) return toast('Thứ vừa dán không phải ảnh. Hãy chép một ảnh (chuột phải vào ảnh → Sao chép hình ảnh, hoặc chụp màn hình) rồi nhấn Ctrl + V lại.', 'error');
+      e.preventDefault();
+      setArmed(false);
+      putRef.current(f);
+    };
+    window.addEventListener('paste', onPaste);
+    const t = window.setTimeout(() => setArmed(false), 60000);
+    return () => { window.removeEventListener('paste', onPaste); clearTimeout(t); };
+  }, [armed]); // eslint-disable-line react-hooks/exhaustive-deps
   const paste = async () => {
-    const img = await readClipboardImage();
-    if (!img) return toast('Không thấy ảnh trong bộ nhớ tạm. Hãy chép một ảnh (hoặc chụp màn hình) rồi bấm lại, hoặc bấm vào khung ảnh bìa và nhấn Ctrl+V.', 'error');
-    put(img);
+    const r = await clipboardImage();
+    if (r.blob) return put(r.blob);
+    setArmed(true);
+    frame.current?.focus();
+    toast(r.reason === 'empty'
+      ? 'Bộ nhớ tạm chưa có ảnh. Hãy chép một ảnh (chuột phải vào ảnh → Sao chép hình ảnh, hoặc chụp màn hình), rồi nhấn Ctrl + V.'
+      : 'Trình duyệt chưa cho phần mềm tự đọc bộ nhớ tạm. Hãy nhấn Ctrl + V ngay bây giờ để dán ảnh.', 'info');
   };
   // Ảnh bìa đã dùng ở các bộ câu hỏi khác của giáo viên: gom theo đường dẫn để mỗi ảnh chỉ hiện một lần
   const openGallery = async () => {
@@ -53,16 +75,17 @@ export function CoverPicker({ value, title, onChange }: { value?: string; title:
   return (
     <div className="cover-pick">
       <div
-        className="cover-frame" tabIndex={0} role="group" aria-label="Ảnh bìa bộ câu hỏi. Bấm vào đây rồi nhấn Ctrl+V để dán ảnh"
-        onPaste={(e) => { const f = imageFromPaste(e); if (f) { e.preventDefault(); put(f); } }}
+        ref={frame} className={`cover-frame ${armed ? 'armed' : ''}`} tabIndex={0} role="group" aria-label="Ảnh bìa bộ câu hỏi. Bấm vào đây rồi nhấn Ctrl+V để dán ảnh"
+        onPaste={(e) => { if (armed) return; const f = imageFromPaste(e); if (f) { e.preventDefault(); put(f); } }}
       >
         {busy ? <Spinner label="Đang tải ảnh…" /> : value ? <img src={value} alt={`Ảnh bìa của ${title}`} /> : <span>{title.trim().charAt(0).toUpperCase() || 'Q'}</span>}
+        {armed && !busy && <b className="cover-armed" role="status">Nhấn Ctrl + V để dán ảnh</b>}
       </div>
       <div className="stack" style={{ gap: 8 }}>
         <b>Ảnh bìa bộ câu hỏi</b>
         <div className="row" style={{ gap: 6 }}>
           <button type="button" className="btn sm" onClick={paste} disabled={busy}><ClipboardPaste size={16} /> Dán ảnh</button>
-          <button type="button" className="btn sm" onClick={async () => put(await pickFile(IMAGE_ACCEPT))} disabled={busy}><ImagePlus size={16} /> Tải ảnh lên</button>
+          <button type="button" className="btn sm" onClick={async () => put(await pickFile('image/*'))} disabled={busy}><ImagePlus size={16} /> Tải ảnh lên</button>
           <button type="button" className="btn sm" onClick={() => setLinking((v) => !v)} disabled={busy} aria-expanded={linking}><Link2 size={16} /> Dán link ảnh</button>
           <button type="button" className="btn sm" onClick={openGallery} disabled={busy}><Images size={16} /> Dùng ảnh đã có</button>
           {value && <button type="button" className="btn sm danger" onClick={() => onChange(undefined)}><Trash2 size={16} /> Bỏ ảnh bìa</button>}

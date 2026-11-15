@@ -14,10 +14,34 @@ const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const AUDIO_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/ogg', 'audio/webm'];
 const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
 
+/** Tệp có phải ảnh không: theo kiểu tệp, hoặc theo đuôi tên khi trình duyệt không cho biết kiểu (ảnh chép từ thư mục, từ Zalo…). */
+export function looksLikeImage(f: File | Blob): boolean {
+  const name = (f as File).name ?? '';
+  return f.type.startsWith('image/') || (!f.type && /\.(png|jpe?g|jfif|webp|gif|bmp|avif|heic|heif)$/i.test(name));
+}
+
 export function checkImage(f: File | Blob): string | null {
-  if (!IMAGE_TYPES.includes(f.type)) return 'Chỉ hỗ trợ ảnh PNG, JPG, WEBP hoặc GIF.';
+  if (!looksLikeImage(f)) return 'Tệp này không phải ảnh. Hãy chọn ảnh PNG, JPG, WEBP hoặc GIF.';
   if (f.size > LIMITS.image) return `Ảnh ${formatBytes(f.size)} vượt quá giới hạn 10 MB.`;
   return null;
+}
+
+/**
+ * Đưa ảnh về kiểu máy chủ nhận được (PNG, JPG, WEBP, GIF). Ảnh kiểu khác (BMP, AVIF, JFIF, ảnh không ghi kiểu…)
+ * được trình duyệt vẽ lại thành WebP. Ảnh trình duyệt không mở được (ví dụ HEIC trên Windows) thì báo lỗi rõ.
+ */
+export async function toWebImage(f: Blob): Promise<Blob> {
+  if (IMAGE_TYPES.includes(f.type)) return f;
+  try {
+    const bmp = await createImageBitmap(f);
+    const c = document.createElement('canvas');
+    c.width = bmp.width;
+    c.height = bmp.height;
+    c.getContext('2d')!.drawImage(bmp, 0, 0);
+    const out = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/webp', 0.9));
+    if (out) return out;
+  } catch { /* báo lỗi bên dưới */ }
+  throw new Error('Trình duyệt không đọc được ảnh này (kiểu ảnh lạ như HEIC). Hãy mở ảnh, chụp lại màn hình hoặc lưu thành JPG / PNG rồi thử lại.');
 }
 
 export function checkAudio(f: File | Blob): string | null {
@@ -113,6 +137,24 @@ const SEEN_MAX = 300;
 function seenUrl(hash: string): string | null {
   try { return (JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') as Record<string, string>)[hash] ?? null; } catch { return null; }
 }
+function forgetUrl(hash: string) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') as Record<string, string>;
+    delete all[hash];
+    localStorage.setItem(SEEN_KEY, JSON.stringify(all));
+  } catch { /* bỏ qua */ }
+}
+/** Ảnh ở đường dẫn này còn mở được không (tệp trên Drive có thể đã bị xóa, hoặc đã đổi sang Drive khác). */
+function imageLoads(url: string, timeoutMs = 6000): Promise<boolean> {
+  if (typeof Image === 'undefined') return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const img = new Image();
+    const t = window.setTimeout(() => resolve(false), timeoutMs);
+    img.onload = () => { clearTimeout(t); resolve(true); };
+    img.onerror = () => { clearTimeout(t); resolve(false); };
+    img.src = url;
+  });
+}
 function rememberUrl(hash: string, url: string) {
   if (url.startsWith('data:')) return; // lưu trên máy: ảnh nằm ngay trong tệp JSON, không có gì để dùng lại
   try {
@@ -135,9 +177,13 @@ export async function uploadFile(f: Blob, name: string, onProgress?: (pct: numbe
   // Ảnh: tính mã băm để không tải trùng (máy này đã tải → dùng lại ngay; máy chủ đã có → máy chủ trả lại tệp cũ)
   const hash = f.type.startsWith('image/') ? await hashBlob(f) : null;
   const known = hash ? seenUrl(hash) : null;
-  if (known) {
-    onProgress?.(100);
-    return known;
+  if (known && hash) {
+    // Chỉ dùng lại đường dẫn cũ khi ảnh đó còn mở được; tệp đã bị xóa trên Drive thì tải lên lại
+    if (await imageLoads(known)) {
+      onProgress?.(100);
+      return known;
+    }
+    forgetUrl(hash);
   }
   const dataUrl = await fileToDataUrl(f);
   onProgress?.(40);

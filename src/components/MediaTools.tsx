@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { VideoMedia } from '../lib/types';
-import { checkAudio, checkEmbeddable, checkImage, compressImage, embedUrl, parseVideoUrl, uploadFile } from '../lib/media';
+import { checkAudio, checkEmbeddable, checkImage, compressImage, embedUrl, parseVideoUrl, toWebImage, uploadFile } from '../lib/media';
 import { Modal, useToast } from './ui';
 
 /** Tải ảnh (kiểm tra định dạng & 10 MB, nén nhẹ) – dùng chung cho câu hỏi, đáp án và lời giải. */
@@ -15,7 +15,7 @@ export function useImageUpload() {
     }
     setBusy(true);
     try {
-      const small = await compressImage(f, maxSide);
+      const small = await compressImage(await toWebImage(f), maxSide);
       const ext = small.type.split('/')[1] || 'png';
       return await uploadFile(small, `${name}-${Date.now()}.${ext}`);
     } catch (e) {
@@ -33,32 +33,58 @@ export function pickFile(accept: string): Promise<File | null> {
     const i = document.createElement('input');
     i.type = 'file';
     i.accept = accept;
-    i.onchange = () => resolve(i.files?.[0] ?? null);
+    // Gắn ô chọn tệp vào trang (ẩn): ô không nằm trong trang có thể bị trình duyệt dọn mất trước khi người dùng chọn xong,
+    // khi đó chọn tệp xong không có gì xảy ra.
+    i.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
+    i.tabIndex = -1;
+    i.setAttribute('aria-hidden', 'true');
+    let done = false;
+    const finish = (f: File | null) => {
+      if (done) return;
+      done = true;
+      i.remove();
+      resolve(f);
+    };
+    i.addEventListener('change', () => finish(i.files?.[0] ?? null));
+    i.addEventListener('cancel', () => finish(null));
+    document.body.appendChild(i);
     i.click();
   });
 }
 
 export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 
-/** Đọc ảnh đang có trong bộ nhớ tạm (nút "Dán ảnh"). Trả về null nếu không có ảnh / trình duyệt chặn. */
-export async function readClipboardImage(): Promise<Blob | null> {
-  if (!navigator.clipboard?.read) return null;
+/**
+ * Đọc ảnh đang có trong bộ nhớ tạm (nút "Dán ảnh"), kèm lý do khi không lấy được:
+ * 'empty' = bộ nhớ tạm không có ảnh; 'denied' = trình duyệt không cho trang đọc bộ nhớ tạm (chưa cấp quyền, hoặc trình duyệt không hỗ trợ).
+ * Khi bị chặn, cách chắc chắn là để người dùng nhấn Ctrl+V (sự kiện dán luôn được phép).
+ */
+export async function clipboardImage(): Promise<{ blob: Blob | null; reason: 'ok' | 'empty' | 'denied' }> {
+  if (!navigator.clipboard?.read) return { blob: null, reason: 'denied' };
   try {
     for (const item of await navigator.clipboard.read()) {
       const type = item.types.find((t) => t.startsWith('image/'));
-      if (type) return await item.getType(type);
+      if (type) return { blob: await item.getType(type), reason: 'ok' };
     }
-  } catch {
-    return null;
+    return { blob: null, reason: 'empty' };
+  } catch (e) {
+    // NotAllowedError: chưa cấp quyền / trang không được nhìn thấy; DataError: bộ nhớ tạm không có gì đọc được
+    return { blob: null, reason: (e as Error)?.name === 'DataError' ? 'empty' : 'denied' };
   }
-  return null;
 }
 
-/** Lấy ảnh từ sự kiện dán (Ctrl+V). */
+/** Đọc ảnh đang có trong bộ nhớ tạm. Trả về null nếu không có ảnh / trình duyệt chặn. */
+export async function readClipboardImage(): Promise<Blob | null> {
+  return (await clipboardImage()).blob;
+}
+
+/** Lấy ảnh từ sự kiện dán (Ctrl+V): ảnh chụp màn hình, ảnh chép từ trang web, hoặc tệp ảnh chép từ thư mục. */
 export function imageFromPaste(e: ClipboardEvent | React.ClipboardEvent): File | null {
   const items = Array.from(e.clipboardData?.items ?? []);
   const it = items.find((i) => i.kind === 'file' && i.type.startsWith('image/'));
-  return it?.getAsFile() ?? null;
+  const fromItem = it?.getAsFile() ?? null;
+  if (fromItem) return fromItem;
+  return Array.from(e.clipboardData?.files ?? []).find((f) => f.type.startsWith('image/') || /\.(png|jpe?g|jfif|webp|gif|bmp)$/i.test(f.name)) ?? null;
 }
 
 /** Ghi âm qua micro, tự dừng khi đủ `maxSeconds`. */

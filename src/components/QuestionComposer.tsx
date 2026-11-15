@@ -11,7 +11,7 @@ import { gradeRatio, validateQuestion, type Answer } from '../lib/grading';
 import { uploadFile, embedUrl } from '../lib/media';
 import { useSpeech } from '../lib/speech';
 import { OPTION_LABELS, formatBytes, hashString } from '../lib/util';
-import { checkAudio, IMAGE_ACCEPT, imageFromPaste, pickFile, readClipboardImage, useImageUpload, useRecorder, VideoUrlDialog } from './MediaTools';
+import { checkAudio, clipboardImage, imageFromPaste, pickFile, useImageUpload, useRecorder, VideoUrlDialog } from './MediaTools';
 import { useToast } from './ui';
 import { PlayQuestion } from './PlayQuestion';
 
@@ -71,11 +71,14 @@ export function QuestionComposer({ initial, defaultType = 'single_choice', lesso
     if (url) putImage(target, url);
   };
   const pasteFromClipboard = async (target: string) => {
-    const blob = await readClipboardImage();
-    if (blob) uploadTo(target, blob);
-    else toast('Bộ nhớ tạm chưa có ảnh (hoặc trình duyệt chặn). Hãy chụp màn hình rồi bấm vào ô và nhấn Ctrl+V.', 'error');
+    const r = await clipboardImage();
+    if (r.blob) return uploadTo(target, r.blob);
+    focusTarget.current = target; // Ctrl+V kế tiếp trong hộp soạn câu hỏi sẽ đưa ảnh vào đúng ô này
+    toast(r.reason === 'empty'
+      ? 'Bộ nhớ tạm chưa có ảnh. Hãy chép một ảnh (chuột phải vào ảnh → Sao chép hình ảnh, hoặc chụp màn hình), rồi nhấn Ctrl + V.'
+      : 'Trình duyệt chưa cho phần mềm tự đọc bộ nhớ tạm. Hãy nhấn Ctrl + V ngay bây giờ để dán ảnh.', 'info');
   };
-  const chooseFile = async (target: string) => uploadTo(target, await pickFile(IMAGE_ACCEPT));
+  const chooseFile = async (target: string) => uploadTo(target, await pickFile('image/*'));
   const linkImage = (target: string) => {
     const url = window.prompt('Dán đường link ảnh (https://…):', 'https://');
     if (url && /^https?:\/\/\S+$/.test(url)) putImage(target, url);
