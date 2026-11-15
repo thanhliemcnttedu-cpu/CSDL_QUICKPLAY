@@ -318,8 +318,11 @@ export default function Library() {
         </div>
       </div>
 
-      {dlg?.kind === 'import' && <ImportDialog mode="file" onClose={() => setDlg(null)} onDone={(id) => nav(`/teacher/edit/${id}`)} />}
-      {dlg?.kind === 'ai' && <ImportDialog mode="ai" onClose={() => setDlg(null)} onDone={(id) => nav(`/teacher/edit/${id}`)} />}
+      {(dlg?.kind === 'import' || dlg?.kind === 'ai') && (() => {
+        // Bộ đề mới nằm luôn trong mục đang chọn ở cây thư mục (Môn › Chủ đề › Bài)
+        const here = current === ALL || current === NONE ? null : placementOf(catalog, current);
+        return <ImportDialog mode={dlg.kind === 'ai' ? 'ai' : 'file'} place={here ?? undefined} defaults={{ subject: here?.subject }} onClose={() => setDlg(null)} onDone={(id) => nav(`/teacher/edit/${id}`)} />;
+      })()}
       {dlg?.kind === 'host' && <HostSetupDialog quiz={dlg.quiz} onClose={() => setDlg(null)} />}
       {dlg?.kind === 'move' && (
         <Modal

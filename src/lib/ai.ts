@@ -96,17 +96,56 @@ export async function runAi(prompt: string, system: string): Promise<string> {
 
 /** Lấy mảng JSON ra khỏi phản hồi (kể cả khi AI bọc trong ```json). */
 export function extractJsonArray(text: string): unknown[] {
+  const bad = () => new Error('AI không trả về danh sách câu hỏi hợp lệ. Hãy bấm Chạy AI lại (hoặc giảm số câu).');
   const cleaned = text.replace(/```(?:json)?/gi, '').trim();
+  const asList = (v: unknown): unknown[] | null => {
+    if (Array.isArray(v)) return v;
+    // AI bọc mảng trong một đối tượng: {"questions": [...]}
+    if (v && typeof v === 'object') for (const x of Object.values(v as object)) if (Array.isArray(x)) return x;
+    return null;
+  };
+  try {
+    const whole = asList(JSON.parse(cleaned));
+    if (whole) return whole;
+  } catch { /* thử cách khác bên dưới */ }
   const start = cleaned.indexOf('[');
+  if (start < 0) throw bad();
   const end = cleaned.lastIndexOf(']');
-  if (start < 0 || end <= start) throw new Error('AI không trả về danh sách câu hỏi hợp lệ. Hãy thử lại.');
-  return JSON.parse(cleaned.slice(start, end + 1));
+  if (end > start) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch { /* có thể bị cắt giữa chừng */ }
+  }
+  // Phản hồi bị cắt giữa chừng (hết giới hạn độ dài): giữ lại các câu đã trọn vẹn
+  let depth = 0, inStr = false, esc = false, lastGood = -1;
+  for (let i = start + 1; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') {
+      depth--;
+      if (depth === 0 && ch === '}') lastGood = i;
+    }
+  }
+  if (lastGood < 0) throw bad();
+  try {
+    return JSON.parse(cleaned.slice(start, lastGood + 1) + ']');
+  } catch {
+    throw bad();
+  }
 }
 
 type AiItem = {
   type?: string;
   question?: string;
-  options?: { text: string; correct?: boolean }[];
+  options?: ({ text: string; correct?: boolean } | string)[];
+  correct?: string | string[] | number;
   blanks?: { id?: string; accepted?: string[] }[];
   cards?: { text: string; zone?: string | null }[];
   distractors?: string[];
@@ -138,8 +177,14 @@ export function aiItemsToQuestions(items: unknown[], meta: { subject?: string; l
       case 'single_choice':
       case 'multiple_select':
       case 'true_false': {
-        const o = (raw.options ?? []).slice(0, 6);
-        if (o.length >= 2) q.options = o.map((x) => opt(plainToHtml(String(x.text ?? '')), { is_correct: !!x.correct }));
+        // AI đôi khi ghi phương án là chuỗi ("A. Huế") và đáp án riêng ("answer": "B" / "correct": "B") thay cho {"text", "correct"}
+        const letters = String(Array.isArray(raw.correct) ? raw.correct.join(',') : raw.correct ?? raw.answer ?? '').toUpperCase();
+        const keyed = /^[A-F](\s*[,;]\s*[A-F])*$/.test(letters.trim()) ? (letters.match(/[A-F]/g) as string[]) : ([] as string[]);
+        const o = (raw.options ?? []).slice(0, 6).map((x, i) =>
+          typeof x === 'string'
+            ? { text: x.replace(/^\s*[A-F]\s*[.)]\s*/i, ''), correct: keyed.includes('ABCDEF'[i]) || x.trim().toLowerCase() === String(raw.answer ?? '').trim().toLowerCase() }
+            : { text: String(x?.text ?? ''), correct: !!x?.correct || keyed.includes('ABCDEF'[i]) });
+        if (o.length >= 2) q.options = o.map((x) => opt(plainToHtml(x.text), { is_correct: x.correct }));
         const n = q.options.filter((x) => x.is_correct).length;
         if (q.type === 'single_choice' && n > 1) q.type = 'multiple_select';
         q.needs_review = n === 0;

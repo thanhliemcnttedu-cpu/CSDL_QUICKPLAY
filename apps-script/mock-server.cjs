@@ -44,8 +44,38 @@ function fakeFetch(url, opts = {}) {
     }
     return reply(400, 'unsupported ' + m + ' ' + rest);
   }
+  // Google Form giả để thử "Từ Google Form": link công khai MOCKPUBLIC (không có đáp án)
+  if (/docs\.google\.com\/forms\/.*MOCKPUBLIC/.test(u)) {
+    const raw = JSON.stringify([null, ['Mô tả', [
+      [101, 'Màu của lá cây?', null, 2, [[201, [['Xanh', null, null, null, 0], ['Đỏ', null, null, null, 0]], 1]]],
+      [103, 'Chọn các số lẻ', 'Có thể chọn nhiều', 4, [[203, [['1'], ['2'], ['3']], 0]]],
+      [104, 'Họ tên của em', null, 0, [[204, null, 1]]],
+    ], null, null, null, null, null, null, 'Tên tệp form'], '/forms', 'Bài ôn tập (form công khai)']);
+    return reply(200, '<html><script>var FB_PUBLIC_LOAD_DATA_ = ' + raw + ';</script></html>');
+  }
+  if (/docs\.google\.com\/forms\//.test(u)) return reply(404, 'not found');
   throw new Error('Không có mạng trong máy chủ giả lập: ' + u);
 }
+// FormApp giả: link chỉnh sửa MOCKEDIT là form bài kiểm tra của chính giáo viên (có đáp án đúng và điểm)
+const T = { MULTIPLE_CHOICE: 'mc', LIST: 'list', CHECKBOX: 'cb', TEXT: 'text', PARAGRAPH_TEXT: 'para', SECTION_HEADER: 'sec' };
+const choice = (v, ok) => ({ getValue: () => v, isCorrectAnswer: () => !!ok });
+const item = (type, title, choices, points) => {
+  const q = { getChoices: () => choices || [], getPoints: () => points || 0 };
+  return { getType: () => type, getTitle: () => title, getHelpText: () => '', asMultipleChoiceItem: () => q, asListItem: () => q, asCheckboxItem: () => q, asTextItem: () => q, asParagraphTextItem: () => q };
+};
+const FormAppMock = {
+  ItemType: T,
+  openByUrl: (url) => {
+    if (!/MOCKEDIT/.test(url)) throw new Error('No permission');
+    return { isQuiz: () => true, getTitle: () => 'Kiểm tra 15 phút (form của giáo viên)', getItems: () => [
+      item(T.MULTIPLE_CHOICE, '2 + 2 = ?', [choice('3'), choice('4', true), choice('5')], 1),
+      item(T.SECTION_HEADER, 'Phần 2'),
+      item(T.CHECKBOX, 'Số nào là số chẵn?', [choice('2', true), choice('3'), choice('4', true)], 2),
+      item(T.MULTIPLE_CHOICE, 'Trái Đất hình cầu', [choice('Đúng', true), choice('Sai')], 1),
+      item(T.PARAGRAPH_TEXT, 'Nêu cảm nghĩ của em về ngôi trường'),
+    ] };
+  },
+};
 const PORT = Number(process.argv.slice(2).filter((a) => !a.startsWith('--'))[1] || 5182);
 let idn = 0, files, byId, root, props, full = false;
 const iter = (arr) => { let i = 0; return { hasNext: () => i < arr.length, next: () => arr[i++] }; };
@@ -86,7 +116,7 @@ const stubs = {
   Utilities: { formatDate: () => '15_11_2026_12h50', base64Encode: (b) => Buffer.from(b).toString('base64'), base64Decode: (s) => Buffer.from(s, 'base64'), newBlob: (data, mime, name) => ({ name, data: Buffer.from(data), mime }), getUuid: () => require('crypto').randomUUID(), computeDigest: (alg, text) => Array.from(crypto.createHash('sha256').update(String(text), 'utf8').digest()).map((b) => (b > 127 ? b - 256 : b)), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' }, sleep() {} },
   ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ t, setMimeType() { return this; } }) },
   Logger: { log() {} }, Session: { getScriptTimeZone: () => 'Asia/Ho_Chi_Minh' }, console: { log() {}, warn() {} },
-  ScriptApp: { getProjectTriggers: () => [], getScriptId: () => 'mock-script', getOAuthToken: () => 'mock-token' }, UrlFetchApp: { fetch: fakeFetch }, MailApp: {},
+  ScriptApp: { getProjectTriggers: () => [], getScriptId: () => 'mock-script', getOAuthToken: () => 'mock-token' }, UrlFetchApp: { fetch: fakeFetch }, MailApp: {}, FormApp: FormAppMock,
 };
 const names = Object.keys(stubs);
 const build = () => new Function(...names, code + '\nreturn { doPost };')(...names.map((n) => stubs[n]));

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FileUp, Sparkles, Wand2, AlertTriangle, Trash2, ClipboardPaste, FileCheck2, CircleDot, ListChecks, Eye, TextCursorInput, ListOrdered, Link2, MessageSquareText, FileDown, ClipboardList } from 'lucide-react';
-import type { Question, QuestionType } from '../lib/types';
+import type { Question, QuestionType, Quiz } from '../lib/types';
 import { extractText, hasImportedImages, parseQuestions, resolveImportedImages } from '../lib/importer';
 import { buildWordTemplate } from '../lib/wordTemplate';
 import { formToQuestions, isGoogleFormUrl } from '../lib/googleForm';
@@ -34,9 +34,13 @@ interface Props {
   onClose: () => void;
   onDone?: (quizId: string) => void; // tạo bộ đề mới
   onQuestions?: (qs: Question[]) => void; // thêm vào bộ đề đang mở
+  /** Môn, bài của bộ đề đang mở (hoặc mục đang chọn trong thư viện) để điền sẵn, không tự gán môn khác */
+  defaults?: { subject?: string; lesson?: string };
+  /** Vị trí trong danh mục cho bộ đề mới (mục đang chọn ở cây thư mục) */
+  place?: Partial<Quiz>;
 }
 
-export function ImportDialog({ mode, onClose, onDone, onQuestions }: Props) {
+export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, place }: Props) {
   const toast = useToast();
   const [source, setSource] = useState('');
   const [fileName, setFileName] = useState('');
@@ -47,8 +51,9 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions }: Props) {
   const [count, setCount] = useState(10);
   const [level, setLevel] = useState<Level>('thong_hieu');
   const [grade, setGrade] = useState('');
-  const [subject, setSubject] = useState('Toán học');
-  const [lesson, setLesson] = useState('');
+  // Không tự gán môn: để trống tới khi thầy cô chọn (trước đây mặc định "Toán học" nên bộ đề nào cũng bị ghi môn Toán)
+  const [subject, setSubject] = useState(defaults?.subject ?? '');
+  const [lesson, setLesson] = useState(defaults?.lesson ?? '');
   const [types, setTypes] = useState<QuestionType[]>([...COMPOSER_TYPES]);
   const [formUrl, setFormUrl] = useState('');
   const canReadForm = loadSettings().backend === 'drive' || !!scriptUrlFromLink();
@@ -98,7 +103,7 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions }: Props) {
     }
   };
 
-  const withMeta = (qs: Question[]) => qs.map((q) => ({ ...q, subject: q.subject ?? subject, lesson: q.lesson ?? (lesson.trim() || undefined) }));
+  const withMeta = (qs: Question[]) => qs.map((q) => ({ ...q, subject: q.subject ?? (subject || undefined), lesson: q.lesson ?? (lesson.trim() || undefined) }));
 
   const run = async () => {
     if (way === 'gform') return loadForm();
@@ -114,7 +119,7 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions }: Props) {
     try {
       const p = buildPrompt(way === 'generate' ? 'generate' : 'extract', source, { count, types, level, grade });
       const text = await runAi(p.prompt, p.system);
-      const qs = aiItemsToQuestions(extractJsonArray(text), { subject, lesson: lesson.trim() || undefined });
+      const qs = aiItemsToQuestions(extractJsonArray(text), { subject: subject || undefined, lesson: lesson.trim() || undefined });
       if (!qs.length) throw new Error('AI không tạo được câu hỏi nào từ nội dung này.');
       setResult({ questions: qs, warnings: qs.flatMap((q, i) => (q.needs_review ? [`Câu ${i + 1}: chưa xác định được đáp án đúng.`] : [])) });
     } catch (e) {
@@ -135,7 +140,8 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions }: Props) {
         return onQuestions(questions);
       }
       const q = newQuiz(title.trim() || (way === 'gform' ? 'Bộ đề từ Google Form' : 'Bộ đề từ tài liệu'));
-      q.subject = subject;
+      Object.assign(q, place ?? {}); // đặt vào mục đang chọn ở cây thư mục (nếu có)
+      if (subject) q.subject = subject;
       q.questions = questions;
       const saved = await api.saveQuiz(q);
       toast(`Đã lưu ${q.questions.length} câu hỏi.`, 'ok');
@@ -221,7 +227,11 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions }: Props) {
               <label className="field"><span>Tên bộ đề</span><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="VD: Ôn tập Toán 5 – Chương 2" /></label>
             )}
             <label className="field"><span>Môn học</span>
-              <select className="input" value={subject} onChange={(e) => setSubject(e.target.value)}>{SUBJECTS.map((s) => <option key={s}>{s}</option>)}</select>
+              <select className="input" value={subject} onChange={(e) => setSubject(e.target.value)}>
+                <option value="">Không ghi môn</option>
+                {subject && !SUBJECTS.includes(subject) && <option>{subject}</option>}
+                {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
+              </select>
             </label>
             <label className="field"><span>Bài học (không bắt buộc)</span><input className="input" value={lesson} onChange={(e) => setLesson(e.target.value)} /></label>
           </div>

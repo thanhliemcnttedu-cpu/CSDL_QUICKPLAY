@@ -224,7 +224,8 @@ const Q_START = /^\s*(?:\*\*)?\s*(?:câu|bài|question|q)\s*(\d+)\s*[.:)\-–]?\
 const NUM_START = /^\s*(\d{1,3})\s*[.)]\s+(.*)$/;
 const OPT = /^\s*(\*|\*\*)?\s*([A-Fa-f])\s*[.):/]\s*(.*)$/;
 const ANS_LINE = /^\s*(?:\*\*)?\s*(?:đáp\s*án(?:\s*đúng)?|đa|answer|key)\s*(?:\*\*)?\s*[:：\-]?\s*(?:\*\*)?\s*([A-F](?:\s*[,;&và]+\s*[A-F])*)\b/i;
-const KEY_HEADER = /^\s*(?:\*\*)?\s*(?:bảng\s*)?(?:đáp\s*án|answer\s*key|key)\s*(?:\*\*)?\s*:?\s*$/i;
+const KEY_INLINE = /^\s*(?:bảng\s*)?(?:đáp\s*án|answer\s*key|key)\b\s*[:：\-–]?\s*(?:câu\s*)?\d{1,3}\s*[.:\-–)]?\s*[A-F](?![a-zà-ỹ])/i;
+const KEY_HEADER =/^\s*(?:\*\*)?\s*(?:bảng\s*)?(?:đáp\s*án|answer\s*key|key)\s*(?:\*\*)?\s*:?\s*$/i;
 
 // ----- Nhãn của file Word mẫu (mỗi nhãn một dòng, nằm trong câu hỏi) -----
 export const ZONE_START = /^\s*=+\s*BẮT ĐẦU CÂU HỎI\s*=+\s*$/i;
@@ -299,8 +300,15 @@ export function parseFreeText(raw: string): ParseReport {
 
   // Bảng đáp án ở cuối tệp: "Đáp án: 1A 2C 3B" hoặc nhiều dòng "1-A", "Câu 2: C"
   const keyMap = new Map<number, string[]>();
-  const keyHeaderIdx = text.split('\n').findIndex((l) => KEY_HEADER.test(l));
   const lines0 = text.split('\n');
+  let keyHeaderIdx = lines0.findIndex((l) => KEY_HEADER.test(l));
+  // Bảng đáp án viết gọn trên MỘT dòng: "Đáp án: 1-B; 2-C" (có từ 2 cặp số–chữ trở lên, khác với "Đáp án: B" của từng câu)
+  if (keyHeaderIdx < 0) {
+    for (let i = lines0.length - 1; i >= 0; i--) {
+      const l = stripMarks(lines0[i]);
+      if (KEY_INLINE.test(l) && (l.match(/(?:câu\s*)?\d{1,3}\s*[.:\-–)]?\s*[A-F](?![a-zà-ỹ])/gi) ?? []).length >= 2) { keyHeaderIdx = i; break; }
+    }
+  }
   const tailStart = keyHeaderIdx >= 0 ? keyHeaderIdx : Math.max(0, lines0.length - 1);
   const tail = lines0.slice(tailStart).join(' ');
   const pairRe = /(?:câu\s*)?(\d{1,3})\s*[.:\-–)]?\s*([A-F](?:\s*,\s*[A-F])*)(?![a-zà-ỹ])/gi;

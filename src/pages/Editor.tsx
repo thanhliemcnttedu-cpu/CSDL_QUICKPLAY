@@ -299,6 +299,7 @@ export default function Editor() {
       {importing && (
         <ImportDialog
           mode={importing}
+          defaults={{ subject: quiz.subject, lesson: quiz.title }}
           onClose={() => setImporting(null)}
           onQuestions={(list) => {
             setQs([...latest.current!.questions, ...list]);
