@@ -1,5 +1,5 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Check, ChevronRight, Download, Eye, EyeOff, FileSpreadsheet, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminBootOk, adminEmail, adminSignedIn, adminUrl, adminUser, bootAdminPassword, markDefaultAdminPassword, setAdminUrl, usingDefaultAdminPassword, type AccountRow } from '../lib/account';
@@ -42,9 +42,12 @@ export default function Admin() {
   const [pwLoading, setPwLoading] = useState(false);
   const [hideAll, setHideAll] = useState(false); // ẩn tạm cả cột mật khẩu (khi chiếu màn hình cho người khác xem)
   // Lấy mật khẩu của mọi tài khoản, 6 tài khoản một lượt để máy chủ không bị dồn
-  const loadAllPw = useCallback(async (list: AccountRow[]) => {
+  const loadAllPw = useCallback(async (list: AccountRow[]): Promise<Record<string, string>> => {
     const need = list.filter((r) => r.has_pw);
-    if (!need.length) return setShown({});
+    if (!need.length) {
+      setShown({});
+      return {};
+    }
     setPwLoading(true);
     const got: Record<string, string> = {};
     try {
@@ -53,6 +56,7 @@ export default function Admin() {
         part.forEach(([u, pw]) => (got[u] = pw));
       }
       setShown(got);
+      return got;
     } finally {
       setPwLoading(false);
     }
@@ -118,25 +122,32 @@ export default function Admin() {
   // Xuất danh sách tài khoản, mật khẩu ra Excel
   const exportXlsx = async () => {
     if (!rows?.length) return toast('Chưa có tài khoản nào để xuất.', 'info');
+    setBusy(true);
     try {
+      // lấy lại từ máy chủ ngay lúc xuất: có giáo viên vừa đổi mật khẩu thì tệp vẫn đúng mật khẩu hiện tại
+      const fresh = await adminApi.list();
+      setRows(fresh);
+      const pws = await loadAllPw(fresh);
       const { buildXlsx, downloadBlob: save } = await import('../lib/xlsx');
       const fmt = (t?: number) => (t ? new Date(t).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
       const head = ['STT', 'Tên đăng nhập', 'Họ tên', 'Mật khẩu', 'Mật khẩu do', 'Ngày đặt mật khẩu', 'Email', 'Trạng thái', 'Đã cài kho riêng', 'Đăng nhập gần nhất', 'Ngày cấp'];
-      const body = rows.map((r, i) => [
-        i + 1, r.username, r.name, shown[r.username] ?? '', r.pw_by === 'teacher' ? 'Giáo viên tự đổi' : r.pw_by === 'admin' ? 'Quản trị cấp' : '',
+      const body = fresh.map((r, i) => [
+        i + 1, r.username, r.name, pws[r.username] ?? '', r.pw_by === 'teacher' ? 'Giáo viên tự đổi' : r.pw_by === 'admin' ? 'Quản trị cấp' : '',
         fmt(r.pw_at), r.email ?? '', r.locked ? 'Đang khóa' : 'Hoạt động', r.configured ? 'Rồi' : 'Chưa', fmt(r.last_login) || 'Chưa đăng nhập', fmt(r.created_at),
       ]);
       const info = [
         ['Danh sách tài khoản giáo viên Quickplay'],
-        [`Xuất lúc ${fmt(Date.now())} · ${rows.length} tài khoản · trang đăng nhập giáo viên: ${location.origin}/teacher`],
+        [`Xuất lúc ${fmt(Date.now())} · ${fresh.length} tài khoản · mật khẩu là mật khẩu hiện tại (kể cả giáo viên đã tự đổi) · trang đăng nhập giáo viên: ${location.origin}/teacher`],
         ['Tệp có mật khẩu: chỉ lưu ở nơi an toàn, không gửi lên nhóm chung.'],
         [],
       ];
       const day = new Date().toISOString().slice(0, 10);
       save(`quickplay-tai-khoan-giao-vien-${day}.xlsx`, await buildXlsx([{ name: 'Tài khoản', rows: [...info, head, ...body] }]));
-      toast(`Đã xuất ${rows.length} tài khoản ra Excel.`, 'ok');
+      toast(`Đã xuất ${fresh.length} tài khoản ra Excel với mật khẩu hiện tại.`, 'ok');
     } catch (e) {
       toast((e as Error).message, 'error');
+    } finally {
+      setBusy(false);
     }
   };
   const copy = (text: string, ok: string) => navigator.clipboard.writeText(text).then(() => toast(ok, 'ok')).catch(() => toast('Trình duyệt không cho sao chép. Hãy bôi đen rồi nhấn Ctrl + C.', 'error'));
@@ -177,6 +188,27 @@ export default function Admin() {
   useEffect(() => {
     if (adminUrl()) check();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  // Tự lấy lại danh sách và mật khẩu mới nhất (giáo viên có thể vừa tự đổi mật khẩu):
+  // khi quay lại thẻ / cửa sổ trang quản trị, và cứ 60 giây một lần khi trang đang được xem
+  useEffect(() => {
+    let last = Date.now();
+    const refresh = (minGap: number) => {
+      if (document.visibilityState !== 'visible' || stepRef.current !== 'in' || Date.now() - last < minGap) return;
+      last = Date.now();
+      load();
+    };
+    const onBack = () => refresh(5000);
+    document.addEventListener('visibilitychange', onBack);
+    window.addEventListener('focus', onBack);
+    const timer = window.setInterval(() => refresh(60000), 15000);
+    return () => {
+      document.removeEventListener('visibilitychange', onBack);
+      window.removeEventListener('focus', onBack);
+      clearInterval(timer);
+    };
+  }, [load]);
 
   const saveServer = async () => {
     if (!/^https?:\/\//.test(url.trim())) return toast('Hãy dán địa chỉ Web App của máy chủ tài khoản.', 'error');
