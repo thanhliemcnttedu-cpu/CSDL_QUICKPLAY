@@ -1,10 +1,12 @@
 // Cửa sổ đăng nhập: chọn vai trò (Quản trị / Giáo viên) rồi mới nhập tên đăng nhập và mật khẩu.
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Eye, EyeOff, GraduationCap, KeyRound, LogIn, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, GraduationCap, KeyRound, LogIn, Mail, ShieldCheck, Upload } from 'lucide-react';
 import {
-  DEFAULT_ADMIN_USER, accountRequired, adminAuth, adminBootLogin, adminUrl, currentAccount, forgotFinish, forgotStart, isDefaultAdminPassword, login, markDefaultAdminPassword,
+  DEFAULT_ADMIN_USER, accountRequired, adminAuth, adminBootLogin, adminUrl, currentAccount, forgotFinish, forgotStart, isDefaultAdminPassword, login, markDefaultAdminPassword, setAdminUrl,
 } from '../lib/account';
+import { parseLinkFile, pingScript, saveLink } from '../lib/installer';
+import { pickFile } from '../components/MediaTools';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Modal, useToast } from '../components/ui';
@@ -65,6 +67,28 @@ export default function Login({ role: fixed }: { role?: Role }) {
       await (role === 'admin' ? submitAdmin() : submitTeacher());
     } catch (e) {
       setErr((e as Error).message);
+      setBusy(false);
+    }
+  };
+
+  // Quản trị đăng nhập ở máy tính khác: nạp tệp kết nối đã tải, không phải làm lại Trình cài đặt
+  const [, bump] = useState(0);
+  const loadLinkFile = async () => {
+    const f = await pickFile('.json,application/json');
+    if (!f) return;
+    setErr('');
+    setBusy(true);
+    try {
+      const info = parseLinkFile(await f.text(), 'admin');
+      const pong = await pingScript(info.script_url);
+      if (pong.name !== 'QUICKPLAY-ACCOUNTS') throw new Error('Link trong tệp không phải máy chủ tài khoản.');
+      setAdminUrl(info.script_url);
+      saveLink({ ...info, server_version: pong.version, linked_at: new Date().toISOString() }, 'admin');
+      toast('Đã nối với máy chủ tài khoản. Hãy nhập tên đăng nhập và mật khẩu quản trị.', 'ok');
+      bump((n) => n + 1);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
       setBusy(false);
     }
   };
@@ -174,6 +198,9 @@ export default function Login({ role: fixed }: { role?: Role }) {
                     ? <>Quên mật khẩu quản trị: mở <Link to="/admin">trang quản trị</Link> rồi bấm <b>Quên mật khẩu?</b>.</>
                     : 'Lần đầu thiết lập hệ thống: đăng nhập bằng tài khoản quản trị mặc định, phần mềm sẽ mở Trình cài đặt để nối máy chủ tài khoản.'}
                 </p>
+              )}
+              {role === 'admin' && !adminUrl() && (
+                <button type="button" className="btn ghost" onClick={loadLinkFile} disabled={busy}><Upload size={18} /> Đã cài ở máy khác? Nạp tệp kết nối (.json)</button>
               )}
             </>
           )}

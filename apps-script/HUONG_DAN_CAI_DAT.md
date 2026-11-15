@@ -19,6 +19,10 @@ lập trình, chỉ cần làm theo từng bước dưới đây (khoảng 10 ph
 4. **Triển khai → Tùy chọn triển khai mới → Ứng dụng web**: Thực thi với tư cách **Tôi**, quyền truy cập **Bất kỳ ai**, rồi cấp quyền.
 5. Dán link `/exec` vào phần mềm, bấm **Kiểm tra**. Phần mềm tự lưu kết nối vào tài khoản của thầy cô.
 
+Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện, hiện phiên bản và thời gian liên kết, và cho **Tải tệp kết nối (.json)**.
+Ở máy tính khác, bấm **Nạp tệp kết nối (.json)** ở đầu Trình cài đặt là nối lại ngay. Tệp của giáo viên có khóa giáo viên, hãy giữ kín.
+(Đăng nhập bằng tài khoản được cấp thì phần mềm cũng tự nhớ kết nối, tệp này là cách dự phòng.)
+
 Khi phần mềm báo "Apps Script đang chạy mã cũ": chọn thẻ **Cập nhật bản mới** trong Trình cài đặt và làm lại 5 bước; link và dữ liệu giữ nguyên.
 
 Phần dưới đây là cách cài **thủ công**, chỉ cần khi không dùng được Trình cài đặt.

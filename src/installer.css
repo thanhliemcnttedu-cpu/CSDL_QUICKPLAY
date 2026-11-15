@@ -54,3 +54,22 @@
 .ins-saved span { display: flex; flex-direction: column; min-width: 0; }
 .ins-saved small { color: var(--muted-fg); font-weight: 700; }
 .ins-saved a, .ins-saved code { overflow-wrap: anywhere; font-weight: 700; }
+
+/* Bảng soát từng điều kiện liên kết ở bước 5 */
+.ins-checks { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.ins-checks li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 10px; border-radius: 12px; border: 1.5px solid var(--border); background: #fff; line-height: 1.4; }
+.ins-checks small { color: var(--muted-fg); font-weight: 600; overflow-wrap: anywhere; }
+.ins-mark { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--muted); color: var(--muted-fg); margin-top: 1px; }
+.ins-checks li.ok { border-color: #86d9a8; background: #f0fbf4; }
+.ins-checks li.ok .ins-mark { background: #129a4b; color: #fff; }
+.ins-checks li.run .ins-mark { background: var(--primary-soft); color: var(--primary); }
+.ins-checks li.fail { border-color: #ef9a9a; background: #fff1f1; }
+.ins-checks li.fail .ins-mark { background: #dc2626; color: #fff; }
+.ins-checks li.fail small { color: #991b1b; display: block; }
+.ins-checks li.wait { opacity: 0.6; }
+.ins-linked { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 12px; border-radius: 16px; border: 1.5px solid #86d9a8; background: #f0fbf4; }
+.ins-linked > b { display: inline-flex; align-items: center; gap: 6px; color: #0b6a33; }
+.ins-linked dl { margin: 0; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px 14px; }
+.ins-linked dt { font-size: 0.78rem; color: var(--muted-fg); font-weight: 700; }
+.ins-linked dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.ins-top .btn.sm { margin-left: auto; }

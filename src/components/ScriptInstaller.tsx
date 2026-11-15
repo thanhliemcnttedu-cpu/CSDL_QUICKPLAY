@@ -1,18 +1,23 @@
 // Trình cài đặt Apps Script 5 bước, dùng chung cho giáo viên (kho dữ liệu riêng) và quản trị (máy chủ tài khoản).
 import { useEffect, useState } from 'react';
-import { Check, CheckCircle2, Code2, Copy, ExternalLink, FolderOpen, Link2, Pencil, Rocket, Save, Trash2, TriangleAlert, Wand2 } from 'lucide-react';
-import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION as TEACHER_SCRIPT_VERSION, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, loadScriptCode, pingScript, randomKey, type InstallKind } from '../lib/installer';
+import { Check, CheckCircle2, Code2, Copy, Download, ExternalLink, FolderOpen, Link2, Loader2, Pencil, Rocket, Save, Trash2, TriangleAlert, Upload, Wand2, X } from 'lucide-react';
+import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION as TEACHER_SCRIPT_VERSION, compareVersion, buildLinkFile, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, linkFileName, loadLink, loadScriptCode, parseLinkFile, pingScript, randomKey, saveLink, type InstallKind, type LinkInfo } from '../lib/installer';
+import { pickFile } from './MediaTools';
+import { downloadBlob } from '../lib/xlsx';
 import { useToast } from './ui';
 import '../installer.css';
 
 export interface InstallResult { scriptUrl: string; key: string; folderUrl: string }
+/** Kết quả kiểm tra khóa và thư mục do trang cha thực hiện (cần quyền của từng vai trò) */
+export interface InstallCheck { folderName?: string; folderUrl?: string }
+type CheckRow = { id: string; label: string; state: 'wait' | 'run' | 'ok' | 'fail'; note?: string };
 
 interface Props {
   kind: InstallKind;
   /** Giá trị đang dùng (để cập nhật bản mới mà không đổi link, không đổi khóa) */
   current?: { scriptUrl?: string; key?: string; folderUrl?: string };
-  /** Gọi khi link /exec đã qua kiểm tra. Ném lỗi để báo thất bại ở bước 5. */
-  onDone: (r: InstallResult) => Promise<void> | void;
+  /** Gọi khi link /exec đã trả lời đúng: trang cha kiểm tra khóa + thư mục rồi lưu kết nối. Ném lỗi để báo thất bại. */
+  onDone: (r: InstallResult) => Promise<InstallCheck | void> | InstallCheck | void;
 }
 
 /** Chép văn bản vào bộ nhớ tạm; thử cách mới rồi tới cách cũ. Trả về false nếu trình duyệt chặn cả hai. */
@@ -68,6 +73,8 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
   const [manual, setManual] = useState(''); // mã hiện ra để chép tay khi trình duyệt chặn sao chép tự động
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const [checks, setChecks] = useState<CheckRow[] | null>(null); // bảng soát từng điều kiện liên kết
+  const [link, setLink] = useState<LinkInfo | null>(() => loadLink(kind)); // lần liên kết thành công gần nhất trên máy này
 
   // Bước 1: link thư mục phải được bấm LƯU thì phần mềm mới ghi nhận địa chỉ và mã thư mục, và mới mở bước sao chép mã
   const folderId = folderIdOf(draft.folderUrl);
@@ -104,27 +111,91 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
     }
   };
 
-  const verify = async () => {
+  // Kiểm tra liên kết: soát lần lượt từng điều kiện, cái nào hỏng thì dừng ở đó và nói rõ lý do
+  const verify = async (override?: { url: string; key: string; folderUrl: string }) => {
+    const theUrl = (override?.url ?? url).trim();
+    const theKey = override ? override.key : keyToUse;
+    const theFolder = override ? override.folderUrl : mode === 'new' ? draft.folderUrl.trim() : current?.folderUrl ?? link?.folder_url ?? '';
+    const rows: CheckRow[] = [
+      { id: 'url', label: 'Link Apps Script đúng dạng …/exec', state: 'wait' },
+      { id: 'ping', label: 'Máy chủ Apps Script trả lời', state: 'wait' },
+      { id: 'ver', label: 'Phiên bản mã máy chủ', state: 'wait' },
+      { id: 'folder', label: teacher ? 'Khóa giáo viên và thư mục Google Drive' : 'Quyền quản trị và thư mục Google Drive', state: 'wait' },
+    ];
+    const mark = (id: string, state: CheckRow['state'], note?: string) => {
+      const r = rows.find((x) => x.id === id)!;
+      r.state = state;
+      r.note = note;
+      setChecks(rows.map((x) => ({ ...x })));
+    };
     setResult(null);
-    if (!isExecUrl(url)) return setResult({ tone: 'error', text: 'Link phải có dạng https://script.google.com/macros/s/…/exec (kết thúc bằng /exec).' });
-    if (mode === 'update' && !keyToUse && teacher) return setResult({ tone: 'error', text: 'Máy này chưa nhớ khóa giáo viên của kho cũ. Hãy đăng nhập lại, hoặc chọn "Cài mới (lần đầu)".' });
+    setChecks(rows.map((x) => ({ ...x })));
     setBusy(true);
+    let at = 'url';
     try {
-      const info = await pingScript(url);
+      mark('url', 'run');
+      if (!isExecUrl(theUrl)) throw new Error('Link phải có dạng https://script.google.com/macros/s/…/exec (kết thúc bằng /exec).');
+      mark('url', 'ok');
+
+      at = 'ping';
+      mark('ping', 'run');
+      const info = await pingScript(theUrl);
       const want = teacher ? 'Quickplay' : 'QUICKPLAY-ACCOUNTS';
       if (info.name !== want) throw new Error(teacher ? 'Link này là của máy chủ tài khoản (quản trị), không phải kho dữ liệu của giáo viên.' : 'Link này không phải máy chủ tài khoản. Hãy dán link của dự án vừa cài ở bước 3–4.');
+      mark('ping', 'ok', info.name);
+
+      at = 'ver';
+      mark('ver', 'run');
       if (compareVersion(info.version, SCRIPT_VERSION) < 0) {
         throw new Error(`Link đang chạy mã cũ (phiên bản ${info.version}, phần mềm cần ${SCRIPT_VERSION}). Hãy làm lại bước 4: ${mode === 'update' ? 'chọn "Phiên bản mới" rồi Triển khai' : 'kiểm tra đã dán đúng mã vừa sao chép'}.`);
       }
-      await onDone({ scriptUrl: url.trim(), key: keyToUse, folderUrl: mode === 'new' ? draft.folderUrl.trim() : current?.folderUrl ?? '' });
-      setResult({ tone: 'ok', text: `Đã kết nối. Máy chủ đang chạy phiên bản ${info.version}.` });
+      mark('ver', 'ok', `máy chủ ${info.version} · phần mềm ${SCRIPT_VERSION}`);
+
+      at = 'folder';
+      mark('folder', 'run');
+      if (mode === 'update' && !override && !theKey && teacher) throw new Error('Máy này chưa nhớ khóa giáo viên của kho cũ. Hãy nạp tệp kết nối, đăng nhập lại, hoặc chọn "Cài mới (lần đầu)".');
+      const got = (await onDone({ scriptUrl: theUrl, key: theKey, folderUrl: theFolder })) || {};
+      const folderUrl = got.folderUrl || theFolder;
+      mark('folder', 'ok', got.folderName ? `thư mục “${got.folderName}”` : folderUrl ? 'đã mở được thư mục' : 'đã xác nhận');
+
+      const done: LinkInfo = {
+        role: kind, script_url: theUrl, folder_url: folderUrl, folder_id: folderIdOf(folderUrl) ?? '', folder_name: got.folderName ?? '',
+        key: teacher ? theKey : '', server_version: info.version, linked_at: new Date().toISOString(),
+      };
+      saveLink(done, kind);
+      setLink(done);
+      setUrl(theUrl);
+      setResult({ tone: 'ok', text: 'Liên kết thành công.' });
       sessionStorage.removeItem(DRAFT(kind));
     } catch (e) {
+      mark(at, 'fail', (e as Error).message);
       setResult({ tone: 'error', text: (e as Error).message });
     } finally {
       setBusy(false);
     }
   };
+
+  const downloadLink = () => {
+    if (!link) return;
+    downloadBlob(linkFileName(kind), new Blob([buildLinkFile(link)], { type: 'application/json' }));
+    toast(teacher ? 'Đã tải tệp kết nối. Tệp có khóa giáo viên: cất ở nơi chỉ thầy cô mở được.' : 'Đã tải tệp kết nối. Mang tệp này sang máy khác để nạp, không phải dán lại link.', 'ok');
+  };
+  // Máy khác: nạp tệp kết nối đã tải trước đó, phần mềm tự kiểm tra lại và nối luôn
+  const uploadLink = async () => {
+    const f = await pickFile('.json,application/json');
+    if (!f) return;
+    try {
+      const info = parseLinkFile(await f.text(), kind);
+      setMode('update');
+      setUrl(info.script_url);
+      await verify({ url: info.script_url, key: info.key, folderUrl: info.folder_url });
+    } catch (e) {
+      setChecks(null);
+      setResult({ tone: 'error', text: (e as Error).message });
+      toast((e as Error).message, 'error');
+    }
+  };
+  const fmt = (iso: string) => (iso ? new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
 
   return (
     <div className="ins">
@@ -133,6 +204,7 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
           <b className="row" style={{ gap: 8 }}><Wand2 size={20} color="var(--primary)" /> Trình cài đặt Apps Script</b>
           <small className="muted">Mã trong phần mềm: <b>phiên bản {SCRIPT_VERSION}</b> · Làm lần lượt 5 bước, bước cuối phần mềm tự kiểm tra giúp.</small>
         </div>
+        <button type="button" className="btn sm ghost" onClick={uploadLink} disabled={busy} title="Đã có tệp kết nối tải từ máy khác: nạp vào để không phải dán lại link"><Upload size={16} /> Nạp tệp kết nối (.json)</button>
         <div className="tabs" role="tablist" aria-label="Kiểu cài đặt">
           <button type="button" role="tab" aria-selected={mode === 'new'} className={`tab ${mode === 'new' ? 'on' : ''}`} onClick={() => { setMode('new'); setCopied(false); setResult(null); }}>Cài mới (lần đầu)</button>
           <button type="button" role="tab" aria-selected={mode === 'update'} className={`tab ${mode === 'update' ? 'on' : ''}`} onClick={() => { setMode('update'); setCopied(false); setResult(null); }}>Cập nhật bản mới</button>
@@ -216,12 +288,35 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
             )}
           </Step>
 
-          <Step n={5} icon={<Link2 size={18} />} title="Dán link /exec và kiểm tra tự động" done={result?.tone === 'ok'}>
+          <Step n={5} icon={<Link2 size={18} />} title="Dán link /exec và kiểm tra liên kết" done={result?.tone === 'ok' || (!!link && !checks)}>
             <div className="row" style={{ flexWrap: 'nowrap' }}>
               <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" aria-label="Link Apps Script đuôi /exec" />
-              <button type="button" className="btn primary" onClick={verify} disabled={busy || !url.trim()}><CheckCircle2 size={18} /> {busy ? 'Đang kiểm tra…' : 'Kiểm tra'}</button>
+              <button type="button" className="btn primary" onClick={() => verify()} disabled={busy || !url.trim()}><CheckCircle2 size={18} /> {busy ? 'Đang kiểm tra…' : 'Kiểm tra'}</button>
             </div>
-            {result && <div className={`alert ${result.tone}`} role="status">{result.text}</div>}
+            {checks && (
+              <ul className="ins-checks" aria-live="polite">
+                {checks.map((c) => (
+                  <li key={c.id} className={c.state}>
+                    <span className="ins-mark" aria-hidden>{c.state === 'ok' ? <Check size={14} /> : c.state === 'fail' ? <X size={14} /> : c.state === 'run' ? <Loader2 size={14} className="spin" /> : null}</span>
+                    <span><b>{c.label}</b>{c.note ? <small> {c.state === 'fail' ? '' : '· '}{c.note}</small> : null}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {link && result?.tone !== 'error' && (
+              <div className="ins-linked" role="status">
+                <b><CheckCircle2 size={18} /> Đã liên kết thành công</b>
+                <dl>
+                  <div><dt>Phiên bản máy chủ đã liên kết</dt><dd>{link.server_version || '—'}</dd></div>
+                  <div><dt>Phiên bản phần mềm hiện tại</dt><dd>{SCRIPT_VERSION}{link.server_version && compareVersion(link.server_version, SCRIPT_VERSION) < 0 ? ' (máy chủ cũ hơn: chọn thẻ Cập nhật bản mới)' : ''}</dd></div>
+                  <div><dt>Thời gian liên kết</dt><dd>{fmt(link.linked_at) || '—'}</dd></div>
+                  <div><dt>Thư mục Google Drive</dt><dd>{link.folder_url ? <a href={link.folder_url} target="_blank" rel="noopener noreferrer">{link.folder_name || link.folder_id || 'Mở thư mục'}</a> : 'chưa khai báo'}</dd></div>
+                </dl>
+                <button type="button" className="btn sm success" onClick={downloadLink}><Download size={16} /> Tải tệp kết nối (.json)</button>
+                <small className="muted">Đăng nhập ở máy tính khác: bấm <b>Nạp tệp kết nối (.json)</b> ở đầu Trình cài đặt và chọn tệp này, không phải dán lại link thư mục và link Apps Script.{teacher ? ' Tệp có khóa giáo viên, hãy giữ kín.' : ' Tệp của quản trị không chứa khóa hay mật khẩu.'}</small>
+              </div>
+            )}
+            {result?.tone === 'error' && !checks && <div className="alert error" role="alert">{result.text}</div>}
           </Step>
         </div>
       </div>

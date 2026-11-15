@@ -90,9 +90,10 @@ export default function Settings() {
     const prev = loadSettings();
     const next: AppSettings = { ...prev, backend: 'drive', scriptUrl: r.scriptUrl, teacherKey: r.key || prev.teacherKey, folderUrl: r.folderUrl || prev.folderUrl };
     saveSettings(next);
+    let folderName = '';
     try {
       const { api } = await import('../lib/api');
-      if (next.folderUrl) await api.setRootFolder(next.folderUrl);
+      if (next.folderUrl) folderName = (await api.setRootFolder(next.folderUrl)).name;
       else await testConnection(next.scriptUrl);
       if (acc) await saveVault({ scriptUrl: next.scriptUrl, teacherKey: next.teacherKey, folderUrl: next.folderUrl });
     } catch (e) {
@@ -101,7 +102,9 @@ export default function Settings() {
     }
     setS(next);
     toast(acc ? 'Đã kết nối Google Drive. Tài khoản của thầy cô sẽ nhớ cấu hình này trên mọi máy.' : 'Đã kết nối Google Drive.', 'ok');
-    setTimeout(() => (first ? location.replace(location.pathname + '#/teacher') : location.reload()), 1200);
+    // để thầy cô kịp thấy tích xanh và tải tệp kết nối rồi mới tải lại trang
+    if (first) setTimeout(() => location.replace(location.pathname + '#/teacher'), 6000);
+    return { folderName, folderUrl: next.folderUrl };
   };
 
   const backup = async () => {

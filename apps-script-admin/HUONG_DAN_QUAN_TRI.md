@@ -31,6 +31,18 @@ Chỉ tác giả/quản trị cài, và chỉ cài **một lần**.
 
 > Trang `/adminquantri` có sẵn **bảng hướng dẫn 6 bước**, tự đánh dấu bước đã xong và bước đang làm.
 
+### Kiểm tra liên kết và tệp kết nối
+
+Ở bước 5 của Trình cài đặt, nút **Kiểm tra** soát lần lượt bốn điều kiện và đánh tích xanh từng dòng: link đúng dạng `/exec`, máy chủ trả lời,
+phiên bản mã máy chủ, quyền quản trị và thư mục Google Drive. Điều kiện nào hỏng thì dừng ở đó và ghi rõ lý do.
+
+Liên kết xong, trang hiện **phiên bản máy chủ đã liên kết, phiên bản phần mềm hiện tại, thời gian liên kết, thư mục** và nút
+**Tải tệp kết nối (.json)**. Tệp của quản trị chỉ có link máy chủ và thư mục, **không có khóa hay mật khẩu**.
+
+**Đăng nhập ở máy tính khác:** trang chủ → **Dành cho giáo viên** → vai trò **Quản trị** → **Đã cài ở máy khác? Nạp tệp kết nối (.json)** →
+chọn tệp → nhập tên đăng nhập và mật khẩu quản trị. Không phải dán lại link thư mục và link Apps Script.
+(Nếu đã đặt biến `VITE_ADMIN_URL` trên Vercel thì máy nào cũng tự biết máy chủ, không cần tệp này.)
+
 ## 2. Bật đăng nhập cho giáo viên trên bản web (bắt buộc)
 
 Nếu bỏ qua bước này, giáo viên ở máy khác **không đăng nhập được** vì trang web chưa biết máy chủ tài khoản ở đâu.

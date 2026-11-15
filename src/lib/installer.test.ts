@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, randomKey } from './installer';
+import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION, buildLinkFile, parseLinkFile, compareVersion, fillAdminCode, fillTeacherCode, folderIdOf, isExecUrl, randomKey } from './installer';
 import { parseBackup } from './backup';
 import { fileSlug } from './localFolder';
 
@@ -65,5 +65,24 @@ describe('tên tệp trong thư mục trên máy', () => {
     expect(fileSlug('quiz_mwh0bwc84422kr')).toBe('quiz-mwh0bwc84422kr');
     expect(fileSlug('///')).toBe('khong-ten');
     expect(fileSlug('a'.repeat(200))).toHaveLength(60);
+  });
+});
+
+describe('tệp kết nối', () => {
+  const base = { script_url: 'https://script.google.com/macros/s/AKfycbzWDwdp9Q6/exec', folder_url: 'https://drive.google.com/drive/folders/1ZVJkapI-ikPsp2rdd6kuvXSGu-zzgJEk', folder_id: '1ZVJkapI-ikPsp2rdd6kuvXSGu-zzgJEk', folder_name: 'Quickplay_DuLieu', server_version: '1.1.0', linked_at: '2026-11-15T04:00:00.000Z' };
+  it('tệp của giáo viên giữ khóa; tệp của quản trị không chứa khóa', () => {
+    const teacher = buildLinkFile({ role: 'teacher', key: 'KhoaGiaoVien123', ...base });
+    expect(parseLinkFile(teacher, 'teacher')).toMatchObject({ role: 'teacher', key: 'KhoaGiaoVien123', script_url: base.script_url, folder_id: base.folder_id, server_version: '1.1.0' });
+    const admin = buildLinkFile({ role: 'admin', key: 'KhoaQuanTriBiMat', ...base });
+    expect(admin).not.toContain('KhoaQuanTriBiMat');
+    expect(parseLinkFile(admin, 'admin')).toMatchObject({ role: 'admin', key: '', script_url: base.script_url });
+  });
+  it('từ chối tệp sai vai trò, sai loại hoặc link lạ', () => {
+    const teacher = buildLinkFile({ role: 'teacher', key: 'k', ...base });
+    expect(() => parseLinkFile(teacher, 'admin')).toThrow(/của giáo viên/);
+    expect(() => parseLinkFile('{"app":"Quickplay","kind":"backup"}', 'teacher')).toThrow(/không phải tệp kết nối/);
+    expect(() => parseLinkFile('xyz', 'teacher')).toThrow(/không phải tệp .json/);
+    expect(() => parseLinkFile(buildLinkFile({ role: 'teacher', key: 'k', ...base, script_url: 'https://example.com/exec' }), 'teacher')).toThrow(/không đúng dạng/);
+    expect(() => parseLinkFile(JSON.stringify({ app: 'Quickplay', kind: 'connection', role: 'teacher', script_url: base.script_url, key: "a'; evil()" }), 'teacher')).toThrow(/ký tự không hợp lệ/);
   });
 });

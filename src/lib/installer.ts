@@ -78,3 +78,61 @@ export async function pingScript(url: string): Promise<{ name: string; version: 
     throw e;
   }
 }
+
+// ---------- Tệp kết nối (.json): mang sang máy khác để không phải làm lại các bước dán link ----------
+export interface LinkInfo {
+  role: InstallKind;
+  script_url: string;
+  folder_url: string;
+  folder_id: string;
+  folder_name: string;
+  /** Khóa giáo viên (chỉ có ở tệp của giáo viên). Tệp của quản trị không chứa khóa: quản trị đăng nhập bằng tài khoản và mật khẩu. */
+  key: string;
+  server_version: string;
+  /** Thời điểm liên kết thành công (ISO) */
+  linked_at: string;
+}
+export interface LinkFile extends LinkInfo { app: 'Quickplay'; kind: 'connection'; version: 1 }
+
+const LINK_KEY = (role: InstallKind) => `quickplay.link.${role}`;
+/** Thông tin lần liên kết thành công gần nhất trên máy này (để hiện tích xanh và cho tải tệp kết nối). */
+export function loadLink(role: InstallKind): LinkInfo | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(LINK_KEY(role)) || 'null') as LinkInfo | null;
+    return d && d.role === role && d.script_url ? d : null;
+  } catch {
+    return null;
+  }
+}
+export function saveLink(info: LinkInfo | null, role: InstallKind) {
+  try {
+    if (info) localStorage.setItem(LINK_KEY(role), JSON.stringify(info));
+    else localStorage.removeItem(LINK_KEY(role));
+  } catch { /* bộ nhớ trình duyệt bị chặn */ }
+}
+
+export const linkFileName = (role: InstallKind) => `quickplay-ket-noi-${role === 'admin' ? 'quan-tri' : 'giao-vien'}.json`;
+export function buildLinkFile(info: LinkInfo): string {
+  const f: LinkFile = { app: 'Quickplay', kind: 'connection', version: 1, ...info, key: info.role === 'admin' ? '' : info.key };
+  return JSON.stringify(f, null, 1);
+}
+/** Đọc tệp kết nối và kiểm tra đúng vai trò. */
+export function parseLinkFile(text: string, role: InstallKind): LinkInfo {
+  let d: Partial<LinkFile>;
+  try {
+    d = JSON.parse(text);
+  } catch {
+    throw new Error('Tệp này không phải tệp .json hợp lệ.');
+  }
+  if (!d || d.kind !== 'connection' || d.app !== 'Quickplay') throw new Error('Tệp này không phải tệp kết nối của Quickplay.');
+  if (d.role !== role) throw new Error(role === 'admin' ? 'Đây là tệp kết nối của giáo viên, không dùng được cho quản trị.' : 'Đây là tệp kết nối của quản trị, không dùng được cho giáo viên.');
+  const url = String(d.script_url ?? '').trim();
+  if (!isExecUrl(url)) throw new Error('Link Apps Script trong tệp không đúng dạng …/exec.');
+  const folderUrl = String(d.folder_url ?? '').trim();
+  const key = String(d.key ?? '');
+  if (!/^[\w-]*$/.test(key)) throw new Error('Khóa trong tệp có ký tự không hợp lệ.');
+  return {
+    role, script_url: url, folder_url: folderUrl, folder_id: folderIdOf(folderUrl) ?? '', folder_name: String(d.folder_name ?? '').slice(0, 120),
+    key: role === 'admin' ? '' : key, server_version: String(d.server_version ?? ''), linked_at: String(d.linked_at ?? ''),
+  };
+}

@@ -3,7 +3,7 @@
 const http = require('http');
 const { createAdmin } = require('./gas-harness.cjs');
 
-const admin = createAdmin();
+const admin = createAdmin({ folderId: process.env.MOCK_FOLDER_ID || '1MockFolderForLocalTesting0000000' });
 admin.store.set('ADMIN_KEY', process.env.MOCK_ADMIN_KEY || 'dev-admin-key'); // khóa cố định cho máy chủ thử
 admin.adminKey = admin.store.get('ADMIN_KEY');
 const port = Number(process.env.PORT || 5181);

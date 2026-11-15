@@ -1,12 +1,14 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Check, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Check, ChevronRight, Download, FolderOpen, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminBootOk, adminEmail, adminSignedIn, adminUrl, adminUser, bootAdminPassword, markDefaultAdminPassword, setAdminUrl, usingDefaultAdminPassword, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Field, Modal, useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller } from '../components/ScriptInstaller';
+import { ADMIN_SCRIPT_VERSION, buildLinkFile, linkFileName, loadLink, pingScript, saveLink } from '../lib/installer';
+import { downloadBlob } from '../lib/xlsx';
 import { AdminGuide } from '../components/AdminGuide';
 import '../installer.css';
 
@@ -33,6 +35,8 @@ export default function Admin() {
   const [myEmail, setMyEmail] = useState(adminEmail());
   const [defaultPw, setDefaultPw] = useState(usingDefaultAdminPassword());
   // Nơi lưu trữ trên Google Drive của máy chủ tài khoản (thư mục + tệp sao lưu)
+  // Sau khi bước 5 báo liên kết thành công: giữ nguyên màn hình để quản trị thấy tích xanh và tải tệp kết nối, bấm Tiếp tục mới sang bước sau
+  const [afterLink, setAfterLink] = useState<null | { label: string; go: () => void }>(null);
   const [store, setStore] = useState<null | { folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>(null); // đang dùng mật khẩu mặc định: nhắc đổi ngay
   const [fg, setFg] = useState<null | { sentTo: string; code: string; next: string; again: string; err: string; busy: boolean }>(null);
   const envUrl = ((import.meta.env?.VITE_ADMIN_URL as string | undefined) || '').trim(); // đã đặt trên Vercel chưa
@@ -70,6 +74,22 @@ export default function Admin() {
       await load();
     } catch (e) {
       setFg((f) => f && { ...f, busy: false, err: (e as Error).message });
+    }
+  };
+  // Tệp kết nối của quản trị: link máy chủ + thư mục (không có khóa, không có mật khẩu) để nạp ở máy khác
+  const downloadLink = async () => {
+    try {
+      const old = loadLink('admin');
+      const pong = await pingScript(adminUrl());
+      const info = {
+        role: 'admin' as const, script_url: adminUrl(), folder_url: store?.folder_url ?? old?.folder_url ?? '', folder_id: store?.folder_id ?? old?.folder_id ?? '',
+        folder_name: store?.folder_name ?? old?.folder_name ?? '', key: '', server_version: pong.version, linked_at: old?.script_url === adminUrl() && old.linked_at ? old.linked_at : new Date().toISOString(),
+      };
+      saveLink(info, 'admin');
+      downloadBlob(linkFileName('admin'), new Blob([buildLinkFile(info)], { type: 'application/json' }));
+      toast('Đã tải tệp kết nối. Ở máy khác: chọn vai trò Quản trị rồi bấm Nạp tệp kết nối.', 'ok');
+    } catch (e) {
+      toast((e as Error).message, 'error');
     }
   };
   const copy = (text: string, ok: string) => navigator.clipboard.writeText(text).then(() => toast(ok, 'ok')).catch(() => toast('Trình duyệt không cho sao chép. Hãy bôi đen rồi nhấn Ctrl + C.', 'error'));
@@ -195,6 +215,14 @@ export default function Admin() {
           <ScriptInstaller kind="admin" onDone={async (r) => {
             setAdminUrl(r.scriptUrl);
             setUrl(r.scriptUrl);
+            // Có khóa (vừa cài mới) thì kiểm tra luôn quyền quản trị và thư mục Google Drive lưu trữ
+            let folder: { folderName?: string; folderUrl?: string } = {};
+            if (r.key) {
+              const sto = await adminApi.storageByKey(r.key);
+              if (sto.error) throw new Error(sto.error);
+              if (!sto.folder_id) throw new Error('Máy chủ chưa nhận được thư mục Google Drive. Hãy lưu link thư mục ở bước 1, bấm Sao chép mã rồi dán lại mã vào Apps Script.');
+              folder = { folderName: sto.folder_name, folderUrl: sto.folder_url };
+            }
             const st = await adminAuth.status();
             const first = bootAdminPassword();
             if (!st.has_admin && first) {
@@ -203,12 +231,15 @@ export default function Admin() {
               markDefaultAdminPassword(true);
               setDefaultPw(true);
               toast('Đã kết nối máy chủ tài khoản. Tài khoản mặc định giờ là tài khoản quản trị.', 'ok');
-              await load();
-              return;
+              setAfterLink({ label: 'Tiếp tục: vào trang quản lý tài khoản', go: () => { setAfterLink(null); load(); } });
+              return folder;
             }
             setForm((f) => ({ ...f, key: r.key }));
-            setStep(st.has_admin ? 'login' : 'init');
+            const next = st.has_admin ? 'login' as const : 'init' as const;
+            setAfterLink({ label: next === 'login' ? 'Tiếp tục: đăng nhập quản trị' : 'Tiếp tục: đặt mật khẩu quản trị', go: () => { setAfterLink(null); setStep(next); } });
+            return folder;
           }} />
+          {afterLink && <button className="btn primary lg" style={{ alignSelf: 'flex-start' }} onClick={afterLink.go}>{afterLink.label} <ChevronRight size={20} /></button>}
         </section>
       )}
       {step === 'checking' && <section className="card"><p className="muted" style={{ margin: 0 }}>Đang kết nối máy chủ tài khoản…</p></section>}
@@ -252,6 +283,8 @@ export default function Admin() {
           <div className="conn-ok" role="status" style={{ flexWrap: 'wrap' }}>
             <FolderOpen size={20} /> Thư mục lưu trữ: {store.folder_name || store.folder_id}
             <a className="btn sm ghost" href={store.folder_url} target="_blank" rel="noopener noreferrer">Mở thư mục</a>
+            <button className="btn sm ghost" onClick={downloadLink} title={`Máy chủ tài khoản · phần mềm cần phiên bản ${ADMIN_SCRIPT_VERSION}`}><Download size={16} /> Tải tệp kết nối (.json)</button>
+            {(() => { const l = loadLink('admin'); return l?.script_url === adminUrl() && l.server_version ? <small style={{ fontWeight: 600 }}>Máy chủ phiên bản {l.server_version} · liên kết lúc {new Date(l.linked_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</small> : null; })()}
             {store.saved_at && <small style={{ fontWeight: 600 }}>Tệp sao lưu tài khoản cập nhật lúc {new Date(store.saved_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</small>}
           </div>
         ) : (

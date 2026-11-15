@@ -241,6 +241,8 @@ export const adminApi = {
   list: () => adminCall<AccountRow[]>('adminList'),
   /** Nơi lưu trữ của máy chủ tài khoản trên Google Drive */
   storage: () => adminCall<{ folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>('adminStorage'),
+  /** Kiểm tra khóa quản trị và thư mục lưu trữ ngay sau khi cài (chưa đăng nhập) */
+  storageByKey: (adminKey: string) => call<{ folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string }>('adminStorage', { admin_key: adminKey }),
   create: (username: string, name: string, password: string) => adminCall<AccountRow>('adminCreate', { username, name, password }),
   setLocked: (username: string, locked: boolean) => adminCall<AccountRow>('adminSetLocked', { username, locked }),
   resetPassword: (username: string, password: string) => adminCall<AccountRow>('adminResetPassword', { username, password }),
