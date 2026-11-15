@@ -81,7 +81,9 @@ export default function Library() {
 
   const create = async () => {
     const place = current === ALL || current === NONE ? null : placementOf(catalog, current);
-    const q = await api.saveQuiz({ ...newQuiz(), ...(place ?? {}) });
+    // Tạo trong một Bài: tên bộ đề lấy luôn tên bài (thầy cô vẫn sửa được)
+    const lessonName = place ? resolve(catalog, place)?.lesson?.name : undefined;
+    const q = await api.saveQuiz({ ...newQuiz(lessonName), ...(place ?? {}) });
     nav(`/teacher/edit/${q.id}`);
   };
   const addSample = async () => {

@@ -93,7 +93,8 @@ export function newQuestion(type: QuestionType): Question {
   return base;
 }
 
-export function newQuiz(title = 'Bộ câu hỏi mới'): Quiz {
+export const DEFAULT_QUIZ_TITLE = 'Bộ câu hỏi mới';
+export function newQuiz(title = DEFAULT_QUIZ_TITLE): Quiz {
   const now = new Date().toISOString();
   return { id: uid('quiz_'), title, questions: [], visibility: 'private', created_at: now, updated_at: now };
 }

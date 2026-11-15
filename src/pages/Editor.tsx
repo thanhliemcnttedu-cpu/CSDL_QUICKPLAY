@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye, Upload } from 'lucide-react';
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { api } from '../lib/api';
-import { COMPOSER_TYPES, TYPE_LABELS } from '../lib/factory';
+import { COMPOSER_TYPES, TYPE_LABELS, DEFAULT_QUIZ_TITLE } from '../lib/factory';
 import { validateQuestion } from '../lib/grading';
 import { htmlToText, uid } from '../lib/util';
 import { QuestionComposer } from '../components/QuestionComposer';
@@ -12,7 +12,7 @@ import { ImportDialog } from '../components/ImportDialog';
 import { Spinner, useToast, askConfirm } from '../components/ui';
 import { PlacementPicker } from '../components/CatalogTree';
 import { CoverPicker } from '../components/CoverPicker';
-import { emptyCatalog } from '../lib/catalog';
+import { emptyCatalog, resolve } from '../lib/catalog';
 import type { Catalog } from '../lib/types';
 
 const BULK_TIMES = [10, 15, 20, 30, 45, 60, 90, 120];
@@ -166,7 +166,13 @@ export default function Editor() {
         </div>
       </div>
       <div className="row">
-        <PlacementPicker catalog={catalog} value={quiz} legacySubject={quiz.subject} onChange={(p) => update({ ...quiz, subject_id: p.subject_id, chapter_id: p.chapter_id, lesson_id: p.lesson_id, subject: p.subject ?? quiz.subject, grade: p.grade ?? quiz.grade })} />
+        <PlacementPicker catalog={catalog} value={quiz} legacySubject={quiz.subject} onChange={(p) => {
+          // Chọn Bài: tên bộ đề đổi theo tên bài, miễn là thầy cô chưa tự đặt tên khác (tên còn mặc định, để trống, hoặc đang là tên bài cũ)
+          const oldLesson = resolve(catalog, quiz)?.lesson?.name;
+          const newLesson = resolve(catalog, p)?.lesson?.name;
+          const auto = !quiz.title.trim() || quiz.title === DEFAULT_QUIZ_TITLE || quiz.title === oldLesson;
+          update({ ...quiz, subject_id: p.subject_id, chapter_id: p.chapter_id, lesson_id: p.lesson_id, subject: p.subject ?? quiz.subject, grade: p.grade ?? quiz.grade, title: newLesson && auto ? newLesson : quiz.title });
+        }} />
         <label className="field"><span>Chia sẻ</span>
           <select className="input" value={quiz.visibility} onChange={(e) => update({ ...quiz, visibility: e.target.value as Quiz['visibility'] })}>
             <option value="private">Riêng tư</option>
