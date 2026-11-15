@@ -57,3 +57,27 @@
   .gd-time { margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .gd-ball { transition: none; } }
+
+/* Bước 4: hướng dẫn từng việc trên Vercel (bấm vào đâu, chép gì, dán vào ô nào) */
+.gd-why { margin: 0; line-height: 1.5; }
+.gd-sub { list-style: none; margin: 0; padding: 0; counter-reset: sub; display: flex; flex-direction: column; gap: 10px; }
+.gd-sub > li { counter-increment: sub; position: relative; padding: 10px 12px 10px 50px; border-radius: 16px; background: #fff; border: 1.5px solid var(--border); line-height: 1.6; }
+.gd-sub > li::before { content: counter(sub); position: absolute; left: 12px; top: 10px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: #fff; font-weight: 800; font-size: 0.9rem; }
+.gd-sub > li:not(:last-child)::after { content: ''; position: absolute; left: 25px; top: 42px; bottom: -12px; width: 2px; background: #cfe0ff; }
+.gd-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.gd-url { max-width: 100%; padding: 2px 8px; border-radius: 8px; background: var(--muted); font-family: inherit; font-size: 0.8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 200px; min-width: 0; }
+/* Tên nút trên Vercel: viền đậm, giống nhãn nút để dễ dò trên màn hình */
+.gd-key { display: inline-block; padding: 0 8px; border-radius: 8px; border: 1.5px solid #0a1730; background: #fff; color: #0a1730; font-weight: 700; font-size: 0.9em; white-space: nowrap; line-height: 1.5; }
+.gd-key.go { background: #0a1730; color: #fff; }
+/* Mẫu hai ô Key / Value */
+.gd-form { margin: 8px 0; display: grid; gap: 8px; grid-template-columns: 1fr; padding: 10px; border-radius: 14px; background: #f3f6fb; border: 1.5px dashed #9fb3d1; }
+.gd-form > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.gd-form small { color: var(--muted-fg); font-weight: 600; }
+.gd-field { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 6px 4px 10px; border-radius: 10px; background: #fff; border: 1.5px solid var(--border); }
+.gd-field code { flex: 1 1 auto; min-width: 0; font-family: inherit; font-weight: 700; overflow-wrap: anywhere; }
+.gd-field > span { line-height: 1.4; font-size: 0.9rem; }
+@media (max-width: 560px) {
+  .gd-sub > li { padding-left: 44px; }
+  .gd-sub > li::before { left: 8px; }
+  .gd-sub > li:not(:last-child)::after { left: 21px; }
+}

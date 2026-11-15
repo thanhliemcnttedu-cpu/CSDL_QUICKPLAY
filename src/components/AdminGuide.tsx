@@ -1,7 +1,7 @@
 // Bảng hướng dẫn 6 bước cho quản trị: một hàng mốc tiến độ (đã xong / đang làm / chưa tới) và một thẻ nội dung
 // cho bước đang chọn. Mỗi bước chỉ vài dòng ngắn để nhìn là hiểu.
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpenCheck, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Globe, GraduationCap, KeyRound, Mail, ServerCog, UserPlus } from 'lucide-react';
+import { BookOpenCheck, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Globe, GraduationCap, KeyRound, Mail, RefreshCw, ServerCog, UserPlus } from 'lucide-react';
 import '../guide.css';
 
 interface Props {
@@ -14,13 +14,15 @@ interface Props {
   copy: (text: string, ok: string) => void;
 }
 
+/** Tên nút / mục đúng như chữ hiện trên màn hình Vercel */
+const Key = ({ children, go }: { children: ReactNode; go?: boolean }) => <span className={`gd-key ${go ? 'go' : ''}`}>{children}</span>;
 const Line = ({ children }: { children: ReactNode }) => <li><span className="gd-dot" aria-hidden><Check size={12} /></span><span>{children}</span></li>;
 
 export function AdminGuide({ at, site, linked, serverUrl, copy }: Props) {
   const [sel, setSel] = useState(at);
   useEffect(() => setSel(at), [at]); // hệ thống sang bước mới thì thẻ nội dung chuyển theo
 
-  const steps: { icon: typeof Mail; label: string; title: string; time?: string; body: ReactNode; actions?: ReactNode }[] = [
+  const steps: { icon: typeof Mail; label: string; title: string; time?: string; body: ReactNode; actions?: ReactNode; raw?: boolean }[] = [
     {
       icon: ServerCog, label: 'Máy chủ', title: 'Cài máy chủ tài khoản', time: 'Một lần · khoảng 5 phút',
       body: <>
@@ -46,19 +48,55 @@ export function AdminGuide({ at, site, linked, serverUrl, copy }: Props) {
       </>,
     },
     {
-      icon: Globe, label: 'Bật đăng nhập', title: 'Bật đăng nhập cho giáo viên', time: 'Bắt buộc · một lần',
+      icon: Globe, label: 'Bật đăng nhập', title: 'Bật đăng nhập cho giáo viên', time: 'Bắt buộc · một lần · khoảng 3 phút',
+      raw: true,
       body: linked ? (
-        <Line>Trang web <b>đã được gắn</b> với máy chủ tài khoản. Giáo viên ở máy nào cũng đăng nhập được.</Line>
-      ) : <>
-        <Line>Vào Vercel → dự án <b>quickplay</b> → <b>Settings → Environment Variables</b>.</Line>
-        <Line>Thêm biến <code>VITE_ADMIN_URL</code>, giá trị là link <code>/exec</code> của máy chủ tài khoản.</Line>
-        <Line><b>Save</b> → thẻ <b>Deployments</b> → dấu ba chấm ở bản mới nhất → <b>Redeploy</b>.</Line>
-      </>,
-      actions: !linked && <>
-        <button type="button" className="btn sm" onClick={() => copy('VITE_ADMIN_URL', 'Đã chép tên biến.')}><Copy size={14} /> Chép tên biến</button>
-        {serverUrl && <button type="button" className="btn sm" onClick={() => copy(serverUrl, 'Đã chép link /exec.')}><Copy size={14} /> Chép link /exec</button>}
-        <a className="btn sm ghost" href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở Vercel</a>
-      </>,
+        <ul className="gd-lines"><Line>Trang web <b>đã được gắn</b> với máy chủ tài khoản. Giáo viên ở máy nào cũng đăng nhập được.</Line></ul>
+      ) : (
+        <>
+          <p className="gd-why">Việc này báo cho trang web biết máy chủ tài khoản nằm ở đâu. Chưa làm thì giáo viên ở máy khác <b>chưa đăng nhập được</b>. Làm trên trang Vercel (nơi đang chạy trang web), theo đúng 7 việc dưới đây:</p>
+          <ol className="gd-sub">
+            <li>
+              <b>Chép link máy chủ tài khoản.</b> Bấm nút bên dưới, link <code>/exec</code> được chép vào bộ nhớ tạm.
+              <span className="gd-row">
+                <button type="button" className="btn sm primary" onClick={() => copy(serverUrl, 'Đã chép link /exec. Sang việc 2.')} disabled={!serverUrl}><Copy size={14} /> Chép link /exec</button>
+                {serverUrl && <code className="gd-url">{serverUrl}</code>}
+              </span>
+            </li>
+            <li>
+              <b>Mở Vercel.</b> Bấm nút bên dưới (mở ở thẻ mới). Trong danh sách dự án, bấm vào dự án tên <Key>quickplay</Key>.
+              <span className="gd-row"><a className="btn sm" href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở Vercel</a></span>
+            </li>
+            <li><b>Mở trang biến môi trường.</b> Ở cột bên trái, bấm <Key>Environment Variables</Key>.</li>
+            <li><b>Thêm biến mới.</b> Bấm nút <Key>Add Environment Variable</Key> (có bản ghi là <Key>Add New</Key> hoặc <Key>Create new</Key>).</li>
+            <li>
+              <b>Điền hai ô rồi lưu.</b>
+              <div className="gd-form" role="group" aria-label="Mẫu điền trên Vercel">
+                <div>
+                  <small>Ô <b>Key</b> (tên biến): dán vào đây</small>
+                  <span className="gd-field"><code>VITE_ADMIN_URL</code><button type="button" className="btn sm" onClick={() => copy('VITE_ADMIN_URL', 'Đã chép tên biến. Dán vào ô Key.')}><Copy size={14} /> Chép</button></span>
+                </div>
+                <div>
+                  <small>Ô <b>Value</b> (giá trị): dán vào đây</small>
+                  <span className="gd-field"><code>{serverUrl ? serverUrl.replace('https://script.google.com', '…') : 'link /exec của máy chủ tài khoản'}</code><button type="button" className="btn sm" onClick={() => copy(serverUrl, 'Đã chép link /exec. Dán vào ô Value.')} disabled={!serverUrl}><Copy size={14} /> Chép</button></span>
+                </div>
+                <div>
+                  <small>Mục <b>Environments</b></small>
+                  <span className="gd-field"><span>Để nguyên như Vercel chọn sẵn (<Key>All Environments</Key> hoặc có tích <Key>Production</Key>).</span></span>
+                </div>
+              </div>
+              Xong bấm nút <Key go>Save</Key>.
+            </li>
+            <li>
+              <b>Dựng lại trang web</b> để biến có hiệu lực. Ở cột bên trái bấm <Key>Deployments</Key> → ở dòng trên cùng (có chữ <Key>Current</Key>) bấm dấu <Key>⋯</Key> ở cuối dòng → chọn <Key>Redeploy</Key> → bấm <Key go>Redeploy</Key> lần nữa để xác nhận.
+            </li>
+            <li>
+              <b>Chờ và kiểm tra.</b> Chờ khoảng 1 phút tới khi cột Status ghi <Key>Ready</Key>, quay lại trang này rồi bấm nút bên dưới. Bước 4 chuyển sang màu xanh là xong.
+              <span className="gd-row"><button type="button" className="btn sm success" onClick={() => location.reload()}><RefreshCw size={14} /> Tôi đã làm xong, kiểm tra lại</button></span>
+            </li>
+          </ol>
+        </>
+      ),
     },
     {
       icon: UserPlus, label: 'Cấp tài khoản', title: 'Cấp tài khoản cho giáo viên',
@@ -116,7 +154,7 @@ export function AdminGuide({ at, site, linked, serverUrl, copy }: Props) {
           {state(sel) === 'now' && <span className="badge blue">Đang làm</span>}
           {cur.time && <span className="gd-time">{cur.time}</span>}
         </div>
-        <ul className="gd-lines">{cur.body}</ul>
+        {cur.raw ? cur.body : <ul className="gd-lines">{cur.body}</ul>}
         {cur.actions && <div className="gd-actions">{cur.actions}</div>}
         <div className="gd-nav">
           <button type="button" className="btn sm ghost" onClick={() => setSel(sel - 1)} disabled={sel === 1}><ChevronLeft size={16} /> Bước trước</button>
