@@ -2,7 +2,7 @@
 // - Tệp trong /assets/ có mã băm trong tên nên không bao giờ đổi nội dung: lấy từ bộ đệm trước.
 // - Trang gốc (index.html): lấy từ mạng trước để luôn nhận bản mới; mất mạng thì dùng bản đã lưu.
 // - Không đụng tới yêu cầu gửi dữ liệu (POST) và mọi địa chỉ ngoài trang này (Apps Script, Google Drive, YouTube…).
-const CACHE = 'quickplay-v1';
+const CACHE = 'quickplay-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -25,7 +25,10 @@ self.addEventListener('fetch', (e) => {
       caches.open(CACHE).then(async (c) => {
         const hit = await c.match(req);
         if (hit) return hit;
-        const res = await fetch(req);
+        // Hỏi lại máy chủ (no-cache), không tin bộ đệm HTTP của trình duyệt: bản cũ của Quickplay để Vercel gắn
+        // "giữ 1 năm" cho cả lỗi 404, trình duyệt có thể đã nhớ một lỗi 404 tạm thời → trang trắng mãi.
+        let res = await fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
+        if (!res.ok) res = await fetch(req.url, { cache: 'reload', credentials: 'same-origin' });
         if (res.ok) c.put(req, res.clone());
         return res;
       }),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { busyRoute, entryOf, recentReloads } from './staleBuild';
+import { assetUrlsOf, busyRoute, entryOf, recentReloads } from './staleBuild';
 
 describe('Bản mới của Quickplay', () => {
   it('đọc tên tệp mã chính trong index.html (có hoặc không có / ở đầu)', () => {
@@ -19,5 +19,11 @@ describe('Bản mới của Quickplay', () => {
     expect(busyRoute('#/teacher/paper')).toBe(false);
     expect(busyRoute('#/teacher')).toBe(false);
     expect(busyRoute('#/login')).toBe(false);
+  });
+  it('lấy ra các tệp mã bị lỗi trong thông báo để dọn bộ nhớ đệm', () => {
+    expect(assetUrlsOf('Failed to fetch dynamically imported module: https://quickplay-delta.vercel.app/assets/Settings-CU9lZY5z.js'))
+      .toEqual(['/assets/Settings-CU9lZY5z.js']);
+    expect(assetUrlsOf('Unable to preload CSS for /assets/Settings-a1.css')).toEqual(['/assets/Settings-a1.css']);
+    expect(assetUrlsOf('Network error')).toEqual([]);
   });
 });
