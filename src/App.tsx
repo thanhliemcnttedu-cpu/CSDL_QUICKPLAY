@@ -100,7 +100,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
         </span>
         <nav className="topnav" aria-label="Điều hướng giáo viên">
           <NavLink to="/teacher" end><BookOpen size={18} /> Thư viện</NavLink>
-          <NavLink to="/teacher/paper"><ScanLine size={18} /> Dạy học trên lớp</NavLink>
+          <NavLink to="/teacher/paper" aria-label="Dạy học trên lớp"><ScanLine size={18} /> <span className="nav-long">Dạy học trên lớp</span><span className="nav-short" aria-hidden>Trên lớp</span></NavLink>
           <NavLink to="/teacher/reports"><BarChart3 size={18} /> Báo cáo</NavLink>
           <NavLink to="/teacher/settings"><SettingsIcon size={18} /> Cài đặt</NavLink>
         </nav>
