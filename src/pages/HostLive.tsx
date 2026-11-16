@@ -587,12 +587,12 @@ function ExamPanel({ s, now, link, qr }: { s: Session; now: number; link: string
         {s.state === 'LOBBY_WAITING' && <span className="badge blue">Đồng hồ chạy khi thầy cô bấm Bắt đầu</span>}
         {s.state === 'COMPLETED' && <span className="badge">Đã thu bài</span>}
       </div>
-      <div className="row" style={{ gap: 8 }}>
+      {!roster.length && <div className="row" style={{ gap: 8 }}>
         <span className="badge green">Đã vào {byCode.size}/{roster.length}</span>
         <span className="badge blue">Đã nộp bài {handed}</span>
         {locked > 0 && <span className="badge red">Bị khóa do vi phạm {locked}</span>}
         <span className={`badge ${absent.length ? 'amber' : ''}`}>Chưa vào {absent.length}</span>
-      </div>
+      </div>}
       {s.state !== 'COMPLETED' && (
         <div className="exam-share">
           {qr && <img className="qr" src={qr} alt="Mã QR để vào bài kiểm tra" width={132} height={132} />}
@@ -618,12 +618,74 @@ function ExamPanel({ s, now, link, qr }: { s: Session; now: number; link: string
           </div>
         </div>
       )}
-      {absent.length > 0 && (
-        <details>
-          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Học sinh chưa vào làm bài ({absent.length})</summary>
-          <p className="small" style={{ margin: '6px 0 0' }}>{absent.map((r) => `${r.name} (${r.code})`).join(' · ')}</p>
-        </details>
-      )}
+      {roster.length > 0 && <ClassStatus s={s} roster={roster} byCode={byCode} copy={copy} />}
     </div>
+  );
+}
+
+type RosterStatus = 'absent' | 'doing' | 'locked' | 'done' | 'collected';
+const ROSTER_LABEL: Record<RosterStatus, string> = { absent: 'Chưa vào', doing: 'Đang làm', locked: 'Bị khóa', done: 'Đã nộp', collected: 'Hết giờ, đã thu' };
+
+/** Tình trạng cả lớp: mỗi em một ô theo thứ tự danh sách lớp, tô màu theo trạng thái, lọc nhanh, chép tên em chưa vào. */
+function ClassStatus({ s, roster, byCode, copy }: {
+  s: Session;
+  roster: { name: string; code: string }[];
+  byCode: Map<string, Session['players'][number]>;
+  copy: (text: string, done: string) => void;
+}) {
+  const [filter, setFilter] = useState<RosterStatus | 'all'>('all');
+  const [open, setOpen] = useState(true);
+  const rows = roster.map((r, i) => {
+    const p = byCode.get(r.code);
+    const st: RosterStatus = !p ? 'absent' : p.finished ? 'done' : p.locked ? 'locked' : 'doing';
+    // sau khi thu bài, em đã vào mà chưa bấm nộp: bài đã được thu (giống cột Trạng thái của bảng điểm)
+    return { ...r, no: i + 1, p, st: s.state === 'COMPLETED' && (st === 'doing' || st === 'locked') ? ('collected' as const) : st };
+  });
+  const count = (k: RosterStatus) => rows.filter((r) => r.st === k).length;
+  const shown = filter === 'all' ? rows : rows.filter((r) => r.st === filter);
+  const absent = rows.filter((r) => r.st === 'absent');
+  const keys: RosterStatus[] = ['absent', 'doing', 'locked', 'done', 'collected'];
+  return (
+    <section className="cls-status" aria-label="Tình trạng cả lớp">
+      <div className="row between" style={{ gap: 8 }}>
+        <button type="button" className="cls-head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          <Users size={18} /> Tình trạng cả lớp <span className="muted">· {roster.length} em</span>
+          <span className="small muted">{open ? 'Thu gọn' : 'Mở ra'}</span>
+        </button>
+        {absent.length > 0 && s.state !== 'COMPLETED' && (
+          <button className="btn sm" onClick={() => copy(absent.map((r) => `${r.no}. ${r.name} (${r.code})`).join('\n'), `Đã chép tên ${absent.length} em chưa vào.`)}>
+            <Copy size={16} /> Chép tên em chưa vào
+          </button>
+        )}
+      </div>
+      {open && (
+        <>
+          <div className="cls-filter" role="radiogroup" aria-label="Lọc theo tình trạng">
+            <button type="button" role="radio" aria-checked={filter === 'all'} className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>Tất cả <b>{rows.length}</b></button>
+            {keys.map((k) => (count(k) > 0 || k === 'absent' || k === 'done' || (k === 'doing' && s.state !== 'COMPLETED')) && (
+              <button key={k} type="button" role="radio" aria-checked={filter === k} className={`${k} ${filter === k ? 'on' : ''}`} onClick={() => setFilter(k)}>
+                <i aria-hidden /> {ROSTER_LABEL[k]} <b>{count(k)}</b>
+              </button>
+            ))}
+          </div>
+          <div className="cls-bar" role="img" aria-label={keys.map((k) => `${ROSTER_LABEL[k]} ${count(k)} em`).join(', ')}>
+            {keys.map((k) => count(k) > 0 && <i key={k} className={k} style={{ flexGrow: count(k) }} />)}
+          </div>
+          {shown.length ? (
+            <ol className="cls-grid">
+              {shown.map((r) => (
+                <li key={r.code} className={`cls-item ${r.st}`}>
+                  <span className="no">{r.no}</span>
+                  <span className="nm">
+                    <b>{r.name}</b>
+                    <small><span className="st">{ROSTER_LABEL[r.st]}</span>{r.st === 'doing' && r.p ? ` ${r.p.answered}/${s.question_count} câu` : ''} · {r.code}</small>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : <p className="muted small" style={{ margin: 0 }}>Không có em nào ở mục này.</p>}
+        </>
+      )}
+    </section>
   );
 }
