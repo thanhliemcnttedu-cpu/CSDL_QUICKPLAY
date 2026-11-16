@@ -2693,6 +2693,32 @@ function actSwapMedia_(req) {
 // và chủ dự án đã bật "Google Apps Script API" tại https://script.google.com/home/usersettings
 // Bản mới cần thêm quyền Google mới thì KHÔNG tự cập nhật (Google bắt chủ dự án tự cấp quyền): phần mềm báo cập nhật tay.
 var SCRIPT_API = 'https://script.googleapis.com/v1/projects/';
+// Hai quyền riêng của chức năng tự cập nhật. Màn hình đồng ý của Google có ô tích cho TỪNG quyền:
+// bỏ trống hai ô này thì Google ghi nhận "đã trả lời" và không hỏi lại → lỗi ACCESS_TOKEN_SCOPE_INSUFFICIENT.
+var SELF_UPDATE_SCOPES = [
+  'https://www.googleapis.com/auth/script.projects',
+  'https://www.googleapis.com/auth/script.deployments'
+];
+
+/** Còn thiếu quyền tự cập nhật? Trả link cấp quyền của Google ('' nếu Google không đưa link), null nếu đủ hoặc không kiểm tra được. */
+function missingSelfUpdateScopes_() {
+  try {
+    if (typeof ScriptApp.getAuthorizationInfo !== 'function') return null;
+    var info = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL, SELF_UPDATE_SCOPES);
+    if (info.getAuthorizationStatus() !== ScriptApp.AuthorizationStatus.REQUIRED) return null;
+    return info.getAuthorizationUrl() || '';
+  } catch (e) {
+    return null;
+  }
+}
+
+function requireSelfUpdateScopes_() {
+  var url = missingSelfUpdateScopes_();
+  if (url === null) return;
+  throw userError_('SCOPES: Apps Script chưa được cấp 2 quyền tự cập nhật (quản lý dự án và bản triển khai Apps Script). ' +
+    'Trong trình biên tập chọn hàm kiemTraTuCapNhat, bấm Chạy; khi Google hỏi, tích "Chọn tất cả" rồi Tiếp tục.' +
+    (url ? ' Hoặc mở link cấp quyền: ' + url : ''));
+}
 
 function updateBase_() {
   var b = PropertiesService.getScriptProperties().getProperty('UPDATE_BASE') || UPDATE_BASE_DEFAULT;
@@ -2728,7 +2754,7 @@ function scriptApi_(method, path, body) {
   }
   var detail = ' (Google: ' + code + ' ' + String(text).replace(/\s+/g, ' ').slice(0, 220) + ')';
   if (/insufficient.*scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(text)) {
-    throw userError_('SCOPES: Apps Script chưa được cấp quyền tự cập nhật. Đã dán tệp cấu hình appsscript.json thì trong trình biên tập chọn hàm doGet, bấm Chạy và cho phép quyền; chưa dán thì cập nhật tay một lần bằng Trình cài đặt (dán cả mã và tệp cấu hình).' + detail);
+    throw userError_('SCOPES: Apps Script chưa được cấp 2 quyền tự cập nhật. Trong trình biên tập chọn hàm kiemTraTuCapNhat, bấm Chạy; khi Google hỏi, tích "Chọn tất cả" rồi Tiếp tục. Chưa dán tệp cấu hình appsscript.json thì cập nhật tay một lần bằng Trình cài đặt.' + detail);
   }
   if (code === 403 || /PERMISSION_DENIED/i.test(text)) {
     throw userError_('Google từ chối cho Apps Script tự cập nhật' + detail + '. Thử: bật lại Google Apps Script API, đợi vài phút rồi kiểm tra lại.');
@@ -2741,6 +2767,8 @@ function scriptApi_(method, path, body) {
  * Kết quả và lỗi gốc của Google hiện ở Nhật ký thực thi. Lần đầu chạy, Google hỏi cấp quyền nếu còn thiếu.
  */
 function kiemTraTuCapNhat() {
+  // Chạy trong trình biên tập: còn thiếu 2 quyền tự cập nhật thì Google hiện lại hộp cấp quyền (nhớ tích "Chọn tất cả")
+  if (typeof ScriptApp.requireScopes === 'function') ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, SELF_UPDATE_SCOPES);
   try {
     var r = actUpdateCheck_();
     Logger.log('ĐỦ ĐIỀU KIỆN TỰ CẬP NHẬT. Bản đang chạy: ' + r.version + ', số tệp: ' + r.files + ', số bản triển khai: ' + r.deployments);
@@ -2751,6 +2779,7 @@ function kiemTraTuCapNhat() {
 
 /** Kiểm tra đã đủ điều kiện tự cập nhật chưa (bật API, có quyền). */
 function actUpdateCheck_() {
+  requireSelfUpdateScopes_();
   var content = scriptApi_('get', '/content');
   var dep = scriptApi_('get', '/deployments');
   return { ready: true, files: (content.files || []).length, deployments: (dep.deployments || []).length, version: APP_VERSION };
@@ -2785,6 +2814,7 @@ function actSelfUpdate_(req) {
   var m = code.match(/var APP_NAME = '([^']+)';[\s\S]*?var APP_VERSION = '([\d.]+)';/);
   if (!m || m[1] !== APP_NAME || m[2] !== latest.version) throw userError_('Mã tải về không phải mã Apps Script giáo viên của Quickplay.');
 
+  requireSelfUpdateScopes_();
   // quyền Google của bản mới phải nằm trong quyền đã cấp; thêm quyền mới thì chủ dự án phải tự cấp → cập nhật tay
   var current = scriptApi_('get', '/content');
   var curManifest = null;

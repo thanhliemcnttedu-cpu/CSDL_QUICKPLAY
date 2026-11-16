@@ -76,7 +76,7 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
   const st = useUpdateStatus();
   const copyManifest = useCopyManifest();
   const [busy, setBusy] = useState<'' | 'update' | 'check'>('');
-  const [ready, setReady] = useState<{ ready: boolean; message?: string } | null>(null);
+  const [ready, setReady] = useState<{ ready: boolean; message?: string; link?: string } | null>(null);
   const old = !!server && st?.state === 'old';
 
   const updateNow = async () => {
@@ -99,7 +99,8 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
     // lý do đã biết (thiếu quyền, chưa bật API…): dùng câu hướng dẫn của phần mềm, mới hơn câu của Apps Script đang chạy
     // giữ phần lỗi gốc của Google (nếu Apps Script gửi kèm) để biết đúng nguyên nhân
     const google = (r0.message ?? '').match(/\(Google:[^)]*\)/)?.[0] ?? '';
-    const r = !r0.ready && r0.reason && r0.reason !== 'error' && r0.reason !== 'no_self' ? { ...r0, message: `${reasonText(r0.reason)} ${google}`.trim() } : r0;
+    const link = (r0.message ?? '').match(/link cấp quyền:\s*(https:\/\/\S+)/)?.[1];
+    const r = !r0.ready && r0.reason && r0.reason !== 'error' && r0.reason !== 'no_self' ? { ...r0, message: `${reasonText(r0.reason)} ${google}`.trim(), link } : r0;
     setReady(r);
     setBusy('');
     toast(r.ready ? 'Đủ điều kiện: các bản sau Apps Script sẽ tự cập nhật.' : r.message ?? 'Chưa đủ điều kiện tự cập nhật.', r.ready ? 'ok' : 'error');
@@ -135,7 +136,14 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
           <div>{reasonText(st.reason)}{st.reason === 'error' && st.message ? ` ${st.message}` : ''}</div>
         </div>
       )}
-      {ready && <div className={`alert ${ready.ready ? 'ok' : 'warn'}`}><div>{ready.ready ? 'Đủ hai điều kiện: các bản sau Apps Script sẽ tự cập nhật.' : ready.message}</div></div>}
+      {ready && (
+        <div className={`alert ${ready.ready ? 'ok' : 'warn'}`}>
+          <div>
+            {ready.ready ? 'Đủ hai điều kiện: các bản sau Apps Script sẽ tự cập nhật.' : ready.message}
+            {ready.link && <> <a className="btn sm" href={ready.link} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở trang cấp quyền của Google</a></>}
+          </div>
+        </div>
+      )}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {old && !needManual && <button className="btn primary" onClick={updateNow} disabled={!!busy}><Zap size={18} /> {busy === 'update' ? 'Đang cập nhật… (khoảng 20 giây)' : needApi ? 'Đã bật API, cập nhật ngay' : 'Cập nhật ngay'}</button>}
         {(needManual || (old && reason === 'error')) && <button className="btn primary" onClick={onManual}>Xem 5 bước cập nhật tay</button>}
