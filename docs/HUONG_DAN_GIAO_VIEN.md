@@ -45,7 +45,7 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
 5. **Giám sát:** màn hình của thầy cô hiện số em đã vào, đã nộp, chưa vào; thẻ **Bảng điểm** có hạng, họ tên, lớp, mã số HS, trạng thái, điểm/10,
    số câu đúng, sai, bỏ trống và mức đánh giá; thẻ **Giám sát gian lận** hiện từng lần vi phạm và nút **Mở khóa** cho bài bị khóa.
 6. **Xuất bảng điểm Excel:** trang tính đầu tiên "Bảng điểm" có đủ các cột trên (cả em chưa vào thi), cuối bảng có sĩ số, số em đã nộp, điểm trung bình
-   và số em ở từng mức: Hoàn thành xuất sắc (từ 9 điểm), Hoàn thành tốt (từ 7), Đạt yêu cầu (từ 5), Chưa đạt yêu cầu (dưới 5).
+   và số em ở từng mức: Hoàn thành xuất sắc (từ 9 điểm), Hoàn thành tốt (từ 7), Hoàn thành (từ 5), Chưa đạt (dưới 5).
 
 ## Soạn bộ câu hỏi
 
@@ -79,7 +79,7 @@ số bạn hiện trên **bảng xếp hạng** (3/5/10/15/tất cả).
 - **Điểm** = điểm của câu × phần làm đúng. Trả lời chậm không bị trừ.
 - **Điểm thưởng** (cộng riêng): +20% khi đúng trong nửa đầu thời gian; +50% mỗi 3 câu đúng liên tiếp.
 - **Xếp hạng** theo điểm + điểm thưởng. **Mức đánh giá** chỉ theo điểm:
-  Hoàn thành xuất sắc ≥ 90% · Hoàn thành tốt ≥ 70% · Đạt yêu cầu ≥ 50% · Chưa đạt yêu cầu < 50%.
+  Hoàn thành xuất sắc ≥ 90% · Hoàn thành tốt ≥ 70% · Hoàn thành ≥ 50% · Chưa đạt < 50%.
 
 ## Trong và sau buổi học
 

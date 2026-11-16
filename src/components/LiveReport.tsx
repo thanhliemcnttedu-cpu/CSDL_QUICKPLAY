@@ -63,7 +63,7 @@ export function LiveReport({ s, quiz }: { s: Session; quiz: Quiz | null }) {
         <div className="rp-tile"><small>Đúng hoàn toàn</small><b className="t-ok">{a.full_pct}%</b><span>{a.full}/{a.answered} lượt trả lời</span></div>
         <div className="rp-tile"><small>Đúng một phần</small><b className="t-part">{a.partial_pct}%</b><span>{a.partial}/{a.answered} lượt trả lời</span></div>
         <div className="rp-tile"><small>Sai</small><b className="t-bad">{a.wrong_pct}%</b><span>{a.wrong}/{a.answered} lượt trả lời</span></div>
-        <div className="rp-tile"><small>Đạt yêu cầu trở lên</small><b>{a.pass_pct}%</b><span>{a.pass_count}/{a.rated} em</span></div>
+        <div className="rp-tile"><small>Hoàn thành trở lên</small><b>{a.pass_pct}%</b><span>{a.pass_count}/{a.rated} em</span></div>
         <div className="rp-tile"><small>Điểm trung bình</small><b>{a.avg10.toLocaleString('vi-VN')}</b><span>thang điểm 10</span></div>
         {fastest && <div className="rp-tile"><small>Làm nhanh nhất</small><b style={{ fontSize: '1.3rem' }}>{formatDuration(fastest.duration_ms!)}</b><span>{fastest.name}</span></div>}
       </div>
@@ -80,7 +80,7 @@ export function LiveReport({ s, quiz }: { s: Session; quiz: Quiz | null }) {
           ))}
         </div>
         <p className="help" style={{ margin: 0 }}>
-          Xếp theo số điểm đạt được (câu đúng một phần tính theo phần đúng): Hoàn thành xuất sắc từ 90% · Hoàn thành tốt từ 70% · Đạt yêu cầu từ 50% · Chưa đạt yêu cầu dưới 50%.
+          Xếp theo số điểm đạt được (câu đúng một phần tính theo phần đúng): Hoàn thành xuất sắc từ 90% · Hoàn thành tốt từ 70% · Hoàn thành từ 50% · Chưa đạt dưới 50%.
           Học sinh thấy đúng các con số và mức này trên bảng tổng kết của mình.
         </p>
       </div>
@@ -102,7 +102,7 @@ export function LiveReport({ s, quiz }: { s: Session; quiz: Quiz | null }) {
               <Avatar value={x.avatar} size={32} /><span className="grow"><b>{x.name}</b>{x.class_name && <small className="muted"> · {x.class_name}</small>}</span>
               <span className="badge red">{x.pct}% · sai {x.wrong} câu</span>
             </div>
-          )) : <p className="muted" style={{ margin: 0 }}>Chưa có em nào ở mức chưa đạt yêu cầu.</p>}
+          )) : <p className="muted" style={{ margin: 0 }}>Chưa có em nào ở mức chưa đạt.</p>}
         </div>
       </div>
 
@@ -111,7 +111,7 @@ export function LiveReport({ s, quiz }: { s: Session; quiz: Quiz | null }) {
           <h3>So sánh giữa các lớp</h3>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Lớp</th><th>Học sinh</th><th>Đúng hoàn toàn</th><th>Đúng một phần</th><th>Số điểm đạt</th><th>Đạt yêu cầu trở lên</th><th>Điểm TB</th></tr></thead>
+              <thead><tr><th>Lớp</th><th>Học sinh</th><th>Đúng hoàn toàn</th><th>Đúng một phần</th><th>Số điểm đạt</th><th>Hoàn thành trở lên</th><th>Điểm TB</th></tr></thead>
               <tbody>
                 {a.classes.map((c) => (
                   <tr key={c.class_name}>

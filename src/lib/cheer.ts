@@ -34,8 +34,8 @@ export type Level = 'excellent' | 'good' | 'pass' | 'effort';
 export const LEVEL_LABEL: Record<Level, string> = {
   excellent: 'Hoàn thành xuất sắc',
   good: 'Hoàn thành tốt',
-  pass: 'Đạt yêu cầu',
-  effort: 'Chưa đạt yêu cầu',
+  pass: 'Hoàn thành',
+  effort: 'Chưa đạt',
 };
 /** Mức đánh giá theo tỉ lệ điểm đạt được (câu đúng một phần tính theo phần đúng). */
 export const levelOf = (pct: number): Level => (pct >= 90 ? 'excellent' : pct >= 70 ? 'good' : pct >= 50 ? 'pass' : 'effort');

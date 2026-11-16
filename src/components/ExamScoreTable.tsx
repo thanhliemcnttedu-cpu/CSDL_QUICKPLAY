@@ -53,7 +53,7 @@ export function ExamScoreTable({ s, quiz, onKick }: { s: Session; quiz: Quiz | n
         </table>
       </div>
       <p className="help" style={{ margin: '8px 0 0' }}>
-        Điểm và mức đánh giá hiện khi em nộp bài hoặc khi hết giờ thu bài. Hoàn thành xuất sắc từ 9 điểm · Hoàn thành tốt từ 7 · Đạt yêu cầu từ 5 · Chưa đạt yêu cầu dưới 5. Số câu sai gồm cả câu chỉ đúng một phần.
+        Điểm và mức đánh giá hiện khi em nộp bài hoặc khi hết giờ thu bài. Hoàn thành xuất sắc từ 9 điểm · Hoàn thành tốt từ 7 · Hoàn thành từ 5 · Chưa đạt dưới 5. Số câu sai gồm cả câu chỉ đúng một phần.
       </p>
     </div>
   );

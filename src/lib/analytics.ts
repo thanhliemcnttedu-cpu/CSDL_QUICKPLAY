@@ -57,7 +57,7 @@ export interface SessionAnalytics {
   full_pct: number;
   partial_pct: number;
   wrong_pct: number;
-  pass_count: number; // số em từ mức Đạt yêu cầu trở lên
+  pass_count: number; // số em từ mức Hoàn thành trở lên
   pass_pct: number;
   avg10: number;
   levels: Record<Level, number>;
@@ -192,14 +192,14 @@ export function analyticsSheets(s: Session, a: SessionAnalytics) {
         ['Tỉ lệ trả lời đúng hoàn toàn (%)', a.full_pct],
         ['Tỉ lệ trả lời đúng một phần (%)', a.partial_pct],
         ['Tỉ lệ trả lời sai (%)', a.wrong_pct],
-        ['Tỉ lệ học sinh đạt yêu cầu trở lên (%)', a.pass_pct],
+        ['Tỉ lệ học sinh hoàn thành trở lên (%)', a.pass_pct],
         ['Điểm trung bình (thang 10)', a.avg10],
         [],
         ['Mức đánh giá', 'Số học sinh'],
         ...LEVELS.map((g) => [LEVEL_LABEL[g], a.levels[g]]),
-        ['Cách xếp mức: Hoàn thành xuất sắc từ 90% số điểm · Hoàn thành tốt từ 70% · Đạt yêu cầu từ 50% · Chưa đạt yêu cầu dưới 50%'],
+        ['Cách xếp mức: Hoàn thành xuất sắc từ 90% số điểm · Hoàn thành tốt từ 70% · Hoàn thành từ 50% · Chưa đạt dưới 50%'],
         [],
-        ['Lớp', 'Số học sinh', 'Đúng hoàn toàn TB (%)', 'Đúng một phần TB (%)', 'Đạt yêu cầu trở lên (%)', 'Điểm TB (thang 10)'],
+        ['Lớp', 'Số học sinh', 'Đúng hoàn toàn TB (%)', 'Đúng một phần TB (%)', 'Hoàn thành trở lên (%)', 'Điểm TB (thang 10)'],
         ...a.classes.map((c) => [c.class_name, c.students, c.pct_full, c.pct_partial, c.pass_pct, c.avg10]),
       ],
     },
@@ -292,7 +292,7 @@ export function examSheet(s: Session, a: SessionAnalytics) {
       ['Chưa vào thi', rows.filter((r) => r.status === 'absent').length],
       ['Điểm trung bình (thang 10)', avg10],
       ...LEVELS.map((g) => [LEVEL_LABEL[g], count(g)]),
-      ['Cách xếp mức: Hoàn thành xuất sắc từ 9 điểm · Hoàn thành tốt từ 7 điểm · Đạt yêu cầu từ 5 điểm · Chưa đạt yêu cầu dưới 5 điểm. Số câu sai gồm cả câu chỉ đúng một phần.'],
+      ['Cách xếp mức: Hoàn thành xuất sắc từ 9 điểm · Hoàn thành tốt từ 7 điểm · Hoàn thành từ 5 điểm · Chưa đạt dưới 5 điểm. Số câu sai gồm cả câu chỉ đúng một phần.'],
     ],
   };
 }
