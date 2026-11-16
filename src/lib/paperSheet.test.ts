@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Question } from './types';
 import { autoComment, fmtPoint, pointEach, sectionsOf, sheetNumbers, sheetTitle, sheetYear, subjectLine, vnDate } from './paperSheet';
-import { schoolYearOf, schoolYearChoices } from './examPaper';
+import { isSchoolYear, normalizeSchoolYear, schoolYearOf, schoolYearChoices } from './examPaper';
 import * as logic from './sessionLogic';
 
 const q = (id: string, type: Question['type']): Question => ({ id, type, time_limit_seconds: 30, points: 1000, stem: { text: id }, options: [] });
@@ -35,6 +35,16 @@ describe('"Đề giấy"', () => {
     expect(sheetTitle(undefined)).toBe('Bài kiểm tra');
     expect(subjectLine('Toán', 'Lớp 5')).toBe('Môn: Toán – Lớp 5');
     expect(subjectLine(undefined, undefined)).toBe('');
+  });
+
+  it('năm học thầy cô tự gõ được chuẩn hóa và kiểm tra', () => {
+    expect(normalizeSchoolYear('2026-2027')).toBe('2026–2027');
+    expect(normalizeSchoolYear(' 2026 / 2027 ')).toBe('2026–2027');
+    expect(normalizeSchoolYear('2026-27')).toBe('2026–2027');
+    expect(normalizeSchoolYear('năm nay')).toBe('năm nay');
+    expect(isSchoolYear('2026-2027')).toBe(true);
+    expect(isSchoolYear('2026–2028')).toBe(false);
+    expect(isSchoolYear('2026')).toBe(false);
   });
 
   it('lời phê tự động theo mức, nhắc phần chờ chấm', () => {

@@ -49,6 +49,20 @@ export function schoolYearChoices(d: Date = new Date()): string[] {
   const cur = Number(schoolYearOf(d).slice(0, 4));
   return [cur - 1, cur, cur + 1].map((y) => `${y}–${y + 1}`);
 }
+/** Năm học thầy cô tự gõ: "2026-2027", "2026 – 2027", "2026/2027", "2026–27" → "2026–2027". Không nhận ra thì giữ nguyên (đã gọn khoảng trắng). */
+export function normalizeSchoolYear(v: string): string {
+  const s = v.replace(/\s+/g, ' ').trim();
+  const m = s.match(/^(\d{4})\s*[-–—/]\s*(\d{2}|\d{4})$/);
+  if (!m) return s;
+  const a = Number(m[1]);
+  const b = m[2].length === 2 ? Math.floor(a / 100) * 100 + Number(m[2]) : Number(m[2]);
+  return `${a}–${b}`;
+}
+/** Đúng dạng năm học: hai năm liền nhau, năm sau = năm trước + 1. */
+export function isSchoolYear(v: string): boolean {
+  const m = normalizeSchoolYear(v).match(/^(\d{4})–(\d{4})$/);
+  return !!m && Number(m[2]) === Number(m[1]) + 1 && Number(m[1]) >= 2000 && Number(m[1]) <= 2100;
+}
 /** Tên trường giáo viên nhập lần trước (nhớ trên máy này), để đề sau tự điền. */
 const SCHOOL_KEY = 'quickplay.schoolName';
 export function rememberedSchool(): string {

@@ -6,6 +6,7 @@ import { LightboxProvider, Spinner, ToastProvider, askConfirm } from './componen
 import { loadSettings } from './lib/settings';
 import { DriveFullBanner } from './components/BackupTools';
 import { ScriptUpdateNotice } from './components/ScriptUpdate';
+import { MusicButton } from './components/MusicButton';
 import { accountRequired, checkSession, currentAccount, logout } from './lib/account';
 import { Wordmark } from './components/Logo';
 import './devices.css';
@@ -103,6 +104,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
           <NavLink to="/teacher/reports"><BarChart3 size={18} /> Báo cáo</NavLink>
           <NavLink to="/teacher/settings"><SettingsIcon size={18} /> Cài đặt</NavLink>
         </nav>
+        <MusicButton scope="teacher" className="btn sm ghost topbar-music" />
         <AccountChip />
       </header>
       <main className="page"><ScriptUpdateNotice /><DriveFullBanner /><PaperLiveNotice />{children}</main>

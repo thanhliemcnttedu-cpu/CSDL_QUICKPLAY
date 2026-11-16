@@ -3,7 +3,7 @@ import { Avatar } from '../components/Avatar';
 import { AppFooter } from '../components/AppFooter';
 import { Link, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
-import { Play as PlayIcon, Pause, Square, SkipForward, Lock, Copy, Music, VolumeX, UserX, ArrowLeft, Download, Users, Trophy, Maximize, ShieldAlert, LayoutDashboard, ChartColumn, Clock } from 'lucide-react';
+import { Play as PlayIcon, Pause, Square, SkipForward, Lock, Copy, UserX, ArrowLeft, Download, Users, Trophy, Maximize, ShieldAlert, LayoutDashboard, ChartColumn, Clock } from 'lucide-react';
 import { CheatMonitor, TopFilter } from '../components/CheatMonitor';
 import { VIOLATION_LABELS } from '../lib/anticheat';
 import { sfx } from '../lib/sound';
@@ -15,7 +15,7 @@ import { answerKey } from '../lib/sessionLogic';
 import { loadSettings, scriptRef } from '../lib/settings';
 import { htmlToText, sanitizeHtml } from '../lib/util';
 import { Check, X, MessageSquareText } from 'lucide-react';
-import { startMusic } from '../lib/sound';
+import { MusicButton } from '../components/MusicButton';
 import { download, questionStats, rankedPlayers, sessionCsv, totalOf } from '../lib/report';
 import { isInfoKind, visiblePlayers } from '../lib/sessionLogic';
 import { Spinner, useToast, askConfirm } from '../components/ui';
@@ -43,7 +43,6 @@ export default function HostLive() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [err, setErr] = useState('');
   const [qr, setQr] = useState('');
-  const [music, setMusic] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<'dash' | 'stats' | 'cheat' | 'lb'>('dash');
   const [top, setTop] = useState<number | null>(null);
@@ -124,13 +123,14 @@ export default function HostLive() {
     if (link) QRCode.toDataURL(link, { margin: 1, width: 220 }).then(setQr).catch(() => {});
   }, [link]);
 
+
+  // Có học sinh vừa trả lời: tiếng "pốp" nhẹ trên màn giáo viên (chiếu lên bảng cả lớp nghe thấy). Nhiều em cùng lúc chỉ kêu một lần.
+  const answerCount = s ? s.answers.filter((a) => (a.answer as { kind?: string } | null)?.kind !== 'none').length : 0;
+  const lastCount = useRef<number | null>(null);
   useEffect(() => {
-    if (!music) return;
-    return startMusic();
-  }, [music]);
-  useEffect(() => {
-    if (s?.state === 'COMPLETED') setMusic(false);
-  }, [s?.state]);
+    if (lastCount.current !== null && answerCount > lastCount.current && s?.state === 'IN_PROGRESS') sfx.answerIn();
+    lastCount.current = answerCount;
+  }, [answerCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const act = async (op: HostOp, player_id?: string, extra?: { q_index?: number; correct?: boolean; points?: number; coins?: number }) => {
     setBusy(true);
@@ -183,11 +183,8 @@ export default function HostLive() {
         </span>
       </div>
       <div className="row">
-        {s.state !== 'COMPLETED' && (
-          <button className="btn icon" onClick={() => setMusic((m) => !m)} aria-label={music ? 'Tắt nhạc' : 'Bật nhạc nền'} title={music ? 'Tắt nhạc' : 'Bật nhạc nền'}>
-            {music ? <VolumeX size={18} /> : <Music size={18} />}
-          </button>
-        )}
+        {/* Nhạc nền: bắt đầu theo ô "Nhạc nền" của phòng, bấm để bật/tắt; buổi học kết thúc thì tạm dừng */}
+        <MusicButton scope="teacher" initial={s.settings.music} paused={s.state === 'COMPLETED'} className="btn" />
         <button className="btn icon" onClick={() => document.documentElement.requestFullscreen?.()} aria-label="Toàn màn hình" title="Toàn màn hình (chiếu lên bảng)"><Maximize size={18} /></button>
         {s.state === 'IN_PROGRESS' && s.settings.mode !== 'homework' && <button className="btn" disabled={busy} onClick={() => act('pause')}><Pause size={18} /> Tạm dừng</button>}
         {s.state === 'PAUSED' && <button className="btn accent" disabled={busy} onClick={() => act('resume')}><PlayIcon size={18} /> Tiếp tục</button>}

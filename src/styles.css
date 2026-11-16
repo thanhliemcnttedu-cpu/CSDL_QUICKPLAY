@@ -378,7 +378,26 @@ textarea.input { min-height: 120px; resize: vertical; }
 /* ---------- Danh sách câu trong bộ đề ---------- */
 .qcard { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: flex-start; }
 .qcard.warn { background: var(--warn-bg); }
+.music-btn.on { color: var(--primary); background: #eaf2ff; }
+.music-btn.on svg { animation: music-bob 0.9s ease-in-out infinite; }
+@keyframes music-bob { 50% { transform: translateY(-2px) rotate(-8deg); } }
+@media (prefers-reduced-motion: reduce) { .music-btn.on svg { animation: none; } }
+.topbar-music { flex: none; white-space: nowrap; }
+@media (max-width: 760px) { .topbar-music span { display: none; } }
+.qcard.picked { outline: 2px solid #f87171; outline-offset: -2px; background: #fff5f5; }
+.qpick { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+.qpick input { width: 20px; height: 20px; accent-color: #dc2626; cursor: pointer; margin: 0; }
+.qpick-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qpick-bar.on { border-color: #fca5a5; background: #fff5f5; position: sticky; top: 76px; z-index: 6; box-shadow: 0 10px 24px -18px rgba(153, 27, 27, 0.6); }
+.qpick-bar .switch input { width: 20px; height: 20px; accent-color: #dc2626; }
+.btn.dout { background: #fff; border-color: #fca5a5; color: #b91c1c; }
+.btn.dout:hover { background: #fee2e2; }
+@media (max-width: 600px) { .qpick-bar.on { position: static; } .qpick-bar .grow { flex-basis: 100%; order: 3; } .qpick-bar .btn { flex: 1; justify-content: center; } }
 .qcard .opts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+@media (max-width: 600px) {
+  .qcard { grid-template-columns: 40px minmax(0, 1fr); }
+  .qcard > .row:last-child { grid-column: 1 / -1; justify-content: flex-end; }
+}
 
 /* ---------- Kho từ & trả lời miệng (học sinh) ---------- */
 .oral-box { background: #fff; border: 1.5px solid var(--border); box-shadow: var(--shadow); border-radius: 24px; padding: 22px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; }

@@ -3,6 +3,7 @@ import { PaperSheetHead, type SheetInfo } from '../components/PaperSheet';
 import { ROMAN, autoComment, fmtPoint, pointEach, sectionsOf, sheetNumbers } from '../lib/paperSheet';
 import { Avatar } from '../components/Avatar';
 import { Mascot } from '../components/Mascot';
+import { MusicButton } from '../components/MusicButton';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Pause, Check, X, Clock, Home as HomeIcon, WifiOff, ShieldAlert, Maximize, Lock, Coins, Volume2, VolumeX, Gift, PartyPopper, HeartHandshake, RotateCcw, RotateCw, Trophy, ArrowRight, ClipboardCheck, Send, ListChecks, Star } from 'lucide-react';
 import type { PollResult, Question, Quiz, SessionSettings, ViolationKind } from '../lib/types';
@@ -365,7 +366,8 @@ export default function Play() {
         cheerTimer.current = window.setTimeout(() => setCheer(null), 3200);
       }
       const coins = bonus.total;
-      if (paced || exam) sfx.pop(); // bài kiểm tra: không phát âm thanh đúng/sai
+      if (exam) sfx.saved(); // bài kiểm tra: chuông "đã ghi nhận", không cho biết đúng/sai
+      else if (paced) sfx.pop(); // giáo viên điều khiển: đúng/sai phát khi hết giờ
       else if (!oral) ratio === 1 ? sfx.correct() : sfx.wrong();
       if (!paced && !exam && !oral && ratio === 1 && newStreak >= 3) sfx.combo(); // chuỗi đúng liên tiếp
       if (!exam) setFeedback({ ratio, score: pts, q, answer: a, coins });
@@ -680,6 +682,8 @@ export default function Play() {
         aria-label={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'} title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}>
         {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
       </button>
+      {/* Nhạc nền vui nhộn (phòng chờ, trò chơi); bài kiểm tra không có nhạc để em tập trung */}
+      {!exam && <MusicButton scope="student" defaultOn initial={settings.music ? undefined : false} paused={doneNow} label={false} className="btn icon sm ghost" />}
     </div>
   );
 

@@ -1,7 +1,7 @@
 // Ô thông tin đề thi: Khối lớp, Môn, Thời điểm kiểm tra, Mã đề (tự gợi ý, sửa được). Dùng ở hộp "Tạo đề thi từ kho" và trình soạn.
 import { Wand2 } from 'lucide-react';
 import type { Catalog, ExamPeriod } from '../lib/types';
-import { PERIODS, PERIOD_LABEL, rememberSchool, schoolYearChoices, schoolYearOf, suggestCode } from '../lib/examPaper';
+import { PERIODS, PERIOD_LABEL, isSchoolYear, normalizeSchoolYear, rememberSchool, schoolYearChoices, schoolYearOf, suggestCode } from '../lib/examPaper';
 
 /** school, year: tên trường và năm học in ở đầu "Đề giấy" (giáo viên nhập khi tạo đề) */
 export interface PaperInfo { grade: string; subject: string; period: ExamPeriod; code: string; school?: string; year?: string }
@@ -20,6 +20,7 @@ export function PaperFields({ value, onChange, catalog, usedCodes, compact, plac
   const subjects = [...new Set(catalog.subjects.filter((s) => !value.grade || !s.grade || s.grade === value.grade).map((s) => s.name))];
   const set = (p: Partial<PaperInfo>) => onChange({ ...value, ...p });
   const auto = () => set({ code: suggestCode(value.subject, value.grade, value.period, usedCodes) });
+  const yearBad = !!value.year?.trim() && !isSchoolYear(value.year);
   const dup = !!value.code && usedCodes.some((c) => c.toUpperCase() === value.code.trim().toUpperCase());
   return (
     <div className={`paper-fields ${compact ? 'compact' : ''}`}>
@@ -58,11 +59,15 @@ export function PaperFields({ value, onChange, catalog, usedCodes, compact, plac
         <input className="input" value={value.school ?? ''} maxLength={80} placeholder="VD: Trường Tiểu học Tân Uyên"
           onChange={(e) => { set({ school: e.target.value }); rememberSchool(e.target.value); }} />
       </label>
+      {/* Năm học: thầy cô tự gõ (VD 2026-2027) hoặc chọn gợi ý; gõ "2026-2027" tự đổi thành "2026–2027" */}
       <label className="field">
         <span>Năm học</span>
-        <select className="input" value={value.year || schoolYearOf()} onChange={(e) => set({ year: e.target.value })}>
-          {[...new Set([...schoolYearChoices(), ...(value.year ? [value.year] : [])])].map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <input className="input" list="paper-years" value={value.year ?? ''} maxLength={20} placeholder={`VD: ${schoolYearOf()}`} inputMode="numeric"
+          aria-invalid={yearBad || undefined}
+          onChange={(e) => set({ year: e.target.value })}
+          onBlur={(e) => set({ year: normalizeSchoolYear(e.target.value) || schoolYearOf() })} />
+        <datalist id="paper-years">{schoolYearChoices().map((y) => <option key={y} value={y} />)}</datalist>
+        {yearBad && <small className="help" style={{ color: 'var(--danger)' }}>Ghi năm học dạng 2026–2027 (năm sau lớn hơn năm trước 1).</small>}
       </label>
     </div>
   );

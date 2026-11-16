@@ -96,6 +96,7 @@ export default function Editor() {
   // Hook phải đứng trước mọi lệnh return sớm
   const [perPoints, setPerPoints] = useState('10');
   const [allPoints, setAllPoints] = useState('10');
+  const [picked, setPicked] = useState<Set<string>>(new Set()); // câu đang được đánh dấu chọn (để xóa nhiều câu một lần)
   if (!quiz) return <Spinner />;
   const qs = quiz.questions;
   const setQs = (questions: Question[]) => update({ ...latest.current!, questions });
@@ -124,6 +125,29 @@ export default function Editor() {
     setQs([...qs.slice(0, i + 1), copy, ...qs.slice(i + 1)]);
   };
   const del = async (i: number) => (await askConfirm(`Xóa câu ${i + 1}?`)) && setQs(qs.filter((_, k) => k !== i));
+  // Chọn nhiều câu → xóa các câu đã chọn, hoặc xóa toàn bộ câu hỏi trong đề
+  const pickedNow = qs.filter((x) => picked.has(x.id)); // bỏ qua id của câu đã bị xóa
+  const allPicked = qs.length > 0 && pickedNow.length === qs.length;
+  const togglePick = (qid: string) => setPicked((s) => { const n = new Set(s); if (n.has(qid)) n.delete(qid); else n.add(qid); return n; });
+  const pickAll = (on: boolean) => setPicked(on ? new Set(qs.map((x) => x.id)) : new Set());
+  const delPicked = async () => {
+    const n = pickedNow.length;
+    if (!n) return;
+    const nums = qs.map((x, i) => (picked.has(x.id) ? i + 1 : 0)).filter(Boolean);
+    const list = nums.length <= 12 ? ` (câu ${nums.join(', ')})` : '';
+    if (!(await askConfirm(`Xóa ${n} câu đã chọn${list}? Không hoàn tác được.`))) return;
+    setQs(latest.current!.questions.filter((x) => !picked.has(x.id)));
+    setPicked(new Set());
+    toast(`Đã xóa ${n} câu hỏi.`, 'ok');
+  };
+  const delAll = async () => {
+    const n = latest.current!.questions.length;
+    if (!n) return;
+    if (!(await askConfirm(`Xóa TOÀN BỘ ${n} câu hỏi trong đề "${quiz.title}"? Đề sẽ trống, không hoàn tác được.`))) return;
+    setQs([]);
+    setPicked(new Set());
+    toast(`Đã xóa toàn bộ ${n} câu hỏi.`, 'ok');
+  };
   const applyTimeAll = async () => {
     const cur = latest.current!.questions;
     if (!cur.length) return;
@@ -205,7 +229,7 @@ export default function Editor() {
           <PaperFields compact placeFromQuiz catalog={catalog} usedCodes={paperCodes}
             value={{ grade: quiz.grade ?? '', subject: quiz.subject ?? '', period: quiz.paper_period, code: quiz.paper_code ?? '', school: quiz.school_name ?? '', year: quiz.school_year ?? '' }}
             onChange={(v) => update({ ...latest.current!, grade: v.grade || undefined, subject: v.subject || undefined, paper_period: v.period, paper_code: v.code,
-              school_name: v.school?.trim() ? v.school : undefined, school_year: v.year || schoolYearOf() })} />
+              school_name: v.school?.trim() ? v.school : undefined, school_year: v.year ?? '' })} />
         )}
       </div>
 
@@ -262,6 +286,20 @@ export default function Editor() {
         )}
       </div>
 
+      {qs.length > 0 && (
+        <div className={`card tight qpick-bar ${pickedNow.length ? 'on' : ''}`} role="group" aria-label="Chọn câu hỏi để xóa">
+          <label className="switch">
+            <input type="checkbox" checked={allPicked} ref={(el) => { if (el) el.indeterminate = pickedNow.length > 0 && !allPicked; }}
+              onChange={(e) => pickAll(e.target.checked)} />
+            Chọn tất cả ({qs.length} câu)
+          </label>
+          <span className="small muted grow">{pickedNow.length ? <>Đã chọn <b>{pickedNow.length}</b> câu</> : 'Tích ô cạnh số câu để chọn câu cần xóa.'}</span>
+          {pickedNow.length > 0 && <button className="btn sm ghost" onClick={() => pickAll(false)}>Bỏ chọn</button>}
+          <button className="btn sm danger" disabled={!pickedNow.length} onClick={delPicked}><Trash2 size={16} /> Xóa {pickedNow.length || ''} câu đã chọn</button>
+          <button className="btn sm dout" onClick={delAll}><Trash2 size={16} /> Xóa toàn bộ câu hỏi</button>
+        </div>
+      )}
+
       {qs.length === 0 ? (
         <div className="card empty">
           <h2>Bộ đề đang trống</h2>
@@ -277,8 +315,11 @@ export default function Editor() {
             const errs = validateQuestion(q);
             const warn = q.needs_review || errs.length > 0;
             return (
-              <li key={q.id} className={`card tight qcard ${warn ? 'warn' : ''}`}>
-                <span className="qnum" style={{ width: 36, height: 36 }}>{i + 1}</span>
+              <li key={q.id} className={`card tight qcard ${warn ? 'warn' : ''} ${picked.has(q.id) ? 'picked' : ''}`}>
+                <label className="qpick" title={`Chọn câu ${i + 1}`}>
+                  <input type="checkbox" checked={picked.has(q.id)} onChange={() => togglePick(q.id)} aria-label={`Chọn câu ${i + 1}`} />
+                  <span className="qnum" style={{ width: 36, height: 36 }}>{i + 1}</span>
+                </label>
                 <div style={{ minWidth: 0 }}>
                   <div className="row" style={{ gap: 6 }}>
                     <span className="badge purple">{TYPE_LABELS[q.type]}</span>
