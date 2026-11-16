@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, PRESET_KIDS, avatarKind, decodeAvatar, describeAvatarValue, encodeAvatar, isAnimal, randomAnimal, randomAnyAvatar } from './avatar';
+import { ANIMALS, BUDDIES, PRESET_KIDS, animalValue, avatarKind, decodeAvatar, describeAvatarValue, encodeAvatar, isAnimal, isBuddy, parseAnimal, randomAnimal, randomAnyAvatar } from './avatar';
 import { AVATARS } from './util';
 
 const SAFE = /^[a-z0-9-]{1,40}$/;
@@ -25,6 +25,22 @@ describe('avatar hai nhóm', () => {
       expect(a.name).toBeTruthy();
     }
     for (const old of AVATARS) expect(isAnimal(old)).toBe(true);
+  });
+
+  it('con vật có phụ kiện và bạn của Bé Chớp: giá trị cũ vẫn đúng, giá trị lạ bị từ chối', () => {
+    expect(parseAnimal('cat')).toEqual({ key: 'cat', acc: 0 });
+    expect(parseAnimal('cat.2')).toEqual({ key: 'cat', acc: 2 });
+    expect(animalValue('panda', 0)).toBe('panda');
+    expect(animalValue('panda', 3)).toBe('panda.3');
+    for (const bad of ['cat.0', 'cat.9', 'cat.', 'dragon.1', 'cat.1.2', 'CAT.1']) expect(parseAnimal(bad)).toBeNull();
+    expect(avatarKind('owl.4')).toBe('animal');
+    expect(describeAvatarValue('cat.2')).toBe('Bạn mèo (vương miện)');
+    expect(BUDDIES).toHaveLength(6);
+    for (const b of BUDDIES) {
+      expect(avatarKind('bc-' + b.key)).toBe('buddy');
+      expect(describeAvatarValue('bc-' + b.key)).toContain(b.name);
+    }
+    for (const bad of ['bc-', 'bc-rong', 'may', 'bc-MAY']) expect(isBuddy(bad)).toBe(false);
   });
 
   it('phân loại và mô tả không lỗi với giá trị lạ', () => {

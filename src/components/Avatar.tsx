@@ -1,6 +1,7 @@
 import { memo, useId } from 'react';
-import { ACCESSORIES, decodeAvatar, describeAvatar, HAIR_COLORS, isAnimal, SHIRTS, SKINS, type AvatarCfg } from '../lib/avatar';
+import { ACCESSORIES, decodeAvatar, describeAvatar, HAIR_COLORS, isAnimal, isBuddy, SHIRTS, SKINS, type AvatarCfg } from '../lib/avatar';
 import { AnimalAvatar } from './AnimalAvatar';
+import { BuddyAvatar } from './BuddyAvatar';
 
 /** Làm tối/nhạt một mã màu hex (amt âm = tối hơn). */
 function shade(hex: string, amt: number) {
@@ -14,6 +15,7 @@ function shade(hex: string, amt: number) {
 export const Avatar = memo(function Avatar({ value, size = 40, label }: { value?: string; size?: number; label?: boolean }) {
   const c = decodeAvatar(value);
   if (c) return <AvatarSvg c={c} size={size} label={label} />;
+  if (isBuddy(value)) return <BuddyAvatar value={value} size={size} label={label} />;
   if (isAnimal(value)) return <AnimalAvatar animal={value} size={size} label={label} />;
   // Giá trị rỗng hoặc lạ (ví dụ học sinh của chế độ giấy): hình trung tính
   return (

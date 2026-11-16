@@ -88,13 +88,43 @@ export const ANIMALS: Animal[] = [
   { key: 'chick', name: 'Gà con', bg: '#CFE9FF' },
 ];
 const ANIMAL_KEYS = new Set(ANIMALS.map((a) => a.key));
-export const isAnimal = (v: string | undefined | null): v is string => !!v && ANIMAL_KEYS.has(v);
-export const animalOf = (v: string | undefined | null) => ANIMALS.find((a) => a.key === v);
+/** Phụ kiện cho con vật (cùng kiểu với bạn học sinh). Giá trị lưu: "<con vật>.<số phụ kiện>", ví dụ "cat.2"; "cat" = không phụ kiện. */
+export const ANIMAL_ACCESSORIES = ['Không có', 'Nơ xinh', 'Vương miện', 'Kính tròn', 'Mũ tiệc'];
+/** Tách giá trị con vật: tên khóa + phụ kiện. Giá trị lạ → null. */
+export function parseAnimal(v: string | undefined | null): { key: string; acc: number } | null {
+  if (!v) return null;
+  const m = v.match(/^([a-z]+)(?:\.([1-9]))?$/);
+  if (!m || !ANIMAL_KEYS.has(m[1])) return null;
+  const acc = m[2] ? Number(m[2]) : 0;
+  return acc < ANIMAL_ACCESSORIES.length ? { key: m[1], acc } : null;
+}
+export const animalValue = (key: string, acc = 0) => (acc ? `${key}.${acc}` : key);
+export const isAnimal = (v: string | undefined | null): v is string => !!parseAnimal(v);
+export const animalOf = (v: string | undefined | null) => {
+  const p = parseAnimal(v);
+  return p ? ANIMALS.find((a) => a.key === p.key) : undefined;
+};
+
+// ---------------- Nhóm thứ ba: "Bạn của Bé Chớp" (cùng nét vẽ tròn mũm mĩm với linh vật) ----------------
+export interface Buddy { key: string; name: string; bg: string }
+export const BUDDIES: Buddy[] = [
+  { key: 'may', name: 'Mây Hồng', bg: '#FFE0EC' },
+  { key: 'sao', name: 'Sao Vàng', bg: '#FFF2C2' },
+  { key: 'la', name: 'Lá Xanh', bg: '#DDF7DF' },
+  { key: 'giot', name: 'Giọt Nước', bg: '#D6F3FF' },
+  { key: 'banh', name: 'Bánh Bao', bg: '#FFEBD6' },
+  { key: 'keo', name: 'Kẹo Tím', bg: '#EDE2FF' },
+];
+const BUDDY_KEYS = new Set(BUDDIES.map((b) => b.key));
+/** Giá trị lưu của bạn của Bé Chớp: "bc-<khóa>", ví dụ "bc-may". */
+export const buddyOf = (v: string | undefined | null) => (v && v.startsWith('bc-') && BUDDY_KEYS.has(v.slice(3)) ? BUDDIES.find((b) => b.key === v.slice(3)) : undefined);
+export const isBuddy = (v: string | undefined | null): v is string => !!buddyOf(v);
 
 /** Phân loại một giá trị avatar bất kỳ (kể cả rỗng/lạ) – không bao giờ ném lỗi. */
-export function avatarKind(v: unknown): 'kid' | 'animal' | 'none' {
+export function avatarKind(v: unknown): 'kid' | 'animal' | 'buddy' | 'none' {
   if (typeof v !== 'string') return 'none';
   if (decodeAvatar(v)) return 'kid';
+  if (isBuddy(v)) return 'buddy';
   return isAnimal(v) ? 'animal' : 'none';
 }
 
@@ -115,13 +145,20 @@ export const PRESET_KIDS: { value: string; name: string }[] = [
 ];
 
 export const randomAnimal = () => ANIMALS[Math.floor(Math.random() * ANIMALS.length)].key;
-/** Ngẫu nhiên trong cả hai nhóm. */
-export const randomAnyAvatar = () => (Math.random() < 0.5 ? randomAnimal() : encodeAvatar(randomAvatar()));
+export const randomBuddy = () => 'bc-' + BUDDIES[Math.floor(Math.random() * BUDDIES.length)].key;
+/** Ngẫu nhiên trong cả ba nhóm. */
+export const randomAnyAvatar = () => {
+  const r = Math.random();
+  return r < 0.4 ? randomAnimal() : r < 0.7 ? randomBuddy() : encodeAvatar(randomAvatar());
+};
 
 /** Mô tả bằng lời một giá trị avatar bất kỳ. */
 export function describeAvatarValue(v: string | undefined | null): string {
   const c = decodeAvatar(v);
   if (c) return describeAvatar(c);
+  const b = buddyOf(v);
+  if (b) return `${b.name}, bạn của Bé Chớp`;
   const a = animalOf(v);
-  return a ? `Bạn ${a.name.toLowerCase()}` : 'Nhân vật';
+  const acc = parseAnimal(v)?.acc ?? 0;
+  return a ? `Bạn ${a.name.toLowerCase()}${acc ? ` (${ANIMAL_ACCESSORIES[acc].toLowerCase()})` : ''}` : 'Nhân vật';
 }

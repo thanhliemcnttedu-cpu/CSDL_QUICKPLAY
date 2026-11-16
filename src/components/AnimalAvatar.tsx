@@ -1,6 +1,6 @@
 // Con vật chibi kiểu 3D (SVG tự vẽ của Quickplay): đầu to, mắt to có đốm sáng, má hồng, đổ khối bằng gradient.
 import { memo, useId, type ReactNode } from 'react';
-import { animalOf } from '../lib/avatar';
+import { animalOf, parseAnimal } from '../lib/avatar';
 
 interface Look {
   fur: string; // màu lông chính
@@ -32,8 +32,12 @@ const LOOKS: Record<string, Look> = {
 
 const INK = '#2A2230';
 
-export const AnimalAvatar = memo(function AnimalAvatar({ animal, size = 40, label }: { animal: string; size?: number; label?: boolean }) {
+export const AnimalAvatar = memo(function AnimalAvatar({ animal: value, size = 40, label }: { animal: string; size?: number; label?: boolean }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  // giá trị "cat" hoặc "cat.2" (con vật + phụ kiện)
+  const parsed = parseAnimal(value);
+  const animal = parsed?.key ?? 'cat';
+  const acc = parsed?.acc ?? 0;
   const meta = animalOf(animal);
   const L = LOOKS[animal] ?? LOOKS.cat;
   const g = (n: string) => `url(#${id}${n})`;
@@ -202,8 +206,8 @@ export const AnimalAvatar = memo(function AnimalAvatar({ animal, size = 40, labe
       aria-hidden={label ? undefined : true} style={{ display: 'block', flex: 'none' }}>
       <defs>
         <radialGradient id={`${id}bg`} cx="35%" cy="28%" r="80%">
-          <stop offset="0" stopColor="#fff" stopOpacity=".95" />
-          <stop offset=".45" stopColor={meta?.bg ?? '#DCEBFF'} />
+          <stop offset="0" stopColor="#fff" stopOpacity=".9" />
+          <stop offset=".3" stopColor={meta?.bg ?? '#DCEBFF'} />
           <stop offset="1" stopColor={meta?.bg ?? '#DCEBFF'} />
         </radialGradient>
         <radialGradient id={`${id}fur`} cx="38%" cy="28%" r="78%">
@@ -239,8 +243,30 @@ export const AnimalAvatar = memo(function AnimalAvatar({ animal, size = 40, labe
         {nose}
         {mouth}
         {over}
+        {/* phụ kiện (cùng kiểu với bạn học sinh) */}
+        {acc === 1 && (
+          <g transform="translate(86 24) rotate(18)">
+            <path d="M0 0 L-13 -9 L-13 9 Z M0 0 L13 -9 L13 9 Z" fill="#EC4899" stroke="#fff" strokeWidth="2" strokeLinejoin="round" paintOrder="stroke" />
+            <circle r="4" fill="#BE185D" />
+          </g>
+        )}
+        {acc === 2 && <path d="M40 22 L44 6 L52 16 L60 3 L68 16 L76 6 L80 22 Z" fill="#FACC15" stroke="#CA8A04" strokeWidth="2" strokeLinejoin="round" />}
+        {acc === 3 && (
+          <g stroke={INK} strokeWidth="2.6" fill="#fff" fillOpacity=".2">
+            <circle cx="44" cy={animal === 'frog' ? 34 : 56} r="11" /><circle cx="76" cy={animal === 'frog' ? 34 : 56} r="11" />
+            <path d={`M55 ${animal === 'frog' ? 34 : 56} L65 ${animal === 'frog' ? 34 : 56}`} fill="none" />
+          </g>
+        )}
+        {acc === 4 && (
+          <g transform="translate(70 4) rotate(14)">
+            <path d="M0 0 L-13 24 L13 24 Z" fill="#60A5FA" stroke="#fff" strokeWidth="2" strokeLinejoin="round" paintOrder="stroke" />
+            <path d="M-6 12 L6 12 M-9 18 L9 18" stroke="#FDE047" strokeWidth="3" />
+            <circle cy="-2" r="4" fill="#F472B6" />
+          </g>
+        )}
       </g>
-      <circle cx="60" cy="60" r="58.5" fill="none" stroke="#fff" strokeOpacity=".7" strokeWidth="3" />
+      {/* viền trắng kiểu sticker */}
+      <circle cx="60" cy="60" r="57.5" fill="none" stroke="#fff" strokeWidth="5" />
     </svg>
   );
 });

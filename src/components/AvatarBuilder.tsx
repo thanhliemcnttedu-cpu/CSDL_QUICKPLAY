@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Check, ChevronDown, PawPrint, Shuffle, Users, X } from 'lucide-react';
+import { Check, ChevronDown, PawPrint, Shuffle, Sparkles, Users, X } from 'lucide-react';
 import {
-  ACCESSORIES, ANIMALS, FACES, HAIR_COLOR_NAMES, HAIR_COLORS, HAIR_STYLES, PRESET_KIDS, SHIRT_NAMES, SHIRTS, SKIN_NAMES, SKINS,
-  decodeAvatar, describeAvatarValue, encodeAvatar, isAnimal, randomAnimal, randomAvatar, type AvatarCfg, type Gender,
+  ACCESSORIES, ANIMAL_ACCESSORIES, ANIMALS, BUDDIES, FACES, HAIR_COLOR_NAMES, HAIR_COLORS, HAIR_STYLES, PRESET_KIDS, SHIRT_NAMES, SHIRTS, SKIN_NAMES, SKINS,
+  animalValue, decodeAvatar, describeAvatarValue, encodeAvatar, isAnimal, isBuddy, parseAnimal, randomAnimal, randomAvatar, randomBuddy, type AvatarCfg, type Gender,
 } from '../lib/avatar';
 import { sfx } from '../lib/sound';
 import { Avatar, AvatarSvg } from './Avatar';
@@ -10,8 +10,9 @@ import '../avatar.css';
 
 /** Hộp chọn nhân vật: hai nhóm "Bạn học sinh" và "Con vật"; chữ to, ô bấm to, bấm là chọn ngay. */
 export function AvatarBuilder({ value, onDone, onClose }: { value?: string; onDone: (v: string) => void; onClose: () => void }) {
-  const [v, setV] = useState<string>(() => (decodeAvatar(value) || isAnimal(value) ? value! : encodeAvatar(randomAvatar())));
-  const [tab, setTab] = useState<'kid' | 'animal'>(() => (isAnimal(value) ? 'animal' : 'kid'));
+  const [v, setV] = useState<string>(() => (decodeAvatar(value) || isAnimal(value) || isBuddy(value) ? value! : encodeAvatar(randomAvatar())));
+  const [tab, setTab] = useState<'kid' | 'animal' | 'buddy'>(() => (isAnimal(value) ? 'animal' : isBuddy(value) ? 'buddy' : 'kid'));
+  const pet = parseAnimal(v); // con vật đang chọn (để giữ phụ kiện khi đổi con vật)
   const [custom, setCustom] = useState(false);
   // Cấu hình dùng cho phần "Tự phối đồ" (khi đang chọn con vật thì bắt đầu từ một bạn ngẫu nhiên)
   const c: AvatarCfg = decodeAvatar(v) ?? decodeAvatar(PRESET_KIDS[0].value)!;
@@ -23,7 +24,7 @@ export function AvatarBuilder({ value, onDone, onClose }: { value?: string; onDo
   const setGender = (g: Gender) => set({ gender: g, hair: 0, acc: c.acc === 3 && g === 'm' ? 0 : c.acc });
   const surprise = () => {
     sfx.whoosh();
-    setV(tab === 'animal' ? randomAnimal() : encodeAvatar(randomAvatar()));
+    setV(tab === 'animal' ? randomAnimal() : tab === 'buddy' ? randomBuddy() : encodeAvatar(randomAvatar()));
   };
 
   useEffect(() => {
@@ -73,17 +74,55 @@ export function AvatarBuilder({ value, onDone, onClose }: { value?: string; onDo
           <div className="avx-tabs" role="tablist" aria-label="Nhóm nhân vật">
             <button type="button" role="tab" aria-selected={tab === 'kid'} className={tab === 'kid' ? 'on' : ''} onClick={() => setTab('kid')}><Users size={22} /> Bạn học sinh</button>
             <button type="button" role="tab" aria-selected={tab === 'animal'} className={tab === 'animal' ? 'on' : ''} onClick={() => setTab('animal')}><PawPrint size={22} /> Con vật</button>
+            <button type="button" role="tab" aria-selected={tab === 'buddy'} className={tab === 'buddy' ? 'on' : ''} onClick={() => setTab('buddy')}><Sparkles size={22} /> Bạn của Bé Chớp</button>
           </div>
 
           {tab === 'animal' && (
-            <div className="avx-grid" role="group" aria-label="Các bạn thú">
-              {ANIMALS.map((a) => (
-                <button key={a.key} type="button" className={`avx-cell ${v === a.key ? 'on' : ''}`} aria-pressed={v === a.key} aria-label={a.name} onClick={() => pick(a.key)}>
-                  <Avatar value={a.key} size={72} />
-                  <span>{a.name}</span>
-                  {v === a.key && <Check size={16} className="av-check" />}
-                </button>
-              ))}
+            <>
+              <div className="avx-grid" role="group" aria-label="Các bạn thú">
+                {ANIMALS.map((a) => {
+                  const on = pet?.key === a.key;
+                  const val = animalValue(a.key, pet?.acc ?? 0); // đổi con vật vẫn giữ phụ kiện đang chọn
+                  return (
+                    <button key={a.key} type="button" className={`avx-cell ${on ? 'on' : ''}`} aria-pressed={on} aria-label={a.name} onClick={() => pick(val)}>
+                      <Avatar value={val} size={72} />
+                      <span>{a.name}</span>
+                      {on && <Check size={16} className="av-check" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <section>
+                <h3>Phụ kiện cho bạn thú</h3>
+                <div className="avx-grid" role="group" aria-label="Phụ kiện cho bạn thú">
+                  {ANIMAL_ACCESSORIES.map((name, i) => {
+                    const key = pet?.key ?? ANIMALS[0].key;
+                    const on = !!pet && pet.acc === i;
+                    return (
+                      <button key={name} type="button" className={`avx-cell ${on ? 'on' : ''}`} aria-pressed={on} aria-label={name} onClick={() => pick(animalValue(key, i))}>
+                        <Avatar value={animalValue(key, i)} size={64} />
+                        <span>{name}</span>
+                        {on && <Check size={16} className="av-check" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </>
+          )}
+
+          {tab === 'buddy' && (
+            <div className="avx-grid" role="group" aria-label="Các bạn của Bé Chớp">
+              {BUDDIES.map((b) => {
+                const val = 'bc-' + b.key;
+                return (
+                  <button key={b.key} type="button" className={`avx-cell ${v === val ? 'on' : ''}`} aria-pressed={v === val} aria-label={b.name} onClick={() => pick(val)}>
+                    <Avatar value={val} size={72} />
+                    <span>{b.name}</span>
+                    {v === val && <Check size={16} className="av-check" />}
+                  </button>
+                );
+              })}
             </div>
           )}
 

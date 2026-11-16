@@ -1,6 +1,12 @@
-/* Hộp chọn nhân vật: hai nhóm "Bạn học sinh" và "Con vật" */
-.avx-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px; border-radius: 999px; background: var(--muted); }
-.avx-tabs button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 0; border-radius: 999px; background: transparent; color: var(--muted-fg); font: inherit; font-weight: 800; font-size: 1.05rem; cursor: pointer; }
+/* Hộp chọn nhân vật: ba nhóm "Bạn học sinh", "Con vật", "Bạn của Bé Chớp" */
+.avx-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 6px; border-radius: 999px; background: var(--muted); }
+.avx-tabs button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 4px 8px; border: 0; border-radius: 999px; background: transparent; color: var(--muted-fg); font: inherit; font-weight: 800; font-size: 1.05rem; line-height: 1.2; text-align: center; cursor: pointer; }
+.avx-tabs button svg { flex: none; }
+/* màn hẹp: biểu tượng trên, chữ dưới, để ba thẻ vừa một hàng */
+@media (max-width: 900px) {
+  .avx-tabs { border-radius: 22px; }
+  .avx-tabs button { flex-direction: column; gap: 2px; border-radius: 18px; font-size: 0.85rem; min-height: 60px; }
+}
 .avx-tabs button.on { background: var(--primary-grad); color: #fff; box-shadow: var(--glow); }
 .avx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
 .avx-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 64px; padding: 10px 4px 8px; border-radius: 18px; border: 3px solid #e2e8f0; background: #fff; color: var(--fg); font: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: transform 120ms ease, border-color 150ms ease; }
@@ -11,6 +17,5 @@
 @media (max-width: 720px) {
   .avx-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
   .avx-cell svg { width: 60px; height: 60px; }
-  .avx-tabs button { font-size: 0.95rem; min-height: 48px; }
 }
 @media (prefers-reduced-motion: reduce) { .avx-cell { transition: none; } .avx-cell:hover { transform: none; } }
