@@ -81,7 +81,7 @@ function AccountChip() {
   return (
     <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
       <span className="badge blue" title={`Tài khoản: ${acc.username}`}><UserRound size={14} /> {acc.name}</span>
-      <button className="btn sm ghost" onClick={async () => { if (await askConfirm('Đăng xuất khỏi trình duyệt này? Lần sau cần nhập lại tài khoản và mật khẩu.')) { logout(); nav('/teacher/login', { replace: true }); } }}>
+      <button className="btn sm ghost" onClick={async () => { if (await askConfirm('Đăng xuất khỏi trình duyệt này? Lần sau cần nhập lại tài khoản và mật khẩu.')) { logout(); nav('/login?chon=1', { replace: true }); } }}>
         <LogOut size={16} /> Đăng xuất
       </button>
     </span>

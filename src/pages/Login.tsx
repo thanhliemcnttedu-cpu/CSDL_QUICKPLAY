@@ -36,8 +36,10 @@ export default function Login({ role: fixed }: { role?: Role }) {
   const adminIn = !!adminUrl() && adminSignedIn();
   if (role === 'teacher' && teacherIn) return <Navigate to={next ?? '/teacher'} replace />;
   if (role === 'admin' && adminIn) return <Navigate to="/admin" replace />;
-  if (!role && teacherIn && !adminIn) return <Navigate to="/teacher" replace />;
-  if (!role && adminIn && !teacherIn) return <Navigate to="/admin" replace />;
+  // Vừa bấm Đăng xuất (…/login?chon=1): luôn hiện ô chọn vai trò, không tự chuyển vào vai trò còn đăng nhập trên máy này
+  const choose = params.get('chon') === '1';
+  if (!role && !choose && teacherIn && !adminIn) return <Navigate to="/teacher" replace />;
+  if (!role && !choose && adminIn && !teacherIn) return <Navigate to="/admin" replace />;
 
   const pick = (r: Role) => {
     if (r === 'teacher' && teacherIn) return nav(next ?? '/teacher');

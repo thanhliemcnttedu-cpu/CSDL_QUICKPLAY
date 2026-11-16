@@ -1,6 +1,6 @@
 // Trang quản trị (dành cho tác giả): cấp, khóa, đặt lại mật khẩu và xóa tài khoản giáo viên.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Check, ChevronRight, Download, Eye, EyeOff, DatabaseBackup, FileSpreadsheet, FolderOpen, TriangleAlert, Upload, KeyRound, Lock, LockOpen, LogIn, LogOut, Mail, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { DEFAULT_ADMIN_USER, adminApi, adminAuth, adminBootOk, adminEmail, adminSignedIn, adminUrl, adminUser, bootAdminPassword, markDefaultAdminPassword, setAdminUrl, usingDefaultAdminPassword, type AccountRow } from '../lib/account';
 import { Wordmark } from '../components/Logo';
@@ -232,10 +232,12 @@ export default function Admin() {
       setBusy(false);
     }
   };
+  const nav = useNavigate();
+  // Đăng xuất: về trang đăng nhập có ô chọn vai trò (Quản trị / Giáo viên), như khi mới mở phần mềm
   const signOut = async () => {
     await adminAuth.logout();
     setRows(null);
-    setStep('login');
+    nav('/login?chon=1', { replace: true });
   };
   const changePw = async () => {
     if (!pw) return;
