@@ -12,6 +12,7 @@ import { AvatarBuilder } from '../components/AvatarBuilder';
 import { Palette, Shuffle } from 'lucide-react';
 import { fromB64Url } from '../lib/inApp';
 import { putBoot } from '../lib/bootCache';
+import { Mascot } from '../components/Mascot';
 
 const BAD_PIN = 'Bạn chưa nhập đúng mã, hãy kiểm tra lại.';
 
@@ -215,7 +216,14 @@ export function Join() {
             join();
           }}
         >
-          <h1 className="center" style={{ margin: 0 }}>{exam ? 'Vào làm bài kiểm tra' : 'Vào phòng chơi'}</h1>
+          {exam ? (
+            <h1 className="center" style={{ margin: 0 }}>Vào làm bài kiểm tra</h1>
+          ) : (
+            <div className="join-hello">
+              <Mascot pose="wave" size={84} />
+              <h1 style={{ margin: 0 }}>Vào phòng chơi</h1>
+            </div>
+          )}
           {!saved && (
             <div className="join-kind" role="radiogroup" aria-label="Em vào phòng để làm gì">
               <button type="button" role="radio" aria-checked={!exam} className={!exam ? 'on' : ''} onClick={() => pickKind(false)}><Gamepad2 size={20} /> Vào phòng chơi</button>

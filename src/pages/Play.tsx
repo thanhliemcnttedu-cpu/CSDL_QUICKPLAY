@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../components/Avatar';
+import { Mascot } from '../components/Mascot';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Pause, Check, X, Clock, Home as HomeIcon, WifiOff, ShieldAlert, Maximize, Lock, Coins, Volume2, VolumeX, Gift, PartyPopper, HeartHandshake, RotateCcw, RotateCw, Trophy, ArrowRight, ClipboardCheck, Send, ListChecks, Star } from 'lucide-react';
 import type { PollResult, Question, Quiz, SessionSettings, ViolationKind } from '../lib/types';
@@ -685,7 +686,15 @@ export default function Play() {
       <Shell>
         {top}
         <div className="stack center" style={{ margin: 'auto', alignItems: 'center' }}>
-          <Avatar value={me.avatar} size={128} label />
+          {exam ? (
+            <Avatar value={me.avatar} size={128} label />
+          ) : (
+            // Phòng chờ trò chơi: nhân vật của em đứng cạnh Bé Chớp đang vẫy tay
+            <div className="lobby-duo">
+              <span className="av-sticker"><Avatar value={me.avatar} size={120} label /></span>
+              <Mascot pose="wave" size={132} />
+            </div>
+          )}
           <h1>Chào {me.name}!</h1>
           <p style={{ fontSize: '1.2rem' }}>Đã vào phòng <b>{pin}</b> – {quiz.title}. Chờ giáo viên bắt đầu nhé…</p>
           {exam && (
@@ -849,6 +858,7 @@ export default function Play() {
       <Shell>
         {top}
         <div className="stack center" style={{ margin: 'auto', alignItems: 'center', maxWidth: 560, width: '100%' }}>
+          <Mascot pose="celebrate" size={140} className="result-mascot" />
           <h1 style={{ margin: 0 }}>{done ? 'Kết thúc!' : 'Chúc mừng em đã hoàn thành!'}</h1>
           <StudentResult
             pin={pin} playerId={me.player_id} name={me.name} className={me.class_name} avatar={me.avatar}
@@ -880,7 +890,10 @@ export default function Play() {
       <Shell>
         {top}
         <div className="card stack center" style={{ margin: 'auto', alignItems: 'center', maxWidth: 600, width: '100%', color: 'var(--fg)' }}>
-          <Avatar value={me.avatar} size={96} />
+          <div className="lobby-duo">
+            <span className="av-sticker"><Avatar value={me.avatar} size={92} /></span>
+            <Mascot pose="think" size={104} />
+          </div>
           <h1 style={{ margin: 0 }}>{quiz.title}</h1>
           <p style={{ margin: 0 }}>Bài tập về nhà · {total} câu{settings.deadline ? ` · hạn nộp ${fmtDeadline(settings.deadline)}` : ''}</p>
           <ul style={{ margin: 0, paddingLeft: 20, textAlign: 'left' }}>
@@ -1081,7 +1094,13 @@ export default function Play() {
       )}
       {feedback && (!paced || pacedReveal || feedback.answer.kind === 'oral') && (
         <div className={`feedback ${feedback.answer.kind === 'oral' ? '' : feedback.ratio === 1 ? 'ok' : 'bad'}`} role="status">
+          <div className="fb-row">
+            {/* Bé Chớp phản ứng theo kết quả: đúng → reo mừng, đúng một phần → suy nghĩ, sai/hết giờ → ối */}
+            <Mascot size={92} pose={feedback.answer.kind === 'oral' ? 'think' : feedback.ratio === 1 ? 'cheer' : feedback.ratio > 0 ? 'think' : 'oops'} />
+            <span>
           {feedback.answer.kind === 'oral' ? <>Đã gửi – chờ giáo viên chấm</> : feedback.ratio === 1 ? <><Check size={30} /> Chính xác! +{feedback.score.toLocaleString('vi-VN')} điểm{feedback.coins ? ` · +${feedback.coins.toLocaleString('vi-VN')} điểm thưởng` : ''}</> : feedback.ratio > 0 ? <>Đúng một phần +{feedback.score.toLocaleString('vi-VN')} điểm</> : feedback.answer.kind === 'none' ? <><Clock size={30} /> {paced ? 'Hết giờ! Em chưa trả lời câu này.' : 'Hết giờ!'}</> : <><X size={30} /> Chưa đúng</>}
+            </span>
+          </div>
           {feedback.q.explanation && <div style={{ fontFamily: 'var(--font-body)', fontSize: '1.05rem', fontWeight: 700, marginTop: 8 }}>{feedback.q.explanation}</div>}
           {paced && <div className="small" style={{ fontFamily: 'var(--font-body)', marginTop: 6 }}>Chờ giáo viên chuyển câu tiếp theo…</div>}
           {!paced && <div style={{ marginTop: 10 }}><button type="button" className="btn next-q" autoFocus onClick={() => advanceRef.current?.()}>Câu tiếp theo <ArrowRight size={18} /></button></div>}

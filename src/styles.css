@@ -773,3 +773,47 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
   .paper-row:not(.head) > .paper-name { grid-column: 2 / span 3; grid-row: 2; padding: 4px 0 0; }
 }
 .paper-code.sm { min-width: 0; padding: 2px 8px; font-size: 0.82rem; }
+
+/* ===== Màn học sinh kiểu "đồ chơi": nút và ô đáp án nổi khối có gờ đậm ở cạnh dưới, bấm thì lún xuống =====
+   Chỉ trong .play-bg (vào phòng, làm bài, kết quả). Màn giáo viên giữ kiểu cũ. */
+.play-bg .btn.primary, .play-bg .btn.success, .play-bg .btn.accent { box-shadow: 0 5px 0 var(--lip, #0b47b5), 0 12px 20px -12px rgba(10, 23, 48, 0.45); }
+.play-bg .btn.success { --lip: #0b6e35; }
+.play-bg .btn.accent { --lip: #b45309; }
+.play-bg .btn.ghost:not(.icon):not(.sm) { border-width: 2px; border-color: #c9dbf7; border-bottom-width: 5px; }
+.play-bg .btn:not(:disabled):active { transform: translateY(3px); }
+.play-bg .btn.primary:not(:disabled):active, .play-bg .btn.success:not(:disabled):active, .play-bg .btn.accent:not(:disabled):active { box-shadow: 0 2px 0 var(--lip, #0b47b5); }
+.play-bg .btn.ghost:not(.icon):not(.sm):not(:disabled):active { border-bottom-width: 2px; margin-bottom: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .play-bg .btn.primary:not(:disabled):hover, .play-bg .btn.success:not(:disabled):hover, .play-bg .btn.accent:not(:disabled):hover {
+    transform: translateY(-2px); box-shadow: 0 7px 0 var(--lip, #0b47b5), 0 16px 24px -12px rgba(10, 23, 48, 0.5);
+  }
+}
+/* Ô đáp án màu: gờ tối ở cạnh dưới (tự theo màu ô), bấm thì lún */
+.ans { box-shadow: inset 0 -7px 0 rgba(0, 0, 0, 0.2), 0 10px 18px -12px rgba(10, 23, 48, 0.55); border-radius: 22px; }
+.ans:not(:disabled):active { transform: translateY(4px); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), 0 4px 8px -8px rgba(10, 23, 48, 0.55); }
+@media (hover: hover) and (pointer: fine) {
+  .ans:not(:disabled):hover { box-shadow: inset 0 -7px 0 rgba(0, 0, 0, 0.2), 0 16px 26px -14px rgba(10, 23, 48, 0.6); }
+}
+/* Ô Đúng/Sai và ô nhiều đáp án (nền trắng): viền dưới dày như gờ */
+.pq-tf-btn, .pq-opt { border-bottom-width: 6px; border-bottom-color: #c9dbf7; }
+.pq-tf-btn:active:not(:disabled), .pq-opt:active:not(:disabled) { transform: translateY(3px); border-bottom-width: 3px; margin-bottom: 3px; }
+.pq-opt.on, .pq-tf-btn.sel { border-bottom-color: #0b47b5; }
+/* Ô báo đúng / sai: khối màu đặc có gờ, chừa chỗ cho Bé Chớp */
+.feedback.ok { background: #16a75a; box-shadow: inset 0 -7px 0 rgba(0, 0, 0, 0.16); }
+.feedback.bad { background: #ec3f63; box-shadow: inset 0 -7px 0 rgba(0, 0, 0, 0.16); }
+.feedback .next-q { box-shadow: 0 5px 0 rgba(10, 23, 48, 0.25); }
+.feedback .next-q:not(:disabled):active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(10, 23, 48, 0.25); }
+.fb-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.fb-row .mascot { margin: -18px 0 -10px; }
+@media (max-width: 520px) { .fb-row .mascot { width: 70px; height: 70px; } }
+
+/* Bé Chớp ở phòng chờ, trang vào phòng và màn kết quả */
+.lobby-duo { display: flex; align-items: flex-end; justify-content: center; gap: 4px; }
+.lobby-duo .av-sticker { margin-right: -10px; z-index: 1; }
+.av-sticker { display: inline-block; border-radius: 50%; padding: 4px; background: #fff; box-shadow: 0 6px 0 #c9dbf7, 0 14px 24px -14px rgba(10, 23, 48, 0.45); }
+.join-hello { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.join-hello .mascot { margin: -10px 0 -14px; }
+.result-mascot { margin: -6px auto -14px; }
+@media (prefers-reduced-motion: reduce) {
+  .play-bg .btn:not(:disabled):active, .ans:not(:disabled):active, .pq-tf-btn:active:not(:disabled), .pq-opt:active:not(:disabled) { transform: none; }
+}
