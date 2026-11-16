@@ -38,6 +38,26 @@ export function suggestCode(subject: string | undefined, grade: string | undefin
   return head + Date.now().toString(36).toUpperCase();
 }
 
+/** Năm học của một ngày: từ tháng 8 trở đi là năm học mới. VD 16/11/2026 → "2026–2027"; 3/2027 → "2026–2027". */
+export function schoolYearOf(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const start = d.getMonth() >= 7 ? y : y - 1;
+  return `${start}–${start + 1}`;
+}
+/** Vài năm học quanh năm học hiện tại, để chọn trong ô Năm học. */
+export function schoolYearChoices(d: Date = new Date()): string[] {
+  const cur = Number(schoolYearOf(d).slice(0, 4));
+  return [cur - 1, cur, cur + 1].map((y) => `${y}–${y + 1}`);
+}
+/** Tên trường giáo viên nhập lần trước (nhớ trên máy này), để đề sau tự điền. */
+const SCHOOL_KEY = 'quickplay.schoolName';
+export function rememberedSchool(): string {
+  try { return localStorage.getItem(SCHOOL_KEY) ?? ''; } catch { return ''; }
+}
+export function rememberSchool(v: string) {
+  try { if (v.trim()) localStorage.setItem(SCHOOL_KEY, v.trim()); } catch { /* bỏ qua */ }
+}
+
 /** Tên đề thi mặc định: "Đề kiểm tra cuối học kì I – Tin học lớp 3 – Mã TIN3-CK1-01". */
 export function paperTitle(subject: string | undefined, grade: string | undefined, period: ExamPeriod, code: string): string {
   const what = [subject, grade ? grade.replace(/^Lớp\s*/i, 'lớp ') : ''].filter(Boolean).join(' ');

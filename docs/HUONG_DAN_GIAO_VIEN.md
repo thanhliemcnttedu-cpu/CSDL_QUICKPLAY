@@ -79,7 +79,14 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
    Bấm **Lưu mã**, rồi **Xuất Excel** để in hoặc gửi danh sách (lớp, họ tên, mã số) cho học sinh.
 2. **Giao bài:** Thư viện → **Tổ chức** trên bộ câu hỏi → chọn **Bài kiểm tra** → chọn lớp, điền thời gian làm bài (phút), chọn **cách làm bài**:
    - **Từng câu một, như trò chơi:** trả lời xong em bấm **Câu tiếp theo** hoặc bấm số câu trong bảng số câu;
-   - **Cả bài trên một trang, như đề giấy:** cuộn xuống làm lần lượt, có thanh "đã trả lời x/y câu" và bảng số câu để nhảy tới câu chưa làm.
+   - **Cả bài trên một trang:** cuộn xuống làm lần lượt, có thanh "đã trả lời x/y câu" và bảng số câu để nhảy tới câu chưa làm;
+   - **Đề giấy, như bài kiểm tra trên lớp:** cả bài trên một trang trình bày như tờ đề in: đầu đề có Trường / Họ và tên / Lớp, ngày làm bài,
+     tên kì kiểm tra, năm học, mã đề, môn và thời gian; ô **Điểm | Lời phê**; câu hỏi chia phần theo dạng câu (I. Trắc nghiệm, II. Đúng hay Sai,
+     III. Điền vào chỗ trống…), mỗi câu ghi số điểm (thang 10, các câu bằng điểm nhau), phương án A–D xếp 2 cột. Nộp bài xong, tờ đề hiện điểm,
+     lời phê tự động và điểm từng phần. Cần Apps Script 1.6.0 trở lên; máy chủ cũ hơn thì học sinh làm theo kiểu "Cả bài trên một trang".
+
+     **Tên trường** và **năm học** in ở đầu đề do thầy cô điền khi tạo đề thi (hộp **Tạo đề thi từ ngân hàng câu hỏi**, hoặc tích **Đây là đề thi**
+     trong màn soạn đề). Tên trường được nhớ cho lần tạo đề sau; năm học mặc định theo ngày hiện tại (từ tháng 8 sang năm học mới).
 
    Chọn **xem lại bài làm** sau khi nộp: *Khi thầy cô thu bài* (nên dùng), *Ngay khi nộp* hoặc *Không cho xem*. Xem lại gồm đúng/sai từng câu, đáp án em chọn,
    đáp án đúng và lời giải. Bật / chỉnh **Chống gian lận** (mặc định nhắc nhở 3 lần, lần thứ 4 khóa bài) → **Mở phòng kiểm tra**.

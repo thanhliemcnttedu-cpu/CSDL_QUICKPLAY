@@ -27,6 +27,10 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 (một tệp `.json` duy nhất); sang máy khác hoặc đổi Google Drive thì **Khôi phục từ file .json**. Tệp gộp cũ (tên `<tên đăng nhập>_<ngày giờ>.json`)
 còn trong thư mục Drive có thể xóa đi.
 
+**Bản 1.6.0:** thêm cách làm bài kiểm tra **Đề giấy** (cài đặt phòng `exam_style: 'paper'`, chỉ giữ khi làm cả bài trên một trang);
+đề kiểm tra lưu thêm **tên trường** và **năm học** (`school_name`, `school_year`; bộ câu hỏi thường không giữ hai trường này).
+Cập nhật theo 5 bước như các bản trước.
+
 **Bản 1.5.9:** chẩn đoán tự cập nhật rõ hơn.
 - Tách hai chỗ "bật API":
   - Cài đặt của Gmail (`usersettings`) → lỗi `API_OFF`.

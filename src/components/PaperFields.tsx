@@ -1,9 +1,10 @@
 // Ô thông tin đề thi: Khối lớp, Môn, Thời điểm kiểm tra, Mã đề (tự gợi ý, sửa được). Dùng ở hộp "Tạo đề thi từ kho" và trình soạn.
 import { Wand2 } from 'lucide-react';
 import type { Catalog, ExamPeriod } from '../lib/types';
-import { PERIODS, PERIOD_LABEL, suggestCode } from '../lib/examPaper';
+import { PERIODS, PERIOD_LABEL, rememberSchool, schoolYearChoices, schoolYearOf, suggestCode } from '../lib/examPaper';
 
-export interface PaperInfo { grade: string; subject: string; period: ExamPeriod; code: string }
+/** school, year: tên trường và năm học in ở đầu "Đề giấy" (giáo viên nhập khi tạo đề) */
+export interface PaperInfo { grade: string; subject: string; period: ExamPeriod; code: string; school?: string; year?: string }
 
 const DEFAULT_GRADES = ['Lớp 1', 'Lớp 2', 'Lớp 3', 'Lớp 4', 'Lớp 5'];
 
@@ -50,6 +51,18 @@ export function PaperFields({ value, onChange, catalog, usedCodes, compact, plac
           <button type="button" className="btn icon ghost" onClick={auto} title="Gợi ý mã đề chưa dùng" aria-label="Gợi ý mã đề"><Wand2 size={18} /></button>
         </div>
         {dup && <small className="help" style={{ color: 'var(--danger)' }}>Mã đề này đã có trong thư viện. Nên đặt mã khác để dễ phân biệt.</small>}
+      </label>
+      {/* In ở đầu "Đề giấy" khi tổ chức thi */}
+      <label className="field">
+        <span>Tên trường</span>
+        <input className="input" value={value.school ?? ''} maxLength={80} placeholder="VD: Trường Tiểu học Tân Uyên"
+          onChange={(e) => { set({ school: e.target.value }); rememberSchool(e.target.value); }} />
+      </label>
+      <label className="field">
+        <span>Năm học</span>
+        <select className="input" value={value.year || schoolYearOf()} onChange={(e) => set({ year: e.target.value })}>
+          {[...new Set([...schoolYearChoices(), ...(value.year ? [value.year] : [])])].map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
       </label>
     </div>
   );

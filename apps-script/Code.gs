@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.9';
+var APP_VERSION = '1.6.0';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -357,8 +357,14 @@ function actSaveQuiz_(req) {
   }
   quiz.visibility = quiz.visibility === 'public' ? 'public' : 'private';
   // Đề thi (1.5.7): luôn riêng tư để giữ bí mật đề
-  if (['tx', 'gk1', 'ck1', 'gk2', 'ck2'].indexOf(quiz.paper_period) >= 0) quiz.visibility = 'private';
-  else { delete quiz.paper_period; delete quiz.paper_code; }
+  if (['tx', 'gk1', 'ck1', 'gk2', 'ck2'].indexOf(quiz.paper_period) >= 0) {
+    quiz.visibility = 'private';
+    // 1.6.0: tên trường và năm học in ở đầu "Đề giấy" (giáo viên nhập khi tạo đề)
+    ['school_name', 'school_year'].forEach(function (k) {
+      var v = String(quiz[k] || '').replace(/\s+/g, ' ').trim().slice(0, k === 'school_name' ? 80 : 20);
+      if (v) quiz[k] = v; else delete quiz[k];
+    });
+  } else { delete quiz.paper_period; delete quiz.paper_code; delete quiz.school_name; delete quiz.school_year; }
 
   return withLock_(function () {
     var folder = folder_('quizzes');
@@ -1709,6 +1715,8 @@ function normalizeSettings_(raw) {
     s.exam_minutes = clamp_(Math.round(Number(raw.exam_minutes) || 45), 1, 300);
     // Cách làm bài: từng câu một (như trò chơi) hoặc cả bài trên một trang (như đề giấy); cả hai đều cho chọn câu tự do
     s.exam_layout = raw.exam_layout === 'page' ? 'page' : 'one';
+    // 1.6.0: kiểu "Đề giấy" (cả bài một trang, trình bày như tờ bài kiểm tra trên lớp; tên trường, năm học lấy từ đề thi)
+    if (s.exam_layout === 'page' && raw.exam_style === 'paper') s.exam_style = 'paper';
     s.navigation = 'free';
     // Xem lại bài sau khi nộp: không cho / khi giáo viên thu bài / ngay khi nộp
     s.exam_review = raw.exam_review === 'submit' || raw.exam_review === 'none' ? raw.exam_review : 'end';

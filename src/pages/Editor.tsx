@@ -11,7 +11,7 @@ import { HostSetupDialog } from '../components/HostSetupDialog';
 import { ImportDialog } from '../components/ImportDialog';
 import { QuestionBankDialog } from '../components/QuestionBankDialog';
 import { PaperFields } from '../components/PaperFields';
-import { suggestCode } from '../lib/examPaper';
+import { rememberedSchool, schoolYearOf, suggestCode } from '../lib/examPaper';
 import { Spinner, useToast, askConfirm } from '../components/ui';
 import { PlacementPicker } from '../components/CatalogTree';
 import { CoverPicker } from '../components/CoverPicker';
@@ -195,15 +195,17 @@ export default function Editor() {
           <input type="checkbox" checked={!!quiz.paper_period} onChange={(e) => {
             const on = e.target.checked;
             update(on
-              ? { ...quiz, paper_period: 'ck1', paper_code: quiz.paper_code || suggestCode(quiz.subject, quiz.grade, 'ck1', paperCodes), visibility: 'private' }
-              : { ...quiz, paper_period: undefined, paper_code: undefined });
+              ? { ...quiz, paper_period: 'ck1', paper_code: quiz.paper_code || suggestCode(quiz.subject, quiz.grade, 'ck1', paperCodes), visibility: 'private',
+                  school_name: quiz.school_name || rememberedSchool() || undefined, school_year: quiz.school_year || schoolYearOf() }
+              : { ...quiz, paper_period: undefined, paper_code: undefined, school_name: undefined, school_year: undefined });
           }} />
           <ClipboardList size={18} /> Đây là đề thi (có thời điểm kiểm tra và mã đề, nằm ở mục Đề thi của thư viện)
         </label>
         {quiz.paper_period && (
           <PaperFields compact placeFromQuiz catalog={catalog} usedCodes={paperCodes}
-            value={{ grade: quiz.grade ?? '', subject: quiz.subject ?? '', period: quiz.paper_period, code: quiz.paper_code ?? '' }}
-            onChange={(v) => update({ ...latest.current!, grade: v.grade || undefined, subject: v.subject || undefined, paper_period: v.period, paper_code: v.code })} />
+            value={{ grade: quiz.grade ?? '', subject: quiz.subject ?? '', period: quiz.paper_period, code: quiz.paper_code ?? '', school: quiz.school_name ?? '', year: quiz.school_year ?? '' }}
+            onChange={(v) => update({ ...latest.current!, grade: v.grade || undefined, subject: v.subject || undefined, paper_period: v.period, paper_code: v.code,
+              school_name: v.school?.trim() ? v.school : undefined, school_year: v.year || schoolYearOf() })} />
         )}
       </div>
 

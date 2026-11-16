@@ -20,6 +20,10 @@ interface Props {
   draft?: Answer | null;
   onDraft?: (a: Answer) => void; // lưu nháp (giao bài về nhà)
   uploadAudio?: (blob: Blob) => Promise<string>; // câu trả lời miệng: gửi bản ghi âm lên máy chủ
+  /** "Đề giấy": phương án đánh chữ A, B, C, D nền trắng như đề in */
+  paper?: boolean;
+  /** Nhãn đứng trước đề bài, ví dụ "Câu 1. (0,25 điểm)" */
+  label?: ReactNode;
 }
 
 const Html = ({ html }: { html: string }) => <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />;
@@ -40,10 +44,12 @@ export function PlayQuestion(props: Props) {
     <>
       {!hasBlanks && (
         <div className="stem-card">
+          {props.label}
           <Html html={q.stem.text} />
           <StemMedia stem={q.stem} />
         </div>
       )}
+      {hasBlanks && props.label && <div className="stem-card stem-label">{props.label}</div>}
       {q.type === 'single_choice' && <Choice {...props} />}
       {q.type === 'true_false' && <TrueFalse {...props} />}
       {q.type === 'multiple_select' && <MultiSelect {...props} />}
@@ -73,20 +79,21 @@ function SubmitBar({ disabled, onClick, label = 'Gửi đáp án', hint }: { dis
 }
 
 // ---------- 1: một đáp án – bấm là chọn ----------
-function Choice({ q, seed, shuffleOptions, disabled, reveal, chosen, onSubmit }: Props) {
+function Choice({ q, seed, shuffleOptions, disabled, reveal, chosen, onSubmit, paper }: Props) {
   const opts = useMemo(() => (shuffleOptions ? shuffle(q.options, seed) : q.options), [q, seed, shuffleOptions]);
   const picked = chosen?.kind === 'choice' ? chosen.option_ids : [];
   return (
-    <div className={`answers ${q.plain_options ? 'plain' : ''}`} role="radiogroup" aria-label="Các phương án">
-      {opts.map((o) => {
+    <div className={`answers ${q.plain_options || paper ? 'plain' : ''} ${paper ? 'paper' : ''}`} role="radiogroup" aria-label="Các phương án">
+      {opts.map((o, pos) => {
         const i = q.options.indexOf(o);
         const Shape = SHAPES[i % 6];
         const isSel = picked.includes(o.option_id);
         const cls = reveal ? (o.is_correct ? 'correct' : isSel ? 'wrong' : 'dim') : isSel ? 'selected' : '';
         return (
-          <button key={o.option_id} className={`ans ${cls}`} style={q.plain_options ? undefined : { background: optColor(i) }} disabled={disabled} role="radio" aria-checked={isSel} aria-label={o.text.replace(/<[^>]*>/g, '') || 'Phương án có hình'}
+          <button key={o.option_id} className={`ans ${cls}`} style={q.plain_options || paper ? undefined : { background: optColor(i) }} disabled={disabled} role="radio" aria-checked={isSel} aria-label={o.text.replace(/<[^>]*>/g, '') || 'Phương án có hình'}
             onClick={() => onSubmit({ kind: 'choice', option_ids: [o.option_id] })}>
-            <span className="shape" aria-hidden><Shape size={18} fill="currentColor" /></span>
+            {/* đề giấy: chữ cái A, B, C, D theo vị trí hiển thị (như đề in); trò chơi: hình màu */}
+            <span className="shape" aria-hidden>{paper ? OPTION_LABELS[pos] : <Shape size={18} fill="currentColor" />}</span>
             <OptionBody o={o} />
           </button>
         );

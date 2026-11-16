@@ -81,6 +81,8 @@ export interface Quiz {
   visibility: 'private' | 'public';
   paper_period?: ExamPeriod; // đề thi: thời điểm kiểm tra (thường xuyên, giữa kì, cuối kì)
   paper_code?: string; // đề thi: mã đề (VD TIN3-CK1-01)
+  school_name?: string; // đề thi: tên trường in ở đầu "Đề giấy"
+  school_year?: string; // đề thi: năm học (VD 2026–2027)
   created_at: string;
   updated_at: string;
   owner?: string;
@@ -128,6 +130,7 @@ export interface SessionSettings {
   exam_class_id?: string; // exam: lớp được giao bài kiểm tra
   exam_minutes?: number; // exam: thời gian làm bài (phút)
   exam_layout?: 'one' | 'page'; // exam: từng câu một như trò chơi (mặc định) hoặc cả bài trên một trang cuộn như đề giấy
+  exam_style?: 'paper'; // exam + page (Apps Script 1.6.0): trình bày như tờ bài kiểm tra trên lớp (đầu đề, ô Điểm/Lời phê, chia phần)
   exam_review?: 'none' | 'end' | 'submit'; // exam: học sinh xem lại bài (đúng/sai, đáp án, lời giải): không cho / khi thầy cô thu bài / ngay khi nộp
   anti_cheat?: AntiCheatSettings;
 }

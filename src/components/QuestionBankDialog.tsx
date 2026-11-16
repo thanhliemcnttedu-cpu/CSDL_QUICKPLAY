@@ -9,7 +9,7 @@ import { emptyCatalog, pathOf, type Placement } from '../lib/catalog';
 import { hashString, htmlToText, shuffle, uid } from '../lib/util';
 import { Modal, Spinner, useToast } from './ui';
 import { PaperFields, type PaperInfo } from './PaperFields';
-import { paperTitle, suggestCode } from '../lib/examPaper';
+import { paperTitle, rememberedSchool, schoolYearOf, suggestCode } from '../lib/examPaper';
 
 type Source = { id: string; title: string; count: number; where: string; kind: 'mine' | 'public' | 'builtin' };
 const keyOf = (quizId: string, qid: string) => `${quizId}|${qid}`;
@@ -45,7 +45,10 @@ export function QuestionBankDialog({ mine: mineIn, pub: pubIn, catalog: catIn, p
   const [title, setTitle] = useState(defaultTitle || 'Bộ đề tổng hợp');
   // Đề thi: Khối lớp, Môn, Thời điểm, Mã đề; tên đề tự đặt theo các ô này cho tới khi thầy cô tự sửa tên
   const [asPaper, setAsPaper] = useState(!!paperIn);
-  const [paper, setPaper] = useState<PaperInfo>({ grade: paperIn?.grade ?? '', subject: paperIn?.subject ?? '', period: paperIn?.period ?? 'ck1', code: paperIn?.code ?? '' });
+  const [paper, setPaper] = useState<PaperInfo>({
+    grade: paperIn?.grade ?? '', subject: paperIn?.subject ?? '', period: paperIn?.period ?? 'ck1', code: paperIn?.code ?? '',
+    school: paperIn?.school ?? rememberedSchool(), year: paperIn?.year ?? schoolYearOf(), // in ở đầu "Đề giấy"
+  });
   const [titleTouched, setTitleTouched] = useState(false);
   const [codeTouched, setCodeTouched] = useState(!!paperIn?.code);
   /** Mã đề tự đổi theo Khối lớp, Môn, Thời điểm cho tới khi thầy cô tự gõ mã. */
@@ -161,7 +164,7 @@ export function QuestionBankDialog({ mine: mineIn, pub: pubIn, catalog: catIn, p
       if (asPaper) {
         // gắn với môn trong danh mục nếu trùng tên (cùng khối lớp)
         const subj = catalog.subjects.find((s) => s.name.toLocaleLowerCase('vi') === paper.subject.trim().toLocaleLowerCase('vi') && (!s.grade || s.grade === paper.grade));
-        extra = { grade: paper.grade, subject: paper.subject.trim(), ...(subj ? { subject_id: subj.id } : {}), paper_period: paper.period, paper_code: paper.code.trim() };
+        extra = { grade: paper.grade, subject: paper.subject.trim(), ...(subj ? { subject_id: subj.id } : {}), paper_period: paper.period, paper_code: paper.code.trim(), school_name: paper.school?.trim() || undefined, school_year: paper.year || schoolYearOf() };
       }
       const saved = await api.saveQuiz({ ...quiz, ...extra });
       toast(`Đã tạo bộ đề "${saved.title}" gồm ${list.length} câu. Thầy cô có thể thêm câu mới, sửa và sắp xếp lại.`, 'ok');

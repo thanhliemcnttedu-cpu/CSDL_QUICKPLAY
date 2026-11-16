@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PaperSheetHead, type SheetInfo } from '../components/PaperSheet';
+import { ROMAN, autoComment, fmtPoint, pointEach, sectionsOf, sheetNumbers } from '../lib/paperSheet';
 import { Avatar } from '../components/Avatar';
 import { Mascot } from '../components/Mascot';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -797,9 +799,45 @@ export default function Play() {
     // Xem lại bài: giáo viên cho xem ngay khi nộp, hoặc chỉ khi đã thu bài cả lớp
     const review = settings.exam_review ?? 'none';
     const canReview = review === 'submit' || (review === 'end' && poll.state === 'COMPLETED');
+    // "Đề giấy": tờ đề có điểm và lời phê, kết quả từng phần; xem lại bài đánh số câu theo tờ đề
+    const isPaper = settings.exam_layout === 'page' && settings.exam_style === 'paper';
+    const secs = isPaper ? sectionsOf(order) : [];
+    const nos = sheetNumbers(secs);
+    const each = pointEach(total);
+    const secResults = secs.map((sec) => {
+      let pts = 0, ok = 0;
+      for (const i of sec.items) {
+        const r = ratios.get(i);
+        if (!r) continue;
+        if (r.oral) { if (poll.my_graded?.[i]) { pts += 1; ok++; } } else { pts += r.ratio; if (r.ratio >= 1) ok++; }
+      }
+      return { ...sec, pts: pts * each, ok };
+    });
+    const rvOrder = isPaper ? secs.flatMap((sec) => sec.items) : order.map((_, i) => i);
     return (
       <Shell>
         {top}
+        {isPaper && (
+          <article className="paper-sheet" aria-label="Tờ bài kiểm tra đã chấm" style={{ marginBottom: 16 }}>
+            <PaperSheetHead
+              info={{
+                school: quiz.school_name, name: me.name, className: me.class_name, period: quiz.paper_period, year: quiz.school_year,
+                code: paperCode || quiz.paper_code, subject: quiz.subject, grade: quiz.grade, minutes: settings.exam_minutes,
+                date: poll.started_at ? new Date(poll.started_at) : new Date(),
+              }}
+              score={{ mark, comment: autoComment(level, oralWait > 0), note: oralWait ? 'Chờ chấm trả lời miệng' : undefined }}
+            />
+            <div className="ps-result" role="status">
+              {secResults.map((sec, k) => (
+                <div key={sec.type}>
+                  <small>Phần {ROMAN[k] ?? k + 1}: {sec.title}</small>
+                  <b>{fmtPoint(sec.pts)} / {fmtPoint(each * sec.items.length)} điểm</b>
+                  <span className="muted small"> · đúng {sec.ok}/{sec.items.length} câu</span>
+                </div>
+              ))}
+            </div>
+          </article>
+        )}
         <div className={`card stack center exam-result lv-${level}`} style={{ margin: reviewOpen ? '0 auto' : 'auto', alignItems: 'center', maxWidth: 600, width: '100%', color: 'var(--fg)' }}>
           <div className="er-band" aria-hidden><i /><i /><i /><i /><i /><i /><i /><i /></div>
           <span className="er-icon" aria-hidden>{level === 'excellent' || level === 'good' ? <Trophy size={40} /> : <PartyPopper size={40} />}</span>
@@ -830,14 +868,15 @@ export default function Play() {
         {canReview && reviewOpen && (
           <div className="stack exam-review" style={{ maxWidth: 820, width: '100%', margin: '16px auto 0' }}>
             <h2 style={{ margin: 0 }}>Xem lại bài làm</h2>
-            {order.map((qq, i) => {
+            {rvOrder.map((i) => {
+              const qq = order[i];
               const r = ratios.get(i);
               const g = r?.oral ? poll.my_graded?.[i] : undefined;
               const st = !r ? 'blank' : r.oral ? (g === undefined ? 'wait' : g ? 'ok' : 'bad') : r.ratio >= 1 ? 'ok' : r.ratio > 0 ? 'part' : 'bad';
               const label = { blank: 'Bỏ trống', wait: 'Chờ thầy cô chấm', ok: 'Đúng', part: 'Đúng một phần', bad: 'Sai' }[st];
               return (
                 <section key={qq.id} className={`card stack exam-rv ${st}`} style={{ color: 'var(--fg)' }}>
-                  <div className="row between"><b>Câu {i + 1}</b><span className={`badge ${st === 'ok' ? 'green' : st === 'part' || st === 'wait' ? 'amber' : st === 'bad' ? 'red' : ''}`}>{st === 'ok' ? <Check size={14} /> : st === 'bad' ? <X size={14} /> : null} {label}</span></div>
+                  <div className="row between"><b>Câu {nos.get(i) ?? i + 1}</b><span className={`badge ${st === 'ok' ? 'green' : st === 'part' || st === 'wait' ? 'amber' : st === 'bad' ? 'red' : ''}`}>{st === 'ok' ? <Check size={14} /> : st === 'bad' ? <X size={14} /> : null} {label}</span></div>
                   <PlayQuestion q={qq} seed={hashString(me.player_id + qq.id)} shuffleOptions={settings.shuffle_options} disabled reveal
                     chosen={myAnswers.get(i) ?? null} onSubmit={() => {}} draft={null} onDraft={() => {}} uploadAudio={uploadAudio} />
                   {qq.explanation && <div className="alert"><div><b>Vì sao?</b> {qq.explanation}</div></div>}
@@ -923,6 +962,18 @@ export default function Play() {
   };
   const examEnd = exam && !free && curIndex >= total; // trả lời lần lượt: đã qua câu cuối, chờ em bấm nộp
   const pageMode = exam && settings.exam_layout === 'page'; // bài kiểm tra: cả bài trên một trang cuộn như đề giấy
+  // "Đề giấy" (Apps Script 1.6.0): trình bày như tờ bài kiểm tra trên lớp, câu hỏi chia phần theo dạng câu
+  const paperStyle = pageMode && settings.exam_style === 'paper';
+  const sheetSecs = paperStyle ? sectionsOf(order) : [];
+  const sheetNos = sheetNumbers(sheetSecs);
+  /** Số câu hiển thị: đề giấy đánh số theo thứ tự các phần */
+  const noOf = (i: number) => sheetNos.get(i) ?? i + 1;
+  const missingShown = paperStyle ? [...missing].sort((a, b) => noOf(a) - noOf(b)) : missing;
+  const sheetInfo: SheetInfo = {
+    school: quiz.school_name, name: me.name, className: me.class_name, period: quiz.paper_period, year: quiz.school_year,
+    code: paperCode || quiz.paper_code, subject: quiz.subject, grade: quiz.grade, minutes: settings.exam_minutes,
+    date: poll.started_at ? new Date(poll.started_at) : new Date(),
+  };
   /** Tới một câu: chế độ một trang thì cuộn tới câu đó, còn lại thì chuyển câu. */
   const goTo = (i: number) => {
     sfx.pop();
@@ -940,7 +991,73 @@ export default function Play() {
   return (
     <Shell>
       {top}
-      {pageMode && (
+      {paperStyle && (
+        <div className="exam-page stack">
+          <div className="ps-bar">
+            <span className="ps-who-mini">
+              Thí sinh: <b>{me.name}</b>{me.class_name ? <> • Lớp: <b>{me.class_name}</b></> : null}<br />
+              Tiến độ: <span className="ps-prog">{answered.size}/{total}</span> câu đã làm
+            </span>
+            {examLeftMs !== null && <span className={`badge ${examLeftMs < 60000 ? 'red' : 'amber'}`} role="timer" aria-label="Thời gian làm bài còn lại"><Clock size={16} /> {clock(examLeftMs)}</span>}
+            <details>
+              <summary className="btn sm ghost"><ListChecks size={16} /> Bảng số câu</summary>
+              <div className="qnav-pop">
+                <div className="qnav-grid">
+                  {sheetSecs.flatMap((s) => s.items).map((i) => (
+                    <button key={i} className={`qnav-no ${answered.has(i) ? 'done' : ''}`} onClick={() => goTo(i)} aria-label={`Câu ${noOf(i)}${answered.has(i) ? ', đã trả lời' : ', chưa trả lời'}`}>{noOf(i)}</button>
+                  ))}
+                </div>
+              </div>
+            </details>
+            <button className="btn sm success" onClick={handInExam} disabled={isLocked}><Send size={16} /> Nộp bài</button>
+          </div>
+          <article className="paper-sheet" aria-label="Tờ bài kiểm tra">
+            <PaperSheetHead info={sheetInfo} score={null} />
+            {sheetSecs.map((sec, k) => (
+              <Fragment key={sec.type}>
+                <div className="ps-section">
+                  <h3>{ROMAN[k] ?? k + 1}. {sec.title} ({fmtPoint(pointEach(total) * sec.items.length)} điểm)</h3>
+                  <p>{sec.hint} Mỗi câu {fmtPoint(pointEach(total))} điểm.</p>
+                </div>
+                {sec.items.map((i) => {
+                  const qq = order[i];
+                  return (
+                    <section key={qq.id} id={`exam-q-${i}`} className="ps-q">
+                      <PlayQuestion
+                        q={qq}
+                        seed={hashString(me.player_id + qq.id)}
+                        shuffleOptions={settings.shuffle_options}
+                        key={editing.has(i) ? 'sua' : 'xem'}
+                        disabled={(answered.has(i) && !editing.has(i)) || blocked}
+                        reveal={false}
+                        chosen={answered.has(i) && !editing.has(i) ? myAnswers.get(i) ?? null : null}
+                        onSubmit={(a) => submit(a, i)}
+                        draft={editing.has(i) ? myAnswers.get(i) ?? null : null}
+                        onDraft={() => {}}
+                        uploadAudio={(b) => uploadAudio(b, i)}
+                        paper
+                        label={<><span className="ps-no">Câu {noOf(i)}.</span><span className="ps-pt">({fmtPoint(pointEach(total))} điểm)</span></>}
+                      />
+                      {(answered.has(i) || editing.has(i)) && (
+                        <div className="ps-q-tools">
+                          {answered.has(i) && !editing.has(i) && <span className="small" style={{ color: '#0f8f45', fontWeight: 700 }}><Check size={14} /> Đã ghi nhận bài làm</span>}
+                          {answered.has(i) && !editing.has(i) && !blocked && <button className="btn sm ghost" onClick={() => editOn(i, true)}><RotateCcw size={14} /> Chọn lại đáp án</button>}
+                          {editing.has(i) && <button className="btn sm ghost" onClick={() => editOn(i, false)}>Giữ đáp án cũ</button>}
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+              </Fragment>
+            ))}
+            <div className="ps-end">
+              <span>{missing.length ? `Em còn ${missing.length} câu chưa làm. Em hãy kiểm tra kỹ trước khi nộp bài.` : `Em đã làm đủ ${total} câu. Em hãy kiểm tra kỹ trước khi nộp bài.`}</span>
+              <button className="btn success lg" onClick={handInExam} disabled={isLocked}><Send size={20} /> Nộp bài kiểm tra</button>
+            </div>
+          </article>
+        </div>
+      )}
+      {pageMode && !paperStyle && (
         <div className="exam-page stack">
           <div className="card stack exam-progress" style={{ color: 'var(--fg)' }}>
             <div className="row between">
@@ -1046,14 +1163,14 @@ export default function Play() {
           <div className="modal" role="alertdialog" aria-label="Nộp bài" style={{ maxWidth: 520 }}>
             <h2 style={{ marginTop: 0 }}>{settings.require_all ? 'Chưa nộp bài được' : 'Em chưa làm hết bài'}</h2>
             <p>
-              Em còn <b>{missing.length}</b> câu chưa trả lời: <b>câu {missing.map((i) => i + 1).join(', ')}</b>.{' '}
+              Em còn <b>{missing.length}</b> câu chưa trả lời: <b>câu {missingShown.map(noOf).join(', ')}</b>.{' '}
               {settings.require_all ? 'Em cần trả lời hết các câu hỏi thì mới được nộp bài.' : exam ? 'Câu bỏ trống tính là sai. Nộp rồi em không làm lại được. Em có muốn nộp bài kiểm tra luôn không?' : 'Câu bỏ trống sẽ không có điểm. Em có muốn nộp bài luôn không?'}
             </p>
             <div className="qnav-grid">
-              {missing.map((i) => <button key={i} className="qnav-no" onClick={() => { setSubmitAsk(false); goTo(i); }}>{i + 1}</button>)}
+              {missingShown.map((i) => <button key={i} className="qnav-no" onClick={() => { setSubmitAsk(false); goTo(i); }}>{noOf(i)}</button>)}
             </div>
             <div className="row end" style={{ marginTop: 16 }}>
-              <button className="btn primary" onClick={() => { setSubmitAsk(false); goTo(missing[0]); }}>Làm tiếp câu {missing[0] + 1}</button>
+              <button className="btn primary" onClick={() => { setSubmitAsk(false); goTo(missingShown[0]); }}>Làm tiếp câu {noOf(missingShown[0])}</button>
               {!settings.require_all && <button className="btn ghost" onClick={finish}>Vẫn nộp bài</button>}
             </div>
           </div>

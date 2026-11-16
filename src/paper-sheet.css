@@ -1,0 +1,87 @@
+/* "Đề giấy": tờ bài kiểm tra trên màn hình học sinh */
+.paper-sheet {
+  position: relative; background: #fff; color: var(--fg); border-radius: 22px; padding: clamp(14px, 3vw, 30px);
+  outline: 2px dashed #8fb6f5; outline-offset: -10px; box-shadow: 0 18px 40px -26px rgba(10, 23, 48, 0.5);
+  display: flex; flex-direction: column; gap: 16px; max-width: 980px; width: 100%; margin: 0 auto;
+}
+/* thanh trên cố định: thí sinh, tiến độ, đồng hồ, nộp bài */
+.ps-bar {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(6px); border: 1.5px solid var(--border); border-radius: 16px;
+  padding: 8px 12px; box-shadow: 0 8px 20px -16px rgba(10, 23, 48, 0.5); max-width: 980px; width: 100%; margin: 0 auto;
+}
+.ps-bar .ps-who-mini { flex: 1; min-width: 160px; line-height: 1.35; font-size: 0.92rem; }
+.ps-bar .ps-who-mini b { color: var(--primary-ink, #0b4fd0); }
+.ps-bar .ps-prog { color: #0f8f45; font-weight: 800; }
+.ps-bar details { position: relative; }
+.ps-bar details > summary { list-style: none; cursor: pointer; }
+.ps-bar details > summary::-webkit-details-marker { display: none; }
+.ps-bar .qnav-pop { position: absolute; right: 0; top: calc(100% + 8px); background: #fff; border: 1.5px solid var(--border); border-radius: 14px; padding: 10px; width: min(320px, 86vw); box-shadow: 0 16px 30px -18px rgba(10, 23, 48, 0.5); }
+
+.ps-head-wrap { position: relative; display: flex; flex-direction: column; gap: 14px; }
+.ps-pin { position: absolute; left: -22px; top: -26px; z-index: 2; }
+.ps-head { display: grid; grid-template-columns: 1fr 1.15fr; gap: 14px; }
+.ps-who, .ps-title { border-radius: 16px; padding: 14px 18px; }
+.ps-who { background: #eaf4ff; border: 1.5px solid #b8d6fb; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.ps-line { display: flex; gap: 8px; align-items: baseline; }
+.ps-line b { flex: none; font-weight: 700; }
+.ps-line span { flex: 1; min-width: 0; border-bottom: 1.5px dotted #9db8e3; color: #1d4ed8; font-weight: 700; padding: 0 4px 2px; overflow-wrap: anywhere; }
+.ps-title { background: #fff1f6; border: 1.5px solid #f7c6d8; text-align: center; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.ps-title h2 { margin: 0; font-size: clamp(1.15rem, 2.6vw, 1.5rem); text-transform: uppercase; letter-spacing: 0.01em; }
+.ps-title i { color: #475569; }
+.ps-year { font-weight: 800; display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.ps-code { background: #fde68a; color: #7c2d12; border-radius: 10px; padding: 3px 10px; font-weight: 900; }
+
+.paper-sheet .ps-score { display: table; table-layout: fixed; }
+.ps-score { width: 100%; border-collapse: separate; border-spacing: 0; border: 2px solid #1b2a4a; border-radius: 14px; overflow: hidden; }
+.ps-score th { background: #fff4c7; padding: 8px; border-bottom: 2px solid #1b2a4a; font-weight: 800; }
+.ps-score th:first-child, .ps-score td:first-child { width: 30%; border-right: 2px solid #1b2a4a; }
+.ps-score td { padding: 10px 14px; vertical-align: middle; }
+.ps-mark { text-align: center; white-space: nowrap; }
+.ps-mark b { font-size: 1.8rem; color: #1d4ed8; }
+.ps-mark em { display: block; font-size: 0.8rem; color: #b45309; font-style: normal; font-weight: 700; }
+.ps-comment p { margin: 0 0 4px; font-weight: 700; color: #b91c1c; }
+.ps-comment .ps-wish { color: #dc2626; font-weight: 600; }
+.ps-rule { display: block; border-bottom: 1.5px dotted #b6c3d8; height: 18px; }
+
+/* tiêu đề phần: I. TRẮC NGHIỆM NHIỀU LỰA CHỌN (x điểm) */
+.ps-section { background: #e8f2ff; border: 1.5px solid #c4dbfb; border-radius: 14px; padding: 10px 16px; }
+.ps-section h3 { margin: 0; font-size: 1.08rem; text-transform: uppercase; }
+.ps-section p { margin: 2px 0 0; font-style: italic; color: #475569; font-size: 0.95rem; }
+
+/* từng câu: không khung thẻ, như đề in */
+.ps-q { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px 12px; border-bottom: 1px dashed #dbe4f3; scroll-margin-top: 90px; }
+.ps-q:last-of-type { border-bottom: 0; }
+.ps-q .stem-card { background: none; border: 0; box-shadow: none; padding: 0; font-size: clamp(1.02rem, 2vw, 1.15rem); }
+.ps-q .stem-card.stem-label { margin-bottom: -4px; }
+.ps-no { display: inline-block; background: #fde2ea; color: #9f1239; font-weight: 800; border-radius: 9px; padding: 1px 9px; margin-right: 6px; }
+.ps-pt { color: #64748b; font-style: italic; font-weight: 500; font-size: 0.9em; margin-right: 6px; }
+.ps-q-tools { display: flex; justify-content: flex-end; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* phương án A, B, C, D: nền trắng, viền nét đứt, 2 cột như đề in */
+.answers.paper { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.answers.paper .ans { min-height: 0; padding: 12px 14px 12px 52px; font-weight: 600; font-size: 1.02rem; border: 1.5px dashed #b6c3d8; border-radius: 14px; box-shadow: none; }
+.answers.paper .ans .shape { left: 12px; width: 28px; height: 28px; border-radius: 9px; font-weight: 900; font-size: 0.95rem; background: #eef2f7; color: #334155; }
+.answers.paper .ans.selected { border: 2px solid var(--primary); background: #eaf2ff; outline: 0; }
+.answers.paper .ans.selected .shape { background: var(--primary); color: #fff; }
+.answers.paper .ans:not(:disabled):active { transform: translateY(1px); }
+
+.ps-end { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1.5px solid #e2e8f0; padding-top: 14px; }
+.ps-end span { color: #475569; }
+
+/* kết quả theo phần sau khi nộp */
+.ps-result { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.ps-result > div { border: 1.5px solid #dbe4f3; border-radius: 14px; padding: 10px 12px; background: #fbfdff; }
+.ps-result small { display: block; color: #1d4ed8; font-weight: 800; text-transform: uppercase; font-size: 0.78rem; }
+.ps-result b { font-size: 1.15rem; }
+
+@media (max-width: 720px) {
+  .ps-head { grid-template-columns: 1fr; }
+  .answers.paper { grid-template-columns: 1fr; }
+  .ps-pin { left: -10px; top: -22px; }
+  .ps-pin svg { width: 46px; height: 46px; }
+  .ps-score th:first-child, .ps-score td:first-child { width: 36%; }
+  .ps-score td { padding: 10px 8px; }
+  .ps-mark b { font-size: 1.5rem; }
+  .ps-mark em { white-space: normal; }
+}

@@ -194,11 +194,14 @@ export function HostSetupDialog({ quiz, papers, onClose }: { quiz: QuizSummary; 
             <div className="field">
               <span>Cách học sinh làm bài</span>
               <div className="row" role="radiogroup" aria-label="Cách học sinh làm bài kiểm tra">
-                <button type="button" role="radio" aria-checked={s.exam_layout !== 'page'} className={`tab ${s.exam_layout !== 'page' ? 'on' : ''}`} onClick={() => set({ exam_layout: 'one' })}>Từng câu một, như trò chơi</button>
-                <button type="button" role="radio" aria-checked={s.exam_layout === 'page'} className={`tab ${s.exam_layout === 'page' ? 'on' : ''}`} onClick={() => set({ exam_layout: 'page' })}>Cả bài trên một trang, như đề giấy</button>
+                <button type="button" role="radio" aria-checked={s.exam_layout !== 'page'} className={`tab ${s.exam_layout !== 'page' ? 'on' : ''}`} onClick={() => set({ exam_layout: 'one', exam_style: undefined })}>Từng câu một, như trò chơi</button>
+                <button type="button" role="radio" aria-checked={s.exam_layout === 'page' && s.exam_style !== 'paper'} className={`tab ${s.exam_layout === 'page' && s.exam_style !== 'paper' ? 'on' : ''}`} onClick={() => set({ exam_layout: 'page', exam_style: undefined })}>Cả bài trên một trang</button>
+                <button type="button" role="radio" aria-checked={s.exam_style === 'paper'} className={`tab ${s.exam_style === 'paper' ? 'on' : ''}`} onClick={() => set({ exam_layout: 'page', exam_style: 'paper' })}>Đề giấy, như bài kiểm tra trên lớp</button>
               </div>
               <small className="help">
-                {s.exam_layout === 'page'
+                {s.exam_style === 'paper'
+                  ? 'Trình bày như tờ bài kiểm tra: đầu đề có tên trường, họ tên, lớp, ngày, kì kiểm tra, năm học, mã đề (tên trường và năm học nhập khi tạo đề thi); ô Điểm và Lời phê; câu hỏi chia phần theo dạng câu, mỗi câu ghi số điểm. Cần Apps Script 1.6.0 (bản cũ hơn thì học sinh làm kiểu "cả bài trên một trang").'
+                  : s.exam_layout === 'page'
                   ? 'Học sinh thấy tất cả câu hỏi trên một trang, cuộn xuống để làm, có thanh "đã làm x/y câu" và bảng số câu để nhảy tới câu chưa làm. Nút Nộp bài kiểm tra ở cuối trang.'
                   : 'Mỗi lần hiện một câu. Trả lời xong, học sinh bấm "Câu tiếp theo" hoặc bấm số câu trong bảng số câu để sang câu khác.'}
               </small>
