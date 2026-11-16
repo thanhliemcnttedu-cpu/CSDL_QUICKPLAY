@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Copy, Download, QrCode } from 'lucide-react';
 import { Modal, useToast } from './ui';
+import { ZoomHover } from './ZoomHover';
 import { downloadBlob } from '../lib/xlsx';
 
 /** Link trang học sinh (địa chỉ trang web đang mở; VITE_PUBLIC_URL chỉ dùng khi trang không chạy trên http/https). */
@@ -91,9 +92,12 @@ export function JoinShare() {
 
   return (
     <div className="join-share">
-      <button type="button" className="js-qr" onClick={() => setBig(true)} aria-label="Phóng to mã QR vào phòng chơi" title="Bấm để phóng to mã QR">
-        {qr ? <img src={qr} alt="" width={72} height={72} /> : <QrCode size={28} />}
-      </button>
+      {/* Rê chuột: mã QR phóng to toàn màn hình (chiếu cho cả lớp quét); bấm: mở hộp có nút tải mã QR về máy */}
+      <ZoomHover hoverOnly label="Mã QR vào phòng chơi" big={qr ? <><div className="zoom-cap">Quét mã để vào phòng chơi</div><img src={qr} alt="" /><div className="zoom-hint">Bấm vào mã QR để tải về máy</div></> : null}>
+        <button type="button" className="js-qr" onClick={() => setBig(true)} aria-label="Phóng to mã QR vào phòng chơi, tải về máy" title="Rê chuột để phóng to, bấm để tải mã QR">
+          {qr ? <img src={qr} alt="" width={72} height={72} /> : <QrCode size={28} />}
+        </button>
+      </ZoomHover>
       <div className="js-text">
         <b>Gửi lối vào cho học sinh</b>
         <span className="js-actions">

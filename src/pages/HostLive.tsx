@@ -14,7 +14,8 @@ import type { HostOp } from '../lib/sessionLogic';
 import { answerKey } from '../lib/sessionLogic';
 import { loadSettings, scriptRef } from '../lib/settings';
 import { OPTION_LABELS, htmlToText, sanitizeHtml } from '../lib/util';
-import { Check, X, MessageSquareText } from 'lucide-react';
+import { Check, X, MessageSquareText, Mail } from 'lucide-react';
+import { downloadQrCard, homeworkMailto } from '../lib/qrCard';
 import { MusicButton } from '../components/MusicButton';
 import { ZoomHover } from '../components/ZoomHover';
 import { download, questionStats, rankedPlayers, sessionCsv, totalOf } from '../lib/report';
@@ -192,6 +193,8 @@ export default function HostLive() {
   const joinHost = link ? `${new URL(link).host}/join` : 'trang Quickplay';
   const pinBig = <><div className="zoom-cap">Vào <b>{joinHost}</b> và nhập mã</div><div className="zoom-pin">{pin.slice(0, 3)} {pin.slice(3)}</div></>;
   const qrBig = qr ? <><div className="zoom-cap">Quét mã để vào phòng · Mã {pin}</div><img src={qr} alt="" /></> : null;
+  const fmtVN = (t: number | string) => new Date(t).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const hwCard = link ? { link, pin, title: s.quiz_title, kind: 'Bài tập về nhà', note: s.settings.deadline ? `Hạn nộp: ${fmtVN(s.settings.deadline)}` : undefined } : null;
   const copyLink = () => link && navigator.clipboard.writeText(link).then(() => toast('Đã chép đường dẫn tham gia.', 'ok'));
   const joinStrip = (s.settings.mode === 'classic_live' || paced) && (s.state === 'IN_PROGRESS' || s.state === 'PAUSED') && (
     <div className="join-strip" aria-label="Mã tham gia cho học sinh vào muộn">
@@ -275,9 +278,19 @@ export default function HostLive() {
                     Mở: {s.settings.start_time ? new Date(s.settings.start_time).toLocaleString('vi-VN') : 'ngay'} · Hạn nộp:{' '}
                     {s.settings.deadline ? new Date(s.settings.deadline).toLocaleString('vi-VN') : '—'}
                   </p>
-                  {link && <button className="btn sm" style={{ marginTop: 8 }} onClick={() => navigator.clipboard.writeText(link).then(() => toast('Đã chép link giao bài.', 'ok'))}><Copy size={16} /> Chép link giao bài</button>}
+                  {link && (
+                    <div className="row" style={{ marginTop: 10, gap: 8 }}>
+                      <button className="btn sm" onClick={() => navigator.clipboard.writeText(link).then(() => toast('Đã chép link giao bài. Dán vào email, Zalo… để gửi học sinh.', 'ok'))}><Copy size={16} /> Chép link giao bài</button>
+                      <button className="btn sm" onClick={() => downloadQrCard(hwCard!).then(() => toast('Đã tải ảnh mã QR kèm mã tham gia.', 'ok')).catch((e) => toast((e as Error).message, 'error'))}><Download size={16} /> Tải mã QR</button>
+                      <a className="btn sm" href={homeworkMailto(hwCard!)}><Mail size={16} /> Gửi qua email</a>
+                    </div>
+                  )}
                 </div>
-                {qr && <img className="qr" src={qr} alt="Mã QR làm bài" width={160} height={160} />}
+                {qr && (
+                  <ZoomHover label="Mã QR làm bài" big={<><div className="zoom-cap">Quét mã để làm bài · Mã {pin}</div><img src={qr} alt="" /></>}>
+                    <img className="qr" src={qr} alt="Mã QR làm bài" width={160} height={160} />
+                  </ZoomHover>
+                )}
               </div>
             )}
             {paced && curQ && (

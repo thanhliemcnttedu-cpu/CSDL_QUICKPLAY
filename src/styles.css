@@ -876,6 +876,8 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .zoom-big .zoom-pin { font-family: var(--font-head); font-weight: 900; font-size: clamp(4rem, 17vw, 15rem); letter-spacing: 0.06em; color: var(--primary-ink, #0b4fd0); line-height: 1; white-space: nowrap; }
 .zoom-big .zoom-cap { font-size: clamp(1rem, 2.2vw, 1.8rem); font-weight: 800; color: var(--fg); margin-bottom: 10px; }
 .zoom-big img { width: min(78vh, 86vw); height: auto; image-rendering: pixelated; display: block; }
+.zoom-overlay.pinned { pointer-events: auto; cursor: zoom-out; }
+.zoom-big .zoom-hint { margin-top: 10px; font-size: clamp(0.85rem, 1.4vw, 1rem); font-weight: 600; color: var(--muted-fg); }
 @keyframes zoom-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .zoom-overlay { animation: none; } }
 /* Đang chơi: dải mã tham gia gọn cho học sinh vào muộn */
