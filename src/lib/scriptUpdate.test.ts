@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { googleDetail, googleLink, isFresh, reasonOf, versionState } from './scriptUpdate';
+import { googleDetail, googleLink, isFresh, needsScriptUpdate, reasonOf, versionState } from './scriptUpdate';
 import { SCRIPT_VERSION } from './installer';
 
 describe('tự cập nhật Apps Script', () => {
@@ -30,6 +30,16 @@ describe('tự cập nhật Apps Script', () => {
     expect(isFresh({ state: 'old', at: now - 7 * 3600_000, reason: 'api_off' }, now)).toBe(false);
     expect(isFresh({ state: 'old', at: 0 }, now)).toBe(false);
     expect(isFresh(null, now)).toBe(false);
+    // phần mềm vừa lên bản mới: kết quả "mới nhất" ghi với Apps Script cũ hết giá trị, hỏi lại ngay
+    expect(isFresh({ state: 'current', at: now - 60_000, server: '1.0.0' }, now)).toBe(false);
+    expect(isFresh({ state: 'current', at: now - 60_000, server: SCRIPT_VERSION }, now)).toBe(true);
+  });
+  it('cảnh báo cập nhật hiện khi Apps Script cũ hơn bản phần mềm hiện tại (kể cả kết quả cũ ghi "mới nhất")', () => {
+    expect(needsScriptUpdate({ state: 'current', at: 0, server: '1.0.0' })).toBe(true);
+    expect(needsScriptUpdate({ state: 'old', at: 0, server: '1.0.0' })).toBe(true);
+    expect(needsScriptUpdate({ state: 'current', at: 0, server: SCRIPT_VERSION })).toBe(false);
+    expect(needsScriptUpdate({ state: 'old', at: 0 })).toBe(true);
+    expect(needsScriptUpdate(null)).toBe(false);
   });
   it('tệp cấu hình phát hành có đủ quyền tự cập nhật', () => {
     const scopes: string[] = JSON.parse(readFileSync('apps-script/appsscript.json', 'utf8')).oauthScopes;

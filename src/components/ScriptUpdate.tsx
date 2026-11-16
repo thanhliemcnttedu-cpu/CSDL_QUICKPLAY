@@ -2,8 +2,8 @@
 // hoặc khi cần thầy cô làm một việc (bật API, cập nhật tay một lần). Khối "Tự cập nhật" trong trang Cài đặt ở cuối tệp.
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { CheckCircle2, Copy, ExternalLink, RefreshCw, ShieldCheck, TriangleAlert, X, Zap } from 'lucide-react';
-import { API_SETTINGS_URL, autoUpdateScript, checkSelfUpdateReady, googleDetail, googleLink, reasonText, scriptUpdateStatus, type UpdateStatus } from '../lib/scriptUpdate';
+import { CheckCircle2, Copy, ExternalLink, RefreshCw, ShieldCheck, TriangleAlert, Zap } from 'lucide-react';
+import { API_SETTINGS_URL, autoUpdateScript, needsScriptUpdate, checkSelfUpdateReady, googleDetail, googleLink, reasonText, scriptUpdateStatus, type UpdateStatus } from '../lib/scriptUpdate';
 import { SCRIPT_VERSION } from '../lib/installer';
 import { loadSettings } from '../lib/settings';
 import { askConfirm, useToast } from './ui';
@@ -43,7 +43,6 @@ let announced = ''; // mỗi lần cập nhật chỉ báo một lần
 export function ScriptUpdateNotice() {
   const toast = useToast();
   const st = useUpdateStatus();
-  const [hide, setHide] = useState(() => sessionStorage.getItem('quickplay.hideScriptNotice') === '1');
   useEffect(() => {
     autoUpdateScript().then((r) => {
       if (r?.state === 'updated' && r.to && announced !== r.to && sessionStorage.getItem('quickplay.updatedShown') !== r.to) {
@@ -55,21 +54,21 @@ export function ScriptUpdateNotice() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Ở trang Cài đặt đã có hộp cập nhật, không nhắc hai lần
   const onSettings = useLocation().pathname.startsWith('/teacher/settings');
-  if (hide || onSettings || loadSettings().backend !== 'drive' || st?.state !== 'old') return null;
-  // chưa thử tự cập nhật lần nào (vừa mở trang): đang thử tự cập nhật ngầm (với ai đã bật ở mục Nâng cao), chờ kết quả
-  if (st.reason === undefined) return null;
-  const busy = st.reason === 'busy';
-  // Mặc định chỉ đường tới 5 bước cập nhật tay: ngắn gọn, ai cũng làm được.
-  // Lý do kỹ thuật (chưa bật API, thiếu quyền…) chỉ hiện trong mục Nâng cao của trang Cài đặt.
+  // Luôn hiện (không có nút ẩn) ở mọi trang giáo viên cho tới khi Apps Script lên bản mới nhất.
+  // Mặc định chỉ đường tới 5 bước cập nhật tay; lý do kỹ thuật chỉ hiện trong mục Nâng cao của trang Cài đặt.
+  if (onSettings || loadSettings().backend !== 'drive' || !needsScriptUpdate(st)) return null;
+  const busy = st!.reason === 'busy';
   return (
-    <div className="script-notice" role="status">
-      <TriangleAlert size={20} />
+    <div className="script-notice" role="alert">
+      <TriangleAlert size={22} />
       <span>
-        Apps Script của thầy cô đang chạy bản <b>{st.server}</b>, phần mềm cần <b>{SCRIPT_VERSION}</b>.{' '}
-        {busy ? 'Đang có buổi học trực tiếp, Apps Script sẽ tự cập nhật khi buổi học kết thúc.' : 'Cập nhật mất khoảng 3 phút; link và dữ liệu giữ nguyên.'}
+        <b>Đã có bản cập nhật. Thầy/Cô vui lòng thao tác cập nhật lên phiên bản mới nhất.</b>
+        <small>
+          Apps Script đang chạy bản {st!.server}, bản mới nhất là {SCRIPT_VERSION}.{' '}
+          {busy ? 'Đang có buổi học trực tiếp: cập nhật sau khi buổi học kết thúc.' : 'Làm 5 bước, khoảng 3 phút; link và dữ liệu giữ nguyên.'}
+        </small>
       </span>
-      {!busy && <Link className="btn sm primary" to="/teacher/settings#cap-nhat">Xem 5 bước cập nhật</Link>}
-      <button className="btn icon ghost sm" aria-label="Ẩn thông báo" onClick={() => { sessionStorage.setItem('quickplay.hideScriptNotice', '1'); setHide(true); }}><X size={16} /></button>
+      <Link className="btn sm primary" to="/teacher/settings#cap-nhat"><RefreshCw size={16} /> Cập nhật ngay</Link>
     </div>
   );
 }

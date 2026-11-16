@@ -636,7 +636,11 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .move-steps li::marker { font-weight: 800; color: var(--primary); }
 @media (max-width: 600px) { .drive-full { flex-direction: column; } }
 .script-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 14px; margin-bottom: 14px; background: var(--warn-bg); color: var(--warn-fg); border: 1px solid #fcd34d; }
-.script-notice > span { flex: 1; min-width: 200px; }
+.script-notice > span { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 2px; }
+.script-notice > span b { font-size: 1.02rem; }
+.script-notice > span small { font-size: 0.86rem; opacity: 0.9; }
+.script-notice > svg { flex: none; }
+@media (max-width: 600px) { .script-notice .btn { width: 100%; justify-content: center; } }
 
 /* Dùng Gemini trên trình duyệt: sao chép lời nhắc, dán câu trả lời về */
 .gem-web { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 16px; border: 1.5px dashed #9cc3ff; background: #f7faff; }

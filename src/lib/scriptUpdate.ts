@@ -25,6 +25,12 @@ export type UpdateReason =
 
 export interface UpdateStatus { state: UpdateState; at: number; server?: string; from?: string; to?: string; reason?: UpdateReason; message?: string }
 
+/** Apps Script đang chạy cũ hơn bản phần mềm cần (theo lần hỏi gần nhất, so với bản phần mềm HIỆN TẠI). */
+export function needsScriptUpdate(s: UpdateStatus | null): boolean {
+  if (!s) return false;
+  return s.server ? versionState(s.server) === 'old' : s.state === 'old';
+}
+
 export function scriptUpdateStatus(): UpdateStatus | null {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null') as UpdateStatus | null;
@@ -52,6 +58,8 @@ export function reasonOf(message: string): { reason: UpdateReason; message: stri
 /** Đã đến lúc hỏi lại chưa (không hỏi dồn dập mỗi lần chuyển trang). */
 export function isFresh(s: UpdateStatus | null, now = Date.now()): boolean {
   if (!s) return false;
+  // Phần mềm vừa lên bản mới (cần Apps Script mới hơn bản đã ghi "mới nhất"): kết quả cũ hết giá trị, hỏi lại ngay
+  if (s.state !== 'old' && s.server && versionState(s.server) === 'old') return false;
   // Chưa thiết lập tự cập nhật (chưa bật API, chưa có quyền, Apps Script quá cũ): việc thầy cô tự làm ở mục Nâng cao,
   // không cần thử lại mỗi 15 phút → 6 giờ thử lại một lần (nút "Cập nhật ngay" / "Kiểm tra điều kiện" vẫn thử ngay).
   const notSetUp = s.state === 'old' && (s.reason === 'api_off' || s.reason === 'cloud_api' || s.reason === 'scopes' || s.reason === 'no_self');
