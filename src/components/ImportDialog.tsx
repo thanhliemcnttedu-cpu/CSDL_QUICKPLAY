@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FileUp, Sparkles, Wand2, AlertTriangle, Trash2, ClipboardPaste, FileCheck2, CircleDot, ListChecks, Eye, TextCursorInput, ListOrdered, Link2, MessageSquareText, FileDown, ClipboardList, Square, Copy, ExternalLink } from 'lucide-react';
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { extractText, hasImportedImages, parseQuestions, resolveImportedImages } from '../lib/importer';
-import { buildWordTemplate } from '../lib/wordTemplate';
+import { buildWordTemplate, TEMPLATE_FILES, type TemplateKind } from '../lib/wordTemplate';
 import { formToQuestions, isGoogleFormUrl } from '../lib/googleForm';
 import { compressImage, uploadFile } from '../lib/media';
 import { loadSettings, scriptUrlFromLink } from '../lib/settings';
@@ -81,10 +81,10 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
     }
   };
 
-  const downloadTemplate = async () => {
+  const downloadTemplate = async (kind: TemplateKind) => {
     try {
-      downloadBlob('Quickplay-file-Word-mau.docx', await buildWordTemplate());
-      toast('Đã tải file Word mẫu. Soạn đúng mẫu rồi tải lên với cách “Giữ nguyên tài liệu”.', 'ok');
+      downloadBlob(TEMPLATE_FILES[kind], await buildWordTemplate(kind));
+      toast(`Đã tải file Word mẫu ${kind === 'quiz7' ? '7 dạng trắc nghiệm' : '8 dạng (có trả lời miệng)'}. Soạn đúng mẫu rồi tải lên với cách “Giữ nguyên tài liệu”.`, 'ok');
     } catch (e) {
       toast((e as Error).message, 'error');
     }
@@ -225,9 +225,16 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
           <div className="alert ok" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <div className="grow" style={{ minWidth: 220 }}>
               <b>Soạn trên Word theo file mẫu</b>
-              <div className="small">Đúng mẫu thì nhập ngay đủ 7 dạng câu hỏi kèm đáp án, thời gian, điểm, hình ảnh: không cần AI, không phải sửa lại. File có sẵn lời nhắc để nhờ ChatGPT/Gemini trình bày lại bộ câu hỏi cũ theo mẫu.</div>
+              <div className="small">Đúng mẫu thì nhập ngay câu hỏi kèm đáp án, thời gian, điểm, hình ảnh: không cần AI, không phải sửa lại. File có sẵn lời nhắc để nhờ ChatGPT/Gemini trình bày lại bộ câu hỏi cũ theo mẫu.</div>
             </div>
-            <button type="button" className="btn success" onClick={downloadTemplate}><FileDown size={18} /> Tải file Word mẫu</button>
+            <div className="tpl-picks" role="group" aria-label="Chọn file Word mẫu">
+              <button type="button" className="btn success" onClick={() => downloadTemplate('quiz7')} title="Một đáp án, Nhiều đáp án, Đúng/Sai, Điền chỗ trống, Sắp xếp, Nối cột, Kéo thả vào chỗ trống">
+                <FileDown size={18} /> <span>Mẫu 7 dạng trắc nghiệm</span>
+              </button>
+              <button type="button" className="btn success ghost-success" onClick={() => downloadTemplate('full8')} title="7 dạng trắc nghiệm và Trả lời miệng">
+                <FileDown size={18} /> <span>Mẫu 8 dạng (có trả lời miệng)</span>
+              </button>
+            </div>
           </div>
           {way === 'gform' ? (
             <div className="stack">
@@ -243,7 +250,7 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
           ) : (
           <>
           <div className="row">
-            <button className="btn primary" onClick={loadFile} disabled={!!busy}><FileUp size={18} /> Tải tài liệu lên (.docx, .pdf, .pptx, .xlsx, .csv)</button>
+            <button className="btn primary upload-doc" onClick={loadFile} disabled={!!busy}><FileUp size={18} /> <span>Tải tài liệu lên <span className="nowrap">(.docx, .pdf, .pptx, .xlsx, .csv)</span></span></button>
             {fileName && <span className="badge green">{fileName}</span>}
           </div>
           <label className="field">

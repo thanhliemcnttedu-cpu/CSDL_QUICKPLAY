@@ -327,6 +327,7 @@ export function parseFreeText(raw: string): ParseReport {
   type Draft = {
     num?: number; stem: string[]; options: { text: string; correct: boolean; image?: string }[]; answer?: string[]; answerText?: string;
     type?: QuestionType; time?: number; points?: number; explain?: string; distractors?: string[]; video?: string; audio?: string; image?: string;
+    bank?: boolean; // "Dạng: Kéo thả vào chỗ trống": học sinh kéo thẻ từ vào chỗ trống
   };
   const ANS_TEXT = /^\s*(?:\*\*)?\s*(?:đáp\s*án(?:\s*đúng)?|đa|trả\s*lời|answer|gợi\s*ý)\s*(?:\*\*)?\s*[:：]\s*(.+)$/i;
   const drafts: Draft[] = [];
@@ -340,7 +341,11 @@ export function parseFreeText(raw: string): ParseReport {
       // Nhãn của file mẫu
       const plain = stripMarks(line);
       let m: RegExpMatchArray | null;
-      if ((m = plain.match(L_TYPE))) { cur.type = typeFromLabel(m[1]) ?? cur.type; continue; }
+      if ((m = plain.match(L_TYPE))) {
+        cur.type = typeFromLabel(m[1]) ?? cur.type;
+        if (/kéo|thả|kho từ/i.test(m[1])) { cur.type = 'fill_blank'; cur.bank = true; } // Kéo thả đáp án vào chỗ trống
+        continue;
+      }
       if ((m = plain.match(L_TIME))) { cur.time = Math.min(600, Math.max(5, Number(m[1]))); continue; }
       if ((m = plain.match(L_POINTS))) { cur.points = Math.min(100000, Math.max(0, Number(m[1]))); continue; }
       if ((m = plain.match(L_EXPLAIN))) { cur.explain = m[1].trim(); continue; }
@@ -475,6 +480,7 @@ export function parseFreeText(raw: string): ParseReport {
           match_rule: 'ignore_case' as const,
         }));
         if (d.distractors?.length) q.distractors = d.distractors;
+        if (d.bank) q.fill_mode = 'bank';
         q.needs_review = q.blanks.some((b) => !b.accepted.length);
         if (q.needs_review) warnings.push(`Câu ${num}: điền chỗ trống – cần nhập từ đúng.`);
         return q;

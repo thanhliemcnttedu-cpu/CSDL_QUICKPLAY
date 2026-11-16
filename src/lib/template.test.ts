@@ -5,11 +5,14 @@ import { formToQuestions, isGoogleFormUrl, parsePublicForm } from './googleForm'
 import { COMPOSER_TYPES } from './factory';
 import type { Question } from './types';
 
-function checkSamples(qs: Question[]) {
-  expect(qs).toHaveLength(11);
-  expect(qs.every((q) => !q.needs_review)).toBe(true);
-  expect(new Set(qs.map((q) => q.type))).toEqual(new Set(COMPOSER_TYPES)); // đủ 7 dạng
-  const [q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11] = qs;
+function checkSamples(all: Question[], kind: 'quiz7' | 'full8' = 'full8') {
+  expect(all).toHaveLength(kind === 'full8' ? 11 : 10);
+  expect(all.every((q) => !q.needs_review)).toBe(true);
+  // bản 8 dạng: đủ mọi dạng của trình soạn; bản 7 dạng: không có Trả lời miệng
+  expect(new Set(all.map((q) => q.type))).toEqual(new Set(COMPOSER_TYPES.filter((t) => kind === 'full8' || t !== 'oral')));
+  expect(all.some((q) => q.type === 'oral')).toBe(kind === 'full8');
+  const qs = kind === 'full8' ? all : [...all.slice(0, 9), all[0], all[9]]; // bản 7 dạng: chèn chỗ cho câu miệng để so cùng thứ tự
+  const [q1, q2, q3, q4, q5, q6, q8, q9, q7, q10, q11] = qs;
   expect(q1).toMatchObject({ type: 'single_choice', time_limit_seconds: 20, points: 1000 });
   expect(q1.options.map((o) => !!o.is_correct)).toEqual([false, true, false, false]);
   expect(q1.explanation).toContain('Hà Nội là thủ đô');
@@ -20,15 +23,20 @@ function checkSamples(qs: Question[]) {
   expect(q5.options.find((o) => o.is_correct)?.text).toBe('Sai');
   expect(q6.stem.text).toBe('Nước sôi ở [blank_1] độ C và đóng băng ở [blank_2] độ C.');
   expect(q6.blanks?.map((b) => b.accepted)).toEqual([['100', 'một trăm'], ['0', 'không']]);
-  expect(q7.blanks?.[0].accepted).toEqual(['mèo']);
-  expect(q7.distractors).toEqual(['chó', 'gà', 'vịt']);
+  expect(q6.fill_mode).toBeUndefined(); // điền chỗ trống: học sinh tự gõ
+  // Dạng 7 – kéo thả đáp án vào chỗ trống: thẻ từ đúng theo thứ tự chỗ trống + thẻ nhiễu
+  expect(q7).toMatchObject({ type: 'fill_blank', fill_mode: 'bank' });
+  expect(q7.blanks?.map((b) => b.accepted)).toEqual([['mèo'], ['chó']]);
+  expect(q7.distractors).toEqual(['gà', 'vịt']);
   expect(q8.type).toBe('reorder');
   expect(q8.options.map((o) => [o.order_index, o.text])).toEqual([[0, 'Nước bay hơi'], [1, 'Hơi nước ngưng tụ thành mây'], [2, 'Mưa rơi xuống'], [3, 'Nước chảy ra sông, biển']]);
   expect(q9.type).toBe('matching');
   const left = q9.options.filter((o) => o.side === 'left');
   expect(left.map((l) => `${l.text}=${q9.options.find((r) => r.side === 'right' && r.match_pair_id === l.match_pair_id)?.text}`)).toEqual(['Việt Nam=Hà Nội', 'Nhật Bản=Tokyo', 'Pháp=Paris']);
-  expect(q10).toMatchObject({ type: 'oral', time_limit_seconds: 60 });
-  expect(q10.explanation).toContain('Khóa vòi');
+  if (kind === 'full8') {
+    expect(q10).toMatchObject({ type: 'oral', time_limit_seconds: 60 });
+    expect(q10.explanation).toContain('Khóa vòi');
+  }
   expect(q11.stem.video).toMatchObject({ source_type: 'internet_url', provider: 'youtube', embed_id: 'dQw4w9WgXcQ' });
   expect(q11.options.find((o) => o.is_correct)?.text).toBe('Ánh sáng');
 }
@@ -40,13 +48,22 @@ describe('file Word mẫu', () => {
     checkSamples(r.questions);
   });
 
-  it('trọn vòng: tạo tệp .docx → đọc bằng mammoth → ra đúng các câu hỏi (bỏ qua phần hướng dẫn)', async () => {
-    const blob = await buildWordTemplate();
-    const mammoth = await import('mammoth');
-    const { value } = await mammoth.convertToHtml({ buffer: Buffer.from(await blob.arrayBuffer()) });
-    expect(value).toContain('FILE WORD MẪU');
-    checkSamples(parseFreeText(docxHtmlToText(value)).questions);
+  it('bản 7 dạng trắc nghiệm: 10 câu, không có Trả lời miệng, có Kéo thả vào chỗ trống', () => {
+    const r = parseFreeText(templateQuestionsText('quiz7'));
+    expect(r.warnings).toEqual([]);
+    checkSamples(r.questions, 'quiz7');
   });
+
+  for (const kind of ['quiz7', 'full8'] as const) {
+    it(`trọn vòng (${kind}): tạo tệp .docx → đọc bằng mammoth → ra đúng các câu hỏi (bỏ qua phần hướng dẫn)`, async () => {
+      const blob = await buildWordTemplate(kind);
+      const mammoth = await import('mammoth');
+      const { value } = await mammoth.convertToHtml({ buffer: Buffer.from(await blob.arrayBuffer()) });
+      expect(value).toContain('FILE WORD MẪU');
+      expect(value).toContain(kind === 'quiz7' ? 'Bản 7 dạng' : 'Bản 8 dạng');
+      checkSamples(parseFreeText(docxHtmlToText(value)).questions, kind);
+    });
+  }
 
   it('ảnh nhúng trong Word được gắn vào câu hỏi hoặc phương án đứng ngay trên nó', () => {
     const png = 'data:image/png;base64,iVBORw0KGgo=';

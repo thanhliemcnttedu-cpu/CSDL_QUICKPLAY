@@ -163,6 +163,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.accent { background: var(--accent); color: var(--on-accent); box-shadow: 0 10px 24px -10px rgba(217, 119, 6, 0.6); }
 .btn.accent:hover { background: #fbbf24; }
 .btn.success { background: linear-gradient(180deg, #1fb866, #0f8f45); color: #fff; box-shadow: 0 10px 24px -10px rgba(15, 143, 69, 0.6); }
+.btn.success.ghost-success { background: #fff; color: #0f7a3c; border: 1.5px solid #34c27a; box-shadow: none; }
+/* Hai nút tải file Word mẫu: 7 dạng / 8 dạng — nằm cạnh nhau, màn hẹp thì xếp dọc, mỗi nút một dòng chữ */
+.tpl-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.tpl-picks .btn { white-space: nowrap; }
+.btn.upload-doc { max-width: 100%; white-space: normal; text-align: left; }
+.btn.upload-doc .nowrap { white-space: nowrap; }
+@media (max-width: 520px) { .tpl-picks { width: 100%; flex-direction: column; } .tpl-picks .btn { justify-content: center; } }
 .btn.danger { background: #fee2e2; color: #991b1b; }
 .btn.danger:hover { background: #fecaca; }
 .btn.ghost { background: #fff; border-color: var(--border); }
