@@ -25,7 +25,7 @@ export function useCopyManifest() {
     const m = (await import('../../apps-script/appsscript.json?raw')).default;
     try {
       await navigator.clipboard.writeText(m);
-      toast('Đã sao chép tệp cấu hình appsscript.json.', 'ok');
+      toast('Đã sao chép tệp cấu hình. Dán vào tệp appsscript.json (KHÔNG dán vào Mã.gs).', 'ok');
     } catch {
       window.prompt('Sao chép nội dung dưới đây (Ctrl + C):', m);
     }
@@ -121,7 +121,8 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
           <a className="btn sm" href={API_SETTINGS_URL} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở trang bật API</a>
         </li>
         <li>
-          Dự án Apps Script có <b>tệp cấu hình appsscript.json</b> của Quickplay (quyền tự cập nhật). Làm khi cập nhật tay: bước 3 của 5 bước có hướng dẫn dán tệp này.{' '}
+          Dự án Apps Script có <b>tệp cấu hình appsscript.json</b> của Quickplay (quyền tự cập nhật). Làm khi cập nhật tay: bước 3 của 5 bước có hướng dẫn dán tệp này
+          — dán vào tệp <code>appsscript.json</code>, <b>không</b> dán vào <code>Mã.gs</code>.{' '}
           <button type="button" className="btn sm" onClick={copyManifest}><Copy size={14} /> Sao chép tệp cấu hình</button>
         </li>
       </ol>
