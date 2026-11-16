@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOpenCheck, Eye, FolderInput, FolderTree, ChevronDown, ChevronUp, DatabaseZap, Star, CopyPlus } from 'lucide-react';
+import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOpenCheck, Eye, FolderInput, FolderTree, ChevronDown, ChevronUp, DatabaseZap, Star, CopyPlus, Layers } from 'lucide-react';
 import type { Catalog, Quiz, QuizSummary } from '../lib/types';
 import { api } from '../lib/api';
 import { BUILTIN_QUIZZES, newQuiz, sampleQuiz, type BuiltinQuiz } from '../lib/factory';
@@ -8,6 +8,7 @@ import { ALL, NONE, UNGRADED, addSubject, countByNode, emptyCatalog, ensurePath,
 import { formatDate, uid } from '../lib/util';
 import { Modal, Spinner, useToast, askConfirm } from '../components/ui';
 import { ImportDialog } from '../components/ImportDialog';
+import { QuestionBankDialog } from '../components/QuestionBankDialog';
 import { HostSetupDialog } from '../components/HostSetupDialog';
 import { CatalogTree, PlacementPicker } from '../components/CatalogTree';
 
@@ -32,7 +33,7 @@ export default function Library() {
   const [pubNode, setPubNode] = useState<string>(ALL); // mục đang chọn ở cây thư viện công cộng
   const [tab, setTab] = useState<'mine' | 'public'>('mine');
   const [error, setError] = useState('');
-  const [dlg, setDlg] = useState<null | { kind: 'import' | 'ai' } | { kind: 'host'; quiz: QuizSummary } | { kind: 'move'; quiz: QuizSummary; to: Placement & { subject?: string } }>(null);
+  const [dlg, setDlg] = useState<null | { kind: 'import' | 'ai' | 'bank' } | { kind: 'host'; quiz: QuizSummary } | { kind: 'move'; quiz: QuizSummary; to: Placement & { subject?: string } }>(null);
   const [filter, setFilter] = useState('');
   const [catalog, setCatalog] = useState<Catalog>(emptyCatalog);
   const [node, setNodeState] = useState<string>(readNode);
@@ -234,6 +235,7 @@ export default function Library() {
         <h1 style={{ margin: 0 }}>Thư viện đề</h1>
         <div className="row lib-actions">
           <button className="btn" onClick={() => setDlg({ kind: 'import' })}><Upload size={18} /> Nhập từ tệp</button>
+          <button className="btn" onClick={() => setDlg({ kind: 'bank' })} title="Chọn từng câu, nhiều câu hoặc nhiều bộ đề có sẵn để ghép thành bộ đề mới"><Layers size={18} /> Tạo từ kho câu hỏi</button>
           <button className="btn accent" onClick={() => setDlg({ kind: 'ai' })}><Sparkles size={18} /> AI sinh đề</button>
           <button className="btn primary" onClick={create} title={inNodeView && current !== NONE ? `Tạo bộ đề trong: ${currentLabel}` : undefined}><Plus size={18} /> Tạo bộ đề</button>
         </div>
@@ -372,6 +374,10 @@ export default function Library() {
         // Bộ đề mới nằm luôn trong mục đang chọn ở cây thư mục (Môn › Chủ đề › Bài)
         const here = current === ALL || current === NONE ? null : placementOf(catalog, current);
         return <ImportDialog mode={dlg.kind === 'ai' ? 'ai' : 'file'} place={here ?? undefined} defaults={{ subject: here?.subject }} onClose={() => setDlg(null)} onDone={(id) => nav(`/teacher/edit/${id}`)} />;
+      })()}
+      {dlg?.kind === 'bank' && (() => {
+        const here = current === ALL || current === NONE ? null : placementOf(catalog, current);
+        return <QuestionBankDialog mine={items ?? []} pub={pub} catalog={catalog} place={here} defaultTitle={here ? resolve(catalog, here)?.lesson?.name : undefined} onClose={() => setDlg(null)} onDone={(id) => nav(`/teacher/edit/${id}`)} />;
       })()}
       {dlg?.kind === 'host' && <HostSetupDialog quiz={dlg.quiz} onClose={() => setDlg(null)} />}
       {dlg?.kind === 'move' && (

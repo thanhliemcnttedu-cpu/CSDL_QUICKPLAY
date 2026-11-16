@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye, Upload } from 'lucide-react';
+import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye, Upload, Layers } from 'lucide-react';
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { api } from '../lib/api';
 import { COMPOSER_TYPES, TYPE_LABELS, DEFAULT_QUIZ_TITLE } from '../lib/factory';
@@ -9,6 +9,7 @@ import { htmlToText, uid } from '../lib/util';
 import { QuestionComposer } from '../components/QuestionComposer';
 import { HostSetupDialog } from '../components/HostSetupDialog';
 import { ImportDialog } from '../components/ImportDialog';
+import { QuestionBankDialog } from '../components/QuestionBankDialog';
 import { Spinner, useToast, askConfirm } from '../components/ui';
 import { PlacementPicker } from '../components/CatalogTree';
 import { CoverPicker } from '../components/CoverPicker';
@@ -30,6 +31,7 @@ export default function Editor() {
   const [composer, setComposer] = useState<ComposerState | null>(null);
   const [hosting, setHosting] = useState(false);
   const [importing, setImporting] = useState<null | 'file' | 'ai'>(null);
+  const [banking, setBanking] = useState(false); // lấy câu hỏi từ các bộ đề khác trong thư viện
   const [bulkTime, setBulkTime] = useState(30);
   const [catalog, setCatalog] = useState<Catalog>(emptyCatalog);
   useEffect(() => {
@@ -191,6 +193,7 @@ export default function Editor() {
           <h2 style={{ margin: 0 }}>{qs.length} câu hỏi</h2>
           <div className="row">
             <button className="btn" onClick={() => setImporting('file')} title="Tải tệp Word, PDF, PowerPoint, Excel, CSV lên để thêm câu hỏi vào bộ đề này"><Upload size={18} /> Tải tệp lên</button>
+            <button className="btn" onClick={() => setBanking(true)} title="Chép câu hỏi từ các bộ đề khác trong thư viện vào bộ đề này"><Layers size={18} /> Lấy từ kho câu hỏi</button>
             <button className="btn accent" onClick={() => setImporting('ai')}><Sparkles size={18} /> AI sinh thêm</button>
             <button className="btn violet" onClick={() => setComposer({ mode: 'new', type: last?.type && COMPOSER_TYPES.includes(last.type) ? last.type : 'single_choice', at: qs.length })}>
               <Plus size={18} /> Thêm câu hỏi
@@ -300,6 +303,17 @@ export default function Editor() {
       )}
       {hosting && (
         <HostSetupDialog quiz={{ id: quiz.id, title: quiz.title, visibility: quiz.visibility, updated_at: quiz.updated_at, question_count: qs.length }} onClose={() => setHosting(false)} />
+      )}
+      {banking && (
+        <QuestionBankDialog
+          exclude={quiz.id}
+          onClose={() => setBanking(false)}
+          onPick={(add) => {
+            setQs([...latest.current!.questions, ...add]);
+            setBanking(false);
+            toast(`Đã thêm ${add.length} câu từ kho câu hỏi vào cuối bộ đề.`, 'ok');
+          }}
+        />
       )}
       {importing && (
         <ImportDialog
