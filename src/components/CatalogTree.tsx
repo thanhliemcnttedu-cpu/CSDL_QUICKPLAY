@@ -204,12 +204,14 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
 }
 
 /** Các ô chọn phụ thuộc nhau: Khối lớp → Môn học → Chương/Chủ đề → Bài. Trả về vị trí mới kèm tên môn và tên lớp (để ghi vào bộ đề). */
-export function PlacementPicker({ catalog, value, onChange, legacySubject, manageLink = true }: {
+export function PlacementPicker({ catalog, value, onChange, legacySubject, legacyGrade, manageLink = true }: {
   catalog: Catalog;
   value: Placement;
   onChange: (p: Placement & { subject?: string; grade?: string }) => void;
   /** Tên môn dạng chữ của bộ đề cũ (chưa gắn vào danh mục) */
   legacySubject?: string;
+  /** Khối lớp ghi trong bộ đề (đề nhập từ tệp, tạo từ kho…): chưa gắn danh mục thì ô Khối lớp hiện đúng lớp này, không nhảy về Lớp 1 */
+  legacyGrade?: string;
   manageLink?: boolean;
 }) {
   const f = resolve(catalog, value);
@@ -220,7 +222,8 @@ export function PlacementPicker({ catalog, value, onChange, legacySubject, manag
   const [pickedGrade, setPickedGrade] = useState<string | null>(null);
   const grades = gradesOf(catalog);
   const hasUngraded = subjectsOfGrade(catalog, '').length > 0;
-  const grade = subject ? subject.grade ?? '' : pickedGrade ?? (hasUngraded || !grades.length ? '' : grades.find((g) => subjectsOfGrade(catalog, g).length) ?? grades[0]);
+  const own = legacyGrade && grades.includes(legacyGrade) ? legacyGrade : null;
+  const grade = subject ? subject.grade ?? '' : pickedGrade ?? own ?? (hasUngraded || !grades.length ? '' : grades.find((g) => subjectsOfGrade(catalog, g).length) ?? grades[0]);
   const subjects = subjectsOfGrade(catalog, grade);
   const at = (p: Placement) => (subject ? { ...p, subject: subject.name, grade: subject.grade } : p);
   return (

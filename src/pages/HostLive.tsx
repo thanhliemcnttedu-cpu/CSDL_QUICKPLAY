@@ -17,7 +17,7 @@ import { htmlToText, sanitizeHtml } from '../lib/util';
 import { Check, X, MessageSquareText } from 'lucide-react';
 import { startMusic } from '../lib/sound';
 import { download, questionStats, rankedPlayers, sessionCsv, totalOf } from '../lib/report';
-import { visiblePlayers } from '../lib/sessionLogic';
+import { isInfoKind, visiblePlayers } from '../lib/sessionLogic';
 import { Spinner, useToast, askConfirm } from '../components/ui';
 import { StemMedia } from '../components/MediaView';
 import { Leaderboard, Stats } from './Play';
@@ -60,7 +60,7 @@ export default function HostLive() {
 
   // Cảnh báo vi phạm mới: thông báo + âm thanh, đếm trên tab Giám sát
   const vlist = s?.violations ?? [];
-  const counted = vlist.filter((v) => v.kind !== 'open_link');
+  const counted = vlist.filter((v) => !isInfoKind(v.kind));
   useEffect(() => {
     if (!s) return;
     if (top === null) setTop(s.settings.leaderboard_top ?? 10);
@@ -69,7 +69,7 @@ export default function HostLive() {
       setSeenV(counted.length);
       return;
     }
-    const fresh = vlist.slice(lastAlerted.current).filter((v) => v.kind !== 'open_link');
+    const fresh = vlist.slice(lastAlerted.current).filter((v) => !isInfoKind(v.kind));
     lastAlerted.current = vlist.length;
     if (fresh.length) {
       const v = fresh[fresh.length - 1];

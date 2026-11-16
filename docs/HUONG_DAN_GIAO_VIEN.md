@@ -61,6 +61,11 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
    Chưa bấm **Nộp bài kiểm tra** và còn giờ thì em được bấm **Chọn lại đáp án** ở câu đã làm, như khoanh lại trên đề giấy.
    Tra mã và chọn lại đáp án cần Apps Script 1.5.6 trở lên.
    Làm xong em bấm **Nộp bài kiểm tra** và thấy số câu đúng, số câu sai, điểm thang 10 và mức đánh giá; nộp rồi không làm lại được.
+   **Mạng lỗi, câu hỏi hoặc hình không hiện:** em bấm phím **F5** hoặc nút **Tải lại** cạnh mã đề (máy tính bảng, điện thoại không có F5).
+   - Trang tải lại, bài đã làm vẫn giữ nguyên, và **không bị tính vi phạm**.
+   - Thẻ Giám sát ghi một dòng thông tin "Tải lại trang, vắng N giây" để thầy cô theo dõi.
+   - Ảnh lỗi do mạng thì phần mềm tự tải lại ảnh đó vài lần trước.
+   - Cần Apps Script 1.5.8.
 5. **Giám sát:** màn hình của thầy cô hiện số em đã vào, đã nộp, chưa vào; thẻ **Bảng điểm** có hạng, họ tên, lớp, mã số HS, trạng thái, điểm/10,
    số câu đúng, sai, bỏ trống và mức đánh giá; thẻ **Giám sát gian lận** hiện từng lần vi phạm và nút **Mở khóa** cho bài bị khóa.
 6. **Xuất bảng điểm Excel:** trang tính đầu tiên "Bảng điểm" có đủ các cột trên (cả em chưa vào thi), cuối bảng có sĩ số, số em đã nộp, điểm trung bình
@@ -88,6 +93,12 @@ Bấm **Tổ chức** trên bộ đề rồi chọn một trong bốn cách:
 | **Thẻ trả lời (giấy)** | Lớp không có thiết bị: em giơ thẻ, thầy cô quét bằng điện thoại | Chỉ cần thẻ giấy đã in |
 
 Học sinh vào bằng **link, mã PIN 6 số hoặc mã QR**, nhập **mã PIN – tên – lớp**.
+
+**Trực tiếp tự do** và **Giao bài về nhà** không giới hạn số lần làm:
+- Em vào lại với cùng tên bao nhiêu lần cũng được, phần mềm không hỏi lại.
+- Mỗi lần vào là một lượt mới (lần 1, lần 2…) có giờ vào riêng, nên kết quả các lượt trước không bị ghi đè.
+- Bảng xếp hạng hiện lượt mới nhất; báo cáo và tệp Excel có đủ mọi lượt.
+- Cần Apps Script 1.5.8.
 
 Các lựa chọn hay dùng trong hộp Tổ chức: số **lượt làm lại câu sai**, **làm lần lượt / tự do chọn câu**,
 **tự sang câu sau / học sinh bấm "Câu tiếp theo"**, **chống gian lận** (toàn màn hình, số lần vi phạm cho phép),

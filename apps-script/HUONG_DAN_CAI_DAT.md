@@ -27,6 +27,13 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 (một tệp `.json` duy nhất); sang máy khác hoặc đổi Google Drive thì **Khôi phục từ file .json**. Tệp gộp cũ (tên `<tên đăng nhập>_<ngày giờ>.json`)
 còn trong thư mục Drive có thể xóa đi.
 
+**Bản 1.5.8:** vào phòng nhanh hơn khi cả lớp cùng vào, và một số luật mới:
+- Vào phòng kiểm tra không còn ghi Google Drive ngay trong khóa máy chủ. Bộ nhớ đệm giữ học sinh, lần thăm dò sau ghi bù trong 10 giây. Đo trên máy chủ giả lập với 40 em bấm "Vào" cùng lúc: em cuối chờ khoảng 4 giây (trước đây khoảng 30 giây, vượt giới hạn chờ 10 giây nên báo "Máy chủ đang bận").
+- `joinSession` nhận `boot: true` và trả kèm đề (đúng đề đã chia), cài đặt và tiến độ của em. Học sinh chỉ cần 1 lần gọi thay vì 3; máy khách cũ vẫn chạy như trước.
+- Đề trong bộ nhớ đệm bị mất thì đọc Drive rồi nạp lại bộ nhớ đệm.
+- Thêm loại sự kiện `reload` (học sinh tải lại trang bằng F5 hoặc nút "Tải lại"): chỉ ghi nhận cho giáo viên xem, không tính vi phạm.
+- Trực tiếp tự do và Giao bài về nhà: cùng một tên vào bao nhiêu lần cũng được, không hỏi lại. Mỗi lần vào là một lượt mới (`attempt_no`, `joined_at`), lượt cũ giữ nguyên.
+
 **Bản 1.5.7:** đề thi và thi nhiều đề. Bộ đề có thêm `paper_period` (`tx`, `gk1`, `ck1`, `gk2`, `ck2`) và `paper_code` (mã đề), ghi cả vào `_index.json`;
 đề thi luôn riêng tư. `createSession` nhận `paper_ids` (2–10 đề đã bốc, phải cùng số câu): phòng lưu `papers` (mã đề, tên), ảnh chụp từng đề trong bộ nhớ đệm `Q_<PIN>_<k>`;
 học sinh vào phòng được giao đề đang có ít em nhất (`player.paper`), `getSessionQuiz` nhận `player_id` và trả đúng đề của em. Cập nhật tay bằng 5 bước ở trang Cài đặt.

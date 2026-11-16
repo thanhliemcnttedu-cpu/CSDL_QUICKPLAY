@@ -29,8 +29,10 @@ export function gradeOral(s: Session, playerId: string, qIndex: number, correct:
 
 export const VIOLATION_KINDS: ViolationKind[] = [
   'tab_hidden', 'window_blur', 'exit_fullscreen', 'right_click', 'copy_paste',
-  'screenshot_key', 'devtools', 'shortcut', 'split_screen', 'open_link',
+  'screenshot_key', 'devtools', 'shortcut', 'split_screen', 'open_link', 'reload',
 ];
+/** Sự kiện chỉ ghi nhận cho giáo viên xem, không tính là vi phạm (mở link tham khảo, tải lại trang). */
+export const isInfoKind = (k: ViolationKind) => k === 'open_link' || k === 'reload';
 const MAX_VIOLATION_LOG = 3000;
 const VIOLATION_DEBOUNCE_MS = 3000;
 
@@ -52,7 +54,7 @@ export function reportViolation(
   if (!last || now - last.at > VIOLATION_DEBOUNCE_MS) {
     s.violations.push({ player_id: playerId, name: p.name, kind, detail: detail.slice(0, 200), q_index: qIndex, at: now });
     if (s.violations.length > MAX_VIOLATION_LOG) s.violations.splice(0, s.violations.length - MAX_VIOLATION_LOG);
-    if (kind !== 'open_link') {
+    if (!isInfoKind(kind)) {
       p.violations = (p.violations ?? 0) + 1;
       const max = s.settings.anti_cheat?.enabled ? s.settings.anti_cheat.max_violations : 0;
       // Ngưỡng N: N lần đầu chỉ cảnh báo, vượt quá N (lần thứ N+1) thì khóa lượt chơi
@@ -246,14 +248,13 @@ export function joinPlayer(s: Session, name: string, avatar: string, playerId?: 
   if (!cls) throw new Error('Hãy nhập lớp của em.');
   const same = (a: string, b: string) => a.toLocaleLowerCase('vi') === b.toLocaleLowerCase('vi');
   // Hai bạn trùng tên ở hai lớp khác nhau vẫn vào được
-  // Cùng tên + cùng lớp: nếu lần trước đã nộp bài hoặc bị khóa thì đây là LẦN LÀM MỚI của em đó
-  // (trực tiếp tự do, bài về nhà: làm lại không giới hạn số lần). Lần trước còn đang làm dở thì từ chối.
   const mine = s.players.filter((p) => !p.kicked && same(p.name, clean) && same(p.class_name ?? '', cls));
   const redo = s.settings.mode === 'classic_live' || s.settings.mode === 'homework';
-  if (mine.some((p) => !redo || (!p.finished && !p.locked)))
-    throw new Error('Tên này đang có bạn cùng lớp dùng, hãy thêm họ hoặc chọn tên khác.');
-  // Tên + lớp này đã nộp bài ở lượt trước: báo cho em biết, chỉ vào tiếp khi em xác nhận vẫn dùng tên cũ
-  if (mine.length && !reuseName) throw new Error(`${NAME_USED} Tên "${clean}" lớp ${cls} đã được dùng ở lượt làm trước.`);
+  // Trực tiếp tự do, bài về nhà (1.5.8): KHÔNG giới hạn số lần, cùng một tên vào bao nhiêu lần cũng được, không hỏi lại.
+  // Mỗi lần vào là một LƯỢT MỚI (lần 2, 3…) có giờ vào riêng; lượt cũ vẫn giữ nguyên trong báo cáo, không bị ghi đè.
+  // Bảng xếp hạng chỉ hiện lượt mới nhất. Các chế độ khác: cùng tên + cùng lớp thì từ chối như cũ.
+  if (!redo && mine.length) throw new Error('Tên này đang có bạn cùng lớp dùng, hãy thêm họ hoặc chọn tên khác.');
+  void reuseName; // máy khách cũ còn gửi; không cần nữa
   mine.forEach((p) => (p.superseded = true));
   const p: Player = {
     player_id: uid('p_'),

@@ -171,11 +171,21 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
         if (!quiz) throw new ApiError('Không tải được đề của phòng này.');
         return { quiz, settings: s.settings, state: s.state, ...(k >= 0 && s.papers ? { paper: s.papers[k] } : {}) };
       }
-      case 'joinSession':
-        return mutate(p.pin, (s) => {
+      case 'joinSession': {
+        const r = mutate(p.pin, (s) => {
           const player = logic.joinPlayer(s, p.name, p.avatar, p.player_id, p.class_name, !!p.reuse_name, p.student_code);
           return { player_id: player.player_id, player };
         });
+        if (!p.boot) return r;
+        // như Apps Script 1.5.8: gửi kèm đề + cài đặt + tiến độ để màn làm bài hiện ngay
+        try {
+          const sq = await callLocal<Record<string, unknown>>('getSessionQuiz', { pin: p.pin, player_id: r.player_id });
+          const progress = await callLocal<Record<string, unknown>>('getProgress', { pin: p.pin, player_id: r.player_id });
+          return { ...r, boot: { ...sq, progress } };
+        } catch {
+          return r;
+        }
+      }
       case 'examStudent':
         return logic.examStudent(readSession(p.pin), p.student_code);
       case 'poll':
@@ -290,7 +300,8 @@ export const api = {
   examStudent: (pin: string, student_code: string) =>
     call<{ name: string; class_name: string; code: string; done: boolean }>('examStudent', { pin, student_code }),
   joinSession: (pin: string, name: string, avatar: string, player_id?: string, class_name?: string, reuse_name?: boolean, student_code?: string) =>
-    call<{ player_id: string; player: import('./types').Player }>('joinSession', { pin, name, avatar, player_id, class_name, reuse_name, student_code }),
+    // boot (Apps Script 1.5.8): máy chủ gửi kèm đề và tiến độ; máy chủ cũ bỏ qua, màn làm bài tự tải như trước
+    call<{ player_id: string; player: import('./types').Player; boot?: import('./bootCache').Boot }>('joinSession', { pin, name, avatar, player_id, class_name, reuse_name, student_code, boot: true }),
   poll: (pin: string, player_id?: string) => call<PollResult>('poll', { pin, player_id }),
   submitAnswer: (pin: string, player_id: string, record: AnswerRecord) => call<{ player: import('./types').Player }>('submitAnswer', { pin, player_id, record }),
   saveProgress: (pin: string, player_id: string, current_index: number, draft: unknown) => call('saveProgress', { pin, player_id, current_index, draft }),

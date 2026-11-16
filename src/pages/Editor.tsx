@@ -174,7 +174,7 @@ export default function Editor() {
         </div>
       </div>
       <div className="row">
-        <PlacementPicker catalog={catalog} value={quiz} legacySubject={quiz.subject} onChange={(p) => {
+        <PlacementPicker catalog={catalog} value={quiz} legacySubject={quiz.subject} legacyGrade={quiz.grade} onChange={(p) => {
           // Chọn Bài: tên bộ đề đổi theo tên bài, miễn là thầy cô chưa tự đặt tên khác (tên còn mặc định, để trống, hoặc đang là tên bài cũ)
           const oldLesson = resolve(catalog, quiz)?.lesson?.name;
           const newLesson = resolve(catalog, p)?.lesson?.name;

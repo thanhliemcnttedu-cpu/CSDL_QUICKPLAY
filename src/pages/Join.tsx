@@ -11,6 +11,7 @@ import { AppFooter } from '../components/AppFooter';
 import { AvatarBuilder } from '../components/AvatarBuilder';
 import { Palette, Shuffle } from 'lucide-react';
 import { fromB64Url } from '../lib/inApp';
+import { putBoot } from '../lib/bootCache';
 
 const BAD_PIN = 'Bạn chưa nhập đúng mã, hãy kiểm tra lại.';
 
@@ -50,6 +51,7 @@ export function Join() {
   const [building, setBuilding] = useState(false);
   const fresh = avatarKind(localStorage.getItem('quizzi.lastAvatar')) === 'none';
   const [err, setErr] = useState('');
+  const [waitMsg, setWaitMsg] = useState(''); // máy chủ bận: đang tự vào lại (không phải lỗi của em)
   const [busy, setBusy] = useState(false);
   const [nameUsed, setNameUsed] = useState(false); // tên + lớp này đã nộp bài ở lượt trước → hỏi đổi tên hay vẫn dùng
   // Bài kiểm tra: ngoài tên và lớp, em phải nhập mã số học sinh thầy cô đã phát
@@ -58,6 +60,12 @@ export function Join() {
   const picked = useRef(params.get('kt') === '1'); // em tự chọn làm bài kiểm tra (chưa biết mã PIN là loại phòng nào)
   const [code, setCode] = useState('');
   const [note, setNote] = useState('');
+
+  // Tải sẵn phần mềm của màn làm bài trong lúc em gõ mã: bấm "Vào" là chuyển màn ngay, không chờ tải thêm
+  useEffect(() => {
+    const t = window.setTimeout(() => { import('./Play').catch(() => {}); }, 400);
+    return () => clearTimeout(t);
+  }, []);
   const pickKind = (isExam: boolean) => {
     picked.current = isExam;
     setExam(isExam);
@@ -150,7 +158,23 @@ export function Join() {
     if (!resume && !exam && !cls.trim()) return setErr('Hãy nhập lớp của em (ví dụ: 5A).');
     setBusy(true);
     try {
-      const r = await api.joinSession(pin, resume?.name ?? name.trim(), resume?.avatar ?? avatar, resume?.player_id, resume?.class_name ?? cls.trim(), reuse, resume ? undefined : code.trim());
+      // Cả lớp bấm "Vào" cùng lúc: máy chủ có thể báo bận → tự thử lại vài lần thay vì bắt em bấm lại.
+      // Chỉ thử lại khi chắc máy chủ chưa ghi gì (báo bận), hoặc bài kiểm tra (vào lại bằng cùng mã số là an toàn).
+      let r: Awaited<ReturnType<typeof api.joinSession>>;
+      for (let t = 0; ; t++) {
+        try {
+          r = await api.joinSession(pin, resume?.name ?? name.trim(), resume?.avatar ?? avatar, resume?.player_id, resume?.class_name ?? cls.trim(), reuse, resume ? undefined : code.trim());
+          break;
+        } catch (e) {
+          const wait = [1500, 3000, 5000, 8000][t];
+          const again = (e as { retryable?: boolean }).retryable && (exam || /bận/.test((e as Error).message));
+          if (!again || !wait) throw e;
+          setWaitMsg(`Nhiều bạn đang vào cùng lúc. Em chờ một chút, máy đang tự vào lại cho em (lần ${t + 2})…`);
+          await new Promise((ok) => setTimeout(ok, wait));
+        }
+      }
+      setWaitMsg('');
+      if (r.boot) putBoot(pin, r.player_id, r.boot); // đề + tiến độ đi kèm: màn làm bài hiện ngay
       const sp: SavedPlayer = { pin, player_id: r.player_id, name: r.player.name, avatar: r.player.avatar, class_name: r.player.class_name };
       localStorage.setItem(playerKey(pin), JSON.stringify(sp));
       localStorage.setItem('quizzi.lastName', sp.name);
@@ -160,6 +184,7 @@ export function Join() {
       enterFullscreen(); // bấm Tham gia là một thao tác của người dùng nên trình duyệt cho phép phóng to toàn màn hình
       nav(`/play/${pin}${suffix}`);
     } catch (e) {
+      setWaitMsg('');
       const msg = (e as Error).message;
       if (msg.includes(NAME_USED)) setNameUsed(true);
       else if (msg.includes(NEED_CODE)) {
@@ -171,7 +196,8 @@ export function Join() {
         setPinLocked(false);
         setErr(BAD_PIN);
       } else setErr(msg);
-      if (resume) localStorage.removeItem(playerKey(pin));
+      // lỗi tạm thời (mất mạng, máy chủ bận): giữ lại lượt chơi đã lưu để em bấm "Vào tiếp" lần nữa
+      if (resume && !(e as { retryable?: boolean }).retryable) localStorage.removeItem(playerKey(pin));
       setBusy(false);
     }
   };
@@ -289,6 +315,7 @@ export function Join() {
               </div>
             </div>
           )}
+          {waitMsg && !err && <div className="alert ok" role="status">{waitMsg}</div>}
           {err && <div className="alert error" role="alert">{err}</div>}
         </form>
         {building && (

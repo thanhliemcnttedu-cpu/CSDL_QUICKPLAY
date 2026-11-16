@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.7';
+var APP_VERSION = '1.5.8';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -1224,14 +1224,7 @@ function actGetSessionQuiz_(req) {
   // Nhiều đề (1.5.7): em nhận đúng đề đã được chia cho mình
   var me = req.player_id ? findPlayer_(s, String(req.player_id)) : null;
   var k = Array.isArray(s.papers) && me && typeof me.paper === 'number' && s.papers[me.paper] ? me.paper : -1;
-  var cached = cacheGetBig_(k >= 0 ? 'Q_' + pin + '_' + k : 'Q_' + pin);
-  if (cached) {
-    try { quiz = JSON.parse(cached); } catch (e) { quiz = null; }
-  }
-  if (!quiz) {
-    quiz = readQuiz_(k >= 0 ? s.papers[k].quiz_id : s.quiz_id);
-    if (!quiz) throw userError_('Bộ đề của phòng này không còn tồn tại (có thể đã bị xóa).');
-  }
+  quiz = sessionQuiz_(pin, k >= 0 ? s.papers[k].quiz_id : s.quiz_id, k);
   var out = { quiz: quiz, settings: s.settings, state: s.state };
   if (k >= 0) out.paper = s.papers[k];
   return out;
@@ -1243,9 +1236,11 @@ function actJoinSession_(req) {
   var avatar = String(req.avatar || '').slice(0, 300);
   var className = String(req.class_name || '').replace(/\s+/g, ' ').trim().slice(0, 20);
   var pid = req.player_id ? String(req.player_id).slice(0, 64) : '';
+  var sess = null;
 
-  return withLock_(function () {
+  var out = withLock_(function () {
     var s = loadSession_(pin, true);
+    sess = s;
     var now = Date.now();
     var changed = applyHomeworkRules_(s, now);
     var deny = function (msg) {
@@ -1297,7 +1292,10 @@ function actJoinSession_(req) {
         examPlayer.paper = pickPaper_(counts);
       }
       s.players.push(examPlayer);
-      saveSession_(s, true);
+      // 1.5.8: KHÔNG ghi Drive ngay trong khóa (mất ~0,5 giây/em): cả lớp bấm "Vào" cùng lúc thì các em xếp hàng
+      // chờ nhau, em thứ 14 trở đi quá 10 giây chờ khóa và bị báo "Máy chủ đang bận". Bộ nhớ đệm đã giữ em này;
+      // lần thăm dò kế tiếp (hoặc trình dọn dẹp) ghi bù xuống Drive trong vòng 10 giây — như các chế độ khác.
+      saveSession_(s, changed);
       return { player_id: examPlayer.player_id, player: examPlayer };
     }
     if (!name) deny('Vui lòng nhập tên của bạn.');
@@ -1315,10 +1313,10 @@ function actJoinSession_(req) {
       return !p.kicked && String(p.name).toLowerCase() === lower && String(p.class_name || '').toLowerCase() === lowerClass;
     });
     var redo = s.settings.mode === 'classic_live' || s.settings.mode === 'homework';
-    var busyOne = mine.some(function (p) { return !redo || (!p.finished && !p.locked); });
-    if (busyOne) deny('Tên "' + name + '" đang có bạn cùng lớp dùng. Hãy thêm họ hoặc chọn tên khác.');
-    // Tên + lớp này đã nộp bài ở lượt trước: báo cho học sinh, chỉ vào tiếp khi em xác nhận vẫn dùng tên cũ
-    if (mine.length && req.reuse_name !== true) deny('[TEN_DA_DUNG] Tên "' + name + '" lớp ' + className + ' đã được dùng ở lượt làm trước.');
+    // Trực tiếp tự do, bài về nhà (1.5.8): KHÔNG giới hạn số lần, cùng một tên vào bao nhiêu lần cũng được, không hỏi lại.
+    // Mỗi lần vào là một LƯỢT MỚI (attempt_no 2, 3…) có giờ vào riêng (joined_at); lượt cũ giữ nguyên, không bị ghi đè.
+    // Bảng xếp hạng chỉ hiện lượt mới nhất (superseded). Các chế độ khác: trùng tên + lớp thì từ chối như cũ.
+    if (!redo && mine.length) deny('Tên "' + name + '" đang có bạn cùng lớp dùng. Hãy thêm họ hoặc chọn tên khác.');
     mine.forEach(function (p) { p.superseded = true; });
     if (s.players.length >= MAX_PLAYERS) deny('Phòng đã đủ ' + MAX_PLAYERS + ' người tham gia.');
 
@@ -1341,6 +1339,44 @@ function actJoinSession_(req) {
     saveSession_(s, changed);
     return { player_id: player.player_id, player: player };
   });
+  // 1.5.8: gửi kèm đề, cài đặt và tiến độ của em (boot) — màn làm bài hiện ngay, không phải gọi thêm
+  // getSessionQuiz + getProgress (bớt 2 lần gọi/em đúng lúc cả lớp cùng vào). Đọc đề NGOÀI khóa.
+  if (req.boot === true && sess) {
+    try { out.boot = bootData_(pin, sess, out.player_id); } catch (e) { /* máy khách tự gọi getSessionQuiz như cũ */ }
+  }
+  return out;
+}
+
+/** Đề (đúng đề đã chia), cài đặt, trạng thái và tiến độ của một em — như getSessionQuiz + getProgress gộp lại. */
+function bootData_(pin, s, pid) {
+  if (s.settings.mode === 'paper') return undefined;
+  var me = findPlayer_(s, pid);
+  if (!me) return undefined;
+  var k = Array.isArray(s.papers) && typeof me.paper === 'number' && s.papers[me.paper] ? me.paper : -1;
+  var quiz = sessionQuiz_(pin, k >= 0 ? s.papers[k].quiz_id : s.quiz_id, k);
+  var out = {
+    quiz: quiz, settings: s.settings, state: s.state,
+    progress: {
+      current_index: me.current_index || 0,
+      draft: me.draft === undefined ? null : me.draft,
+      answers: s.answers.filter(function (a) { return a.player_id === pid; })
+    }
+  };
+  if (k >= 0) out.paper = s.papers[k];
+  return out;
+}
+
+/** Ảnh chụp đề của phòng: đọc bộ nhớ đệm; mất thì đọc Drive rồi nạp lại bộ nhớ đệm (các em sau không phải đọc Drive nữa). */
+function sessionQuiz_(pin, quizId, k) {
+  var key = k >= 0 ? 'Q_' + pin + '_' + k : 'Q_' + pin;
+  var cached = cacheGetBig_(key);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) { /* đọc Drive */ }
+  }
+  var quiz = readQuiz_(quizId);
+  if (!quiz) throw userError_('Bộ đề của phòng này không còn tồn tại (có thể đã bị xóa).');
+  try { cachePutBig_(key, JSON.stringify(quiz)); } catch (e) { /* bộ nhớ đệm đầy: lần sau đọc Drive */ }
+  return quiz;
 }
 
 /** Chia đề: đề có ít học sinh nhất; nhiều đề bằng nhau thì bốc ngẫu nhiên trong số đó. */
@@ -1588,7 +1624,9 @@ function actFinishPlayer_(req) {
 // ============================================================================
 
 var VIOLATION_KINDS = ['tab_hidden', 'window_blur', 'exit_fullscreen', 'right_click', 'copy_paste',
-  'screenshot_key', 'devtools', 'shortcut', 'split_screen', 'open_link'];
+  'screenshot_key', 'devtools', 'shortcut', 'split_screen', 'open_link', 'reload'];
+// Chỉ ghi nhận cho giáo viên xem, KHÔNG tính vi phạm: mở link tham khảo; tải lại trang khi mạng lỗi/đề không hiện (1.5.8)
+var INFO_KINDS = ['open_link', 'reload'];
 var MAX_VIOLATION_LOG = 3000;
 var VIOLATION_DEBOUNCE_MS = 3000;
 
@@ -1619,7 +1657,7 @@ function actReportViolation_(req) {
       if (isFinite(qi) && qi >= 0) rec.q_index = Math.floor(qi);
       s.violations.push(rec);
       if (s.violations.length > MAX_VIOLATION_LOG) s.violations.splice(0, s.violations.length - MAX_VIOLATION_LOG);
-      if (kind !== 'open_link') {
+      if (INFO_KINDS.indexOf(kind) < 0) {
         p.violations = (p.violations || 0) + 1;
         var ac = s.settings.anti_cheat;
         var max = ac && ac.enabled ? Number(ac.max_violations) || 0 : 0;

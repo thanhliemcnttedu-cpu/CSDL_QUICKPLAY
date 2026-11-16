@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../components/Avatar';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Pause, Check, X, Clock, Home as HomeIcon, WifiOff, ShieldAlert, Maximize, Lock, Coins, Volume2, VolumeX, Gift, PartyPopper, HeartHandshake, RotateCcw, Trophy, ArrowRight, ClipboardCheck, Send, ListChecks, Star } from 'lucide-react';
+import { Pause, Check, X, Clock, Home as HomeIcon, WifiOff, ShieldAlert, Maximize, Lock, Coins, Volume2, VolumeX, Gift, PartyPopper, HeartHandshake, RotateCcw, RotateCw, Trophy, ArrowRight, ClipboardCheck, Send, ListChecks, Star } from 'lucide-react';
 import type { PollResult, Question, Quiz, SessionSettings, ViolationKind } from '../lib/types';
-import { enterFullscreen, fullscreenSupported, isFullscreen, useAntiCheat, VIOLATION_LABELS } from '../lib/anticheat';
+import { enterFullscreen, fullscreenSupported, isFullscreen, reloadPage, takeReload, useAntiCheat, VIOLATION_LABELS } from '../lib/anticheat';
 import { api } from '../lib/api';
+import { readSnap, saveSnap, takeBoot, type SessionQuiz } from '../lib/bootCache';
 import { startPolling } from '../lib/pollTimer';
 import type { AnswerRecord } from '../lib/types';
 import { computeBonus, computeScore, gradeRatio, type Answer } from '../lib/grading';
@@ -40,7 +41,8 @@ const Shell = ({ children }: { children: React.ReactNode }) => (
 // Ảnh đã tải trước (giữ tham chiếu để trình duyệt không bỏ giữa chừng)
 const preloaded = new Map<string, HTMLImageElement>();
 function preloadMedia(q: Question) {
-  const urls = [q.stem.image_url, ...q.options.map((o) => o.image_url), ...[...q.stem.text.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1])];
+  // chỉ để tải trước ảnh: câu hỏi thiếu dữ liệu (tệp đề nhập từ ngoài) thì bỏ qua, không làm hỏng màn làm bài
+  const urls = [q?.stem?.image_url, ...(q?.options ?? []).map((o) => o?.image_url), ...[...String(q?.stem?.text ?? '').matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1])];
   for (const u of urls) {
     if (!u || preloaded.has(u) || u.startsWith('data:')) continue;
     const img = new Image();
@@ -103,6 +105,7 @@ export default function Play() {
   const submitting = useRef(false);
   const [warning, setWarning] = useState<{ text: string; n: number } | null>(null);
   const [lockedLocal, setLockedLocal] = useState(false);
+  const [lockedCount, setLockedCount] = useState(0); // số lần vi phạm máy chủ báo lúc khóa bài (lần thăm dò có thể chưa kịp cập nhật)
   const [fs, setFs] = useState(() => (typeof document !== 'undefined' ? isFullscreen() : false));
 
   useEffect(() => {
@@ -138,14 +141,24 @@ export default function Play() {
   // Tải đề + khôi phục tiến độ
   useEffect(() => {
     if (!me) return;
+    const show = (r: SessionQuiz) => {
+      setQuiz(r.quiz);
+      setSettings(r.settings);
+      setPaperCode(r.paper?.code ?? r.quiz.paper_code ?? '');
+    };
     (async () => {
       try {
+        // 1) Vừa vào phòng (Apps Script 1.5.8): đề + tiến độ đã đi kèm, hiện ngay, không gọi máy chủ
+        const boot = takeBoot(pin, me.player_id);
+        // 2) Tải lại trang: đề đã chụp sẵn trong thẻ trình duyệt hiện ngay, chỉ hỏi tiến độ
+        //    (ảnh chụp đề không đổi suốt buổi; giờ thu bài mới nhất đi theo lần thăm dò) → không gọi lại getSessionQuiz,
+        //    cả lớp mất mạng rồi tải lại cùng lúc cũng không dồn thêm việc cho máy chủ
+        const snap = boot ? null : readSnap(pin, me.player_id);
         // Gọi đề và tiến độ CÙNG LÚC (mỗi lần gọi Apps Script mất 1–3 giây, gọi nối tiếp thì cộng dồn)
-        const progP = api.getProgress(pin, me.player_id).catch(() => null);
-        const r = await api.getSessionQuiz(pin, me.player_id);
-        setQuiz(r.quiz);
-        setSettings(r.settings);
-        setPaperCode(r.paper?.code ?? r.quiz.paper_code ?? "");
+        const progP = boot?.progress ? Promise.resolve(boot.progress) : api.getProgress(pin, me.player_id).catch(() => null);
+        const r: SessionQuiz = boot ?? snap ?? (await api.getSessionQuiz(pin, me.player_id));
+        if (!boot && !snap) saveSnap(pin, me.player_id, r);
+        show(r);
         const prog = await progP;
         if (prog) {
           const done = new Set(prog.answers.map((a) => a.q_index));
@@ -201,7 +214,9 @@ export default function Play() {
       return mode === 'homework' ? 20000
         : pollState.current === 'COMPLETED' ? 15000
         : mode === 'instructor_paced' ? 2000
-        : pollState.current === 'IN_PROGRESS' ? 5000 : 2000;
+        // bài kiểm tra: đồng hồ tính trên máy em theo giờ thu bài, chỉ cần hỏi để biết bị khóa / thầy cô kết thúc
+        // → 8 giây, bớt gần một nửa số lần gọi khi cả lớp cùng làm (máy chủ rảnh hơn để ghi đáp án)
+        : pollState.current === 'IN_PROGRESS' ? (mode === 'exam' ? 8000 : 5000) : 2000;
     });
   }, [doPoll]);
 
@@ -550,6 +565,7 @@ export default function Play() {
           if (r.locked) {
             sfx.lock();
             setLockedLocal(true);
+            setLockedCount(r.violations);
           }
         })
         .catch(() => {});
@@ -557,6 +573,14 @@ export default function Play() {
     [me, pin, curIndex, ac, poll?.my_violations],
   );
   useAntiCheat(ac, examActive, reportViolation);
+
+  // Em vừa tải lại trang (F5 / nút Tải lại) trong giờ làm bài: báo một dòng cho giáo viên xem, KHÔNG tính vi phạm
+  useEffect(() => {
+    if (!examActive || !me) return;
+    const r = takeReload(location.hash.split('?')[0]);
+    if (!r) return;
+    api.reportViolation(pin, me.player_id, 'reload', `Tải lại trang (${r.how}), vắng ${r.away} giây — không tính vi phạm`, curIndex).catch(() => {});
+  }, [examActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Thông báo khi giáo viên chấm xong câu trả lời miệng
   const gradedSeen = useRef<Set<string> | null>(null);
@@ -578,8 +602,10 @@ export default function Play() {
       }
   }, [poll?.my_graded]);
   useEffect(() => {
-    if (poll && !poll.locked) setLockedLocal(false);
-  }, [poll]);
+    // Chỉ mở khóa khi kết quả thăm dò MỚI hơn lúc khóa (đã thấy đủ số lần vi phạm) mà vẫn không khóa,
+    // tức thầy cô đã mở khóa. Lần thăm dò gửi đi trước lúc khóa, về muộn, không được mở khóa nhầm.
+    if (poll && !poll.locked && (poll.my_violations ?? 0) >= lockedCount) setLockedLocal(false);
+  }, [poll, lockedCount]);
   const isLocked = lockedNow;
 
   // ---------------- Hiển thị ----------------
@@ -631,6 +657,12 @@ export default function Play() {
         <span className={`badge ${examLeftMs < 60000 ? 'red' : 'amber'}`} style={{ fontSize: '1.05rem' }} role="timer" aria-label="Thời gian làm bài còn lại"><Clock size={16} /> Còn {clock(examLeftMs)}</span>
       )}
       {exam && <span className="badge blue" style={{ fontSize: "1rem" }}><ClipboardCheck size={14} /> {paperCode ? `Mã đề ${paperCode}` : "Bài kiểm tra"}</span>}
+      {exam && !examSubmitted && (
+        // Mạng chập chờn, câu hỏi/hình không hiện: tải lại trang (như phím F5), không tính vi phạm, bài đã làm vẫn giữ nguyên
+        <button type="button" className="btn ghost sm" onClick={reloadPage} title="Câu hỏi hoặc hình không hiện? Bấm để tải lại trang (như phím F5). Không tính vi phạm, bài đã làm vẫn giữ nguyên.">
+          <RotateCw size={16} /> Tải lại
+        </button>
+      )}
       {!exam && <span className="badge blue" style={{ fontSize: '1rem' }}>{shown.current.score.toLocaleString('vi-VN')} điểm</span>}
       {!exam && <span className="badge amber" style={{ fontSize: '1rem' }} title="Điểm thưởng: trả lời nhanh và chuỗi câu đúng"><Coins size={14} /> +{shown.current.coins.toLocaleString('vi-VN')} thưởng</span>}
       {canSeeRank && (
@@ -1072,7 +1104,7 @@ export default function Play() {
             <Lock size={64} color="#dc2626" />
             <h1 style={{ margin: 0 }}>Bài làm đã bị khóa</h1>
             <p style={{ margin: 0 }}>
-              Em đã vi phạm quy chế thi {poll.my_violations ?? ''} lần, vượt quá số lần thầy cô cho phép.{' '}
+              Em đã vi phạm quy chế thi {Math.max(poll.my_violations ?? 0, lockedCount) || ''} lần, vượt quá số lần thầy cô cho phép.{' '}
               {paced || exam ? 'Hãy giơ tay báo giáo viên để được mở khóa.' : 'Lượt làm này không làm tiếp được nữa. Em hãy thoát ra và vào lại để làm lại từ đầu.'}
             </p>
             {!paced && !exam && <button className="btn primary lg" onClick={restart}><RotateCcw size={20} /> Thoát và làm lại từ đầu</button>}

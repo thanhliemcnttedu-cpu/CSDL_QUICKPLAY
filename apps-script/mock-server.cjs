@@ -104,6 +104,7 @@ function reset() {
 }
 reset();
 const cache = new Map();
+const fails = {}; // số lần còn phải báo lỗi của từng ảnh (/d/<mã>?fail=N)
 const used = () => Object.values(files).filter((f) => !f.trashed).reduce((s, f) => s + f.content.length, 0);
 const stubs = {
   PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props.get(k) ?? null, setProperty: (k, v) => props.set(k, String(v)), deleteProperty: (k) => props.delete(k), getProperties: () => Object.fromEntries(props) }) },
@@ -127,6 +128,18 @@ http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Headers', '*');
   if (req.method === 'OPTIONS') return res.end();
   if (req.method === 'GET') {
+    // /d/<mã tệp>: trả nội dung tệp ảnh/âm thanh đã tải lên Drive ảo (thay cho lh3.googleusercontent.com/d/<mã> khi thử)
+    // /d/<mã>?fail=N: N lần đầu báo lỗi 503 để thử ảnh tự tải lại khi mạng chập chờn
+    const dm = req.url.match(/^\/d\/([\w-]+)(?:\?fail=(\d+))?/);
+    if (dm) {
+      const f = files[dm[1]];
+      const key = dm[1];
+      fails[key] = (fails[key] ?? Number(dm[2] || 0));
+      if (!f || f.trashed) { res.statusCode = 404; return res.end('not found'); }
+      if (fails[key] > 0) { fails[key]--; res.statusCode = 503; return res.end('busy'); }
+      res.setHeader('Content-Type', f.mime || 'application/octet-stream');
+      return res.end(f.content);
+    }
     if (req.url.includes('full=1')) full = true;
     if (req.url.includes('full=0')) full = false;
     if (req.url.includes('reset')) { full = false; reset(); }

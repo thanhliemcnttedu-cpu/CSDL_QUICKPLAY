@@ -142,7 +142,8 @@ export type ViolationKind =
   | 'devtools'
   | 'shortcut'
   | 'split_screen'
-  | 'open_link'; // mở link tham khảo của đề – chỉ ghi nhận, không tính vi phạm
+  | 'open_link' // mở link tham khảo của đề – chỉ ghi nhận, không tính vi phạm
+  | 'reload'; // tải lại trang (F5) khi mạng lỗi / đề không hiện – chỉ ghi nhận, không tính vi phạm (Apps Script 1.5.8)
 
 export interface Violation {
   player_id: string;

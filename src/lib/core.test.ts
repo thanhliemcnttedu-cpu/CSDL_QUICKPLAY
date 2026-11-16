@@ -457,7 +457,7 @@ describe('thời gian làm bài và trạng thái chưa trả lời', () => {
 });
 
 describe('làm lại bài nhiều lần', () => {
-  it('cùng tên + lớp: đang làm dở thì từ chối; đã nộp hoặc bị khóa thì thành lần làm mới, báo cáo gom lần mới nhất lên trên', async () => {
+  it('cùng tên + lớp (tự do, về nhà): vào bao nhiêu lần cũng được, mỗi lần là lượt mới, báo cáo gom lần mới nhất lên trên', async () => {
     const { analyze } = await import('./analytics');
     const s = logic.createSession('555555', 'q', 'T', 1, {
       mode: 'homework', music: false, shuffle_questions: false, shuffle_options: false, show_leaderboard: true, power_ups: false,
@@ -465,13 +465,13 @@ describe('làm lại bài nhiều lần', () => {
     const ans = (pid: string, ok: boolean) =>
       logic.submitAnswer(s, { player_id: pid, question_id: 'q0', q_index: 0, answer: {}, correct: ok, ratio: ok ? 1 : 0, score: ok ? 100 : 0, time_ms: 1, at: 0 });
     const a1 = logic.joinPlayer(s, 'An', 'cat', undefined, '5A');
-    expect(() => logic.joinPlayer(s, 'an', 'cat', undefined, '5a')).toThrow(); // lần 1 còn đang làm
     ans(a1.player_id, false); // trả lời hết → xong
-    expect(() => logic.joinPlayer(s, 'An', 'cat', undefined, '5A')).toThrow(/TEN_DA_DUNG/); // phải xác nhận vẫn dùng tên cũ
-    const a2 = logic.joinPlayer(s, 'An', 'cat', undefined, '5A', true);
-    expect([a2.attempt_no, s.players[0].superseded]).toEqual([2, true]);
-    a2.locked = true; // lần 2 bị khóa do vi phạm → vẫn vào lại làm lần 3 được
-    const a3 = logic.joinPlayer(s, 'An', 'cat', undefined, '5A', true);
+    // vào lại cùng tên: không hỏi lại, thành lượt 2; lượt 1 vẫn giữ nguyên (không bị ghi đè)
+    const a2 = logic.joinPlayer(s, 'An', 'cat', undefined, '5A');
+    expect([a2.attempt_no, s.players[0].superseded, s.players[0].answered]).toEqual([2, true, 1]);
+    expect(a2.joined_at! >= a1.joined_at!).toBe(true); // mỗi lượt có giờ vào riêng
+    // lần 2 còn đang làm dở (chưa nộp) mà em vào lại (đổi máy, mở tab mới) → vẫn vào được, thành lượt 3
+    const a3 = logic.joinPlayer(s, 'An', 'cat', undefined, '5A');
     ans(a3.player_id, true);
     expect(logic.joinPlayer(s, 'An 2', 'cat', undefined, '5A').attempt_no).toBeUndefined(); // đổi tên thì là học sinh khác
     s.players.pop();

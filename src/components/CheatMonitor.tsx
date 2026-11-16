@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ShieldAlert, ShieldCheck, Unlock, UserX } from 'lucide-react';
 import type { Session } from '../lib/types';
 import { VIOLATION_LABELS } from '../lib/anticheat';
+import { isInfoKind } from '../lib/sessionLogic';
 import { Avatar } from './Avatar';
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -70,14 +71,14 @@ export function CheatMonitor({ s, onUnlock, onKick, busy, newSince }: {
         <div className="vfeed" aria-live="polite">
           {feed.length === 0 && <p className="muted">Nhật ký trống.</p>}
           {feed.map((v, i) => (
-            <div key={`${v.at}-${v.player_id}-${i}`} className={`vitem ${v.kind === 'open_link' ? 'info' : ''} ${v.at > newSince ? 'new' : ''}`}>
+            <div key={`${v.at}-${v.player_id}-${i}`} className={`vitem ${isInfoKind(v.kind) ? 'info' : ''} ${v.at > newSince ? 'new' : ''}`}>
               <small className="muted">{time(v.at)}</small>
               <div>
                 <b>{v.name}</b> – {VIOLATION_LABELS[v.kind] ?? v.kind}
                 {v.q_index !== undefined && v.q_index !== null && <span className="muted small"> · câu {v.q_index + 1}</span>}
                 {v.detail && <div className="small muted">{v.detail}</div>}
               </div>
-              {v.kind !== 'open_link' && <ShieldAlert size={18} color="#dc2626" />}
+              {!isInfoKind(v.kind) && <ShieldAlert size={18} color="#dc2626" />}
             </div>
           ))}
         </div>
