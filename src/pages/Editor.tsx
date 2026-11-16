@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye, Upload, Layers } from 'lucide-react';
+import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye, Upload, Layers, ClipboardList } from 'lucide-react';
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { api } from '../lib/api';
 import { COMPOSER_TYPES, TYPE_LABELS, DEFAULT_QUIZ_TITLE } from '../lib/factory';
@@ -10,6 +10,8 @@ import { QuestionComposer } from '../components/QuestionComposer';
 import { HostSetupDialog } from '../components/HostSetupDialog';
 import { ImportDialog } from '../components/ImportDialog';
 import { QuestionBankDialog } from '../components/QuestionBankDialog';
+import { PaperFields } from '../components/PaperFields';
+import { suggestCode } from '../lib/examPaper';
 import { Spinner, useToast, askConfirm } from '../components/ui';
 import { PlacementPicker } from '../components/CatalogTree';
 import { CoverPicker } from '../components/CoverPicker';
@@ -32,6 +34,10 @@ export default function Editor() {
   const [hosting, setHosting] = useState(false);
   const [importing, setImporting] = useState<null | 'file' | 'ai'>(null);
   const [banking, setBanking] = useState(false); // lấy câu hỏi từ các bộ đề khác trong thư viện
+  const [paperCodes, setPaperCodes] = useState<string[]>([]); // mã đề đã có (để gợi ý mã không trùng)
+  useEffect(() => {
+    api.listQuizzes().then((l) => setPaperCodes(l.filter((x) => x.id !== id && x.paper_code).map((x) => x.paper_code!))).catch(() => {});
+  }, [id]);
   const [bulkTime, setBulkTime] = useState(30);
   const [catalog, setCatalog] = useState<Catalog>(emptyCatalog);
   useEffect(() => {
@@ -176,12 +182,29 @@ export default function Editor() {
           update({ ...quiz, subject_id: p.subject_id, chapter_id: p.chapter_id, lesson_id: p.lesson_id, subject: p.subject ?? quiz.subject, grade: p.grade ?? quiz.grade, title: newLesson && auto ? newLesson : quiz.title });
         }} />
         <label className="field"><span>Chia sẻ</span>
-          <select className="input" value={quiz.visibility} onChange={(e) => update({ ...quiz, visibility: e.target.value as Quiz['visibility'] })}>
+          <select className="input" value={quiz.visibility} disabled={!!quiz.paper_period} title={quiz.paper_period ? 'Đề thi luôn để riêng tư để giữ bí mật đề' : undefined}
+            onChange={(e) => update({ ...quiz, visibility: e.target.value as Quiz['visibility'] })}>
             <option value="private">Riêng tư</option>
             <option value="public">Công khai (thư viện chung)</option>
           </select>
         </label>
         {invalid > 0 && <span className="badge amber" style={{ alignSelf: 'flex-end', marginBottom: 10 }}><AlertTriangle size={14} /> {invalid} câu cần hoàn thiện</span>}
+      </div>
+      <div className={quiz.paper_period ? 'paper-box' : 'card tight'}>
+        <label className="switch" style={{ fontWeight: 800 }}>
+          <input type="checkbox" checked={!!quiz.paper_period} onChange={(e) => {
+            const on = e.target.checked;
+            update(on
+              ? { ...quiz, paper_period: 'ck1', paper_code: quiz.paper_code || suggestCode(quiz.subject, quiz.grade, 'ck1', paperCodes), visibility: 'private' }
+              : { ...quiz, paper_period: undefined, paper_code: undefined });
+          }} />
+          <ClipboardList size={18} /> Đây là đề thi (có thời điểm kiểm tra và mã đề, nằm ở mục Đề thi của thư viện)
+        </label>
+        {quiz.paper_period && (
+          <PaperFields compact placeFromQuiz catalog={catalog} usedCodes={paperCodes}
+            value={{ grade: quiz.grade ?? '', subject: quiz.subject ?? '', period: quiz.paper_period, code: quiz.paper_code ?? '' }}
+            onChange={(v) => update({ ...latest.current!, grade: v.grade || undefined, subject: v.subject || undefined, paper_period: v.period, paper_code: v.code })} />
+        )}
       </div>
 
       <div className="card">

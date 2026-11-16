@@ -68,6 +68,7 @@ function mutate<T>(pin: string, fn: (s: Session) => T): T {
 const summary = (q: Quiz): QuizSummary => ({
   id: q.id, title: q.title, subject: q.subject, subject_id: q.subject_id, chapter_id: q.chapter_id, lesson_id: q.lesson_id, grade: q.grade, visibility: q.visibility,
   updated_at: q.updated_at, cover_url: q.cover_url, question_count: q.questions.length,
+  ...(q.paper_period ? { paper_period: q.paper_period } : {}), ...(q.paper_code ? { paper_code: q.paper_code } : {}),
 });
 
 async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> {
@@ -93,6 +94,7 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
       }
       case 'saveQuiz': {
         const q: Quiz = { ...p.quiz, updated_at: new Date().toISOString() };
+        if (q.paper_period) q.visibility = 'private'; // đề thi luôn riêng tư (giống Apps Script)
         await kvSet('quiz:' + q.id, q);
         return q;
       }
@@ -109,9 +111,24 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
         while (localStorage.getItem(SESS(pin))) pin = randomPin();
         const st = p.settings as SessionSettings;
         const exam = st.mode === 'exam' ? logic.examRoster(await kvGet<ClassRoom>('class:' + st.exam_class_id)) : undefined;
-        const s = logic.createSession(pin, quiz.id, quiz.title, quiz.questions.length, st, exam);
+        // Bài kiểm tra nhiều đề: các đề đã bốc (cùng số câu), học sinh được chia đều khi vào phòng
+        const ids: string[] = Array.isArray(p.paper_ids) ? p.paper_ids : [];
+        const paperQuizzes: Quiz[] = [];
+        if (st.mode === 'exam' && ids.length > 1) {
+          for (const id of ids) {
+            const pq = await kvGet<Quiz>('quiz:' + id);
+            if (!pq) throw new ApiError('Không tìm thấy một đề thi đã chọn.');
+            if (pq.questions.length !== quiz.questions.length) throw new ApiError(`Các đề thi phải có cùng số câu: đề "${pq.title}" có ${pq.questions.length} câu, đề "${quiz.title}" có ${quiz.questions.length} câu.`);
+            paperQuizzes.push(pq);
+          }
+        }
+        const papers = paperQuizzes.map((x) => ({ quiz_id: x.id, code: x.paper_code || x.title, title: x.title }));
+        // Nhiều đề: tên chung của kì thi (bỏ "– Mã ..." của đề thứ nhất), giống Apps Script
+        const title = papers.length > 1 ? `${quiz.title.replace(/\s*[–-]\s*Mã\s+\S+\s*$/, '')} (${papers.length} đề)` : quiz.title;
+        const s = logic.createSession(pin, quiz.id, title, quiz.questions.length, st, exam, papers);
         writeSession(s);
         await kvSet('sessionquiz:' + pin, quiz); // ảnh chụp bộ đề tại thời điểm tổ chức
+        for (let k = 0; k < paperQuizzes.length; k++) await kvSet(`sessionquiz:${pin}:${k}`, paperQuizzes[k]);
         return { pin, session_id: s.session_id };
       }
       case 'hostState': {
@@ -147,9 +164,12 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
       }
       case 'getSessionQuiz': {
         const s = readSession(p.pin);
-        const quiz = await kvGet<Quiz>('sessionquiz:' + p.pin);
+        // Nhiều đề: em nhận đúng đề đã được chia cho mình
+        const me = p.player_id ? s.players.find((x) => x.player_id === p.player_id) : undefined;
+        const k = s.papers && me?.paper !== undefined ? me.paper : -1;
+        const quiz = await kvGet<Quiz>(k >= 0 ? `sessionquiz:${p.pin}:${k}` : 'sessionquiz:' + p.pin);
         if (!quiz) throw new ApiError('Không tải được đề của phòng này.');
-        return { quiz, settings: s.settings, state: s.state };
+        return { quiz, settings: s.settings, state: s.state, ...(k >= 0 && s.papers ? { paper: s.papers[k] } : {}) };
       }
       case 'joinSession':
         return mutate(p.pin, (s) => {
@@ -257,14 +277,15 @@ export const api = {
   saveQuiz: (quiz: Quiz) => call<Quiz>('saveQuiz', { quiz }),
   deleteQuiz: (id: string) => call<{ id: string }>('deleteQuiz', { id }),
   uploadMedia: (name: string, mime: string, base64: string, hash?: string) => call<{ url: string; file_id: string; reused?: boolean }>('uploadMedia', { name, mime, base64, hash }),
-  createSession: (quiz_id: string, settings: SessionSettings) => call<{ pin: string; session_id: string }>('createSession', { quiz_id, settings }),
+  /** paper_ids: bài kiểm tra nhiều đề (các đề đã bốc, cùng số câu); bỏ trống = một đề. */
+  createSession: (quiz_id: string, settings: SessionSettings, paper_ids?: string[]) => call<{ pin: string; session_id: string }>('createSession', { quiz_id, settings, ...(paper_ids && paper_ids.length > 1 ? { paper_ids } : {}) }),
   hostState: (pin: string) => call<Session>('hostState', { pin }),
   hostAction: (pin: string, op: logic.HostOp, player_id?: string, extra: { q_index?: number; correct?: boolean; points?: number; coins?: number } = {}) =>
     call<Session>('hostAction', { pin, op, player_id, ...extra }),
   listSessions: () => call<{ pin: string; session_id: string; quiz_title: string; state: string; mode: string; created_at: number; player_count: number }[]>('listSessions'),
   /** Xóa báo cáo: các phiên được chọn, hoặc toàn bộ (all). Trên Drive, tệp vào Thùng rác. */
   deleteSessions: (session_ids: string[], all = false) => call<{ removed: number; files: number; audio: number; left: number }>('deleteSessions', { session_ids, all }),
-  getSessionQuiz: (pin: string) => call<{ quiz: Quiz; settings: SessionSettings; state: string }>('getSessionQuiz', { pin }),
+  getSessionQuiz: (pin: string, player_id?: string) => call<{ quiz: Quiz; settings: SessionSettings; state: string; paper?: import('./types').SessionPaper }>('getSessionQuiz', { pin, ...(player_id ? { player_id } : {}) }),
   /** Bài kiểm tra: tra tên và lớp theo mã số học sinh (Apps Script 1.5.6). */
   examStudent: (pin: string, student_code: string) =>
     call<{ name: string; class_name: string; code: string; done: boolean }>('examStudent', { pin, student_code }),

@@ -27,6 +27,10 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 (một tệp `.json` duy nhất); sang máy khác hoặc đổi Google Drive thì **Khôi phục từ file .json**. Tệp gộp cũ (tên `<tên đăng nhập>_<ngày giờ>.json`)
 còn trong thư mục Drive có thể xóa đi.
 
+**Bản 1.5.7:** đề thi và thi nhiều đề. Bộ đề có thêm `paper_period` (`tx`, `gk1`, `ck1`, `gk2`, `ck2`) và `paper_code` (mã đề), ghi cả vào `_index.json`;
+đề thi luôn riêng tư. `createSession` nhận `paper_ids` (2–10 đề đã bốc, phải cùng số câu): phòng lưu `papers` (mã đề, tên), ảnh chụp từng đề trong bộ nhớ đệm `Q_<PIN>_<k>`;
+học sinh vào phòng được giao đề đang có ít em nhất (`player.paper`), `getSessionQuiz` nhận `player_id` và trả đúng đề của em. Cập nhật tay bằng 5 bước ở trang Cài đặt.
+
 **Bản 1.5.6:** bài kiểm tra cho học sinh **chọn lại đáp án** khi chưa nộp bài và còn giờ (`submitAnswer` nhận `change: true` thì thay câu trả lời cũ);
 thêm hành động `examStudent` (mã PIN + mã số học sinh → họ tên, lớp, đã nộp chưa) để trang vào phòng tự điền tên và lớp; mã số học sinh dài tối đa 32 ký tự
 (đủ cho số căn cước, tên đăng nhập). Cập nhật tay bằng 5 bước ở trang Cài đặt.

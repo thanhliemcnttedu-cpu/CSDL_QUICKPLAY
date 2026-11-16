@@ -9,6 +9,8 @@ import { formatDate, uid } from '../lib/util';
 import { Modal, Spinner, useToast, askConfirm } from '../components/ui';
 import { ImportDialog } from '../components/ImportDialog';
 import { QuestionBankDialog } from '../components/QuestionBankDialog';
+import { ExamPapers } from '../components/ExamPapers';
+import type { ExamPeriod } from '../lib/types';
 import { HostSetupDialog } from '../components/HostSetupDialog';
 import { CatalogTree, PlacementPicker } from '../components/CatalogTree';
 
@@ -23,6 +25,7 @@ const readNode = () => {
 const toSummary = (q: Quiz): QuizSummary => ({
   id: q.id, title: q.title, subject: q.subject, subject_id: q.subject_id, chapter_id: q.chapter_id, lesson_id: q.lesson_id, grade: q.grade,
   visibility: q.visibility, updated_at: q.updated_at, cover_url: q.cover_url, question_count: q.questions.length,
+  paper_period: q.paper_period, paper_code: q.paper_code,
 });
 
 export default function Library() {
@@ -31,9 +34,9 @@ export default function Library() {
   const [items, setItems] = useState<QuizSummary[] | null>(null);
   const [pub, setPub] = useState<QuizSummary[]>([]);
   const [pubNode, setPubNode] = useState<string>(ALL); // mục đang chọn ở cây thư viện công cộng
-  const [tab, setTab] = useState<'mine' | 'public'>('mine');
+  const [tab, setTab] = useState<'mine' | 'public' | 'papers'>('mine');
   const [error, setError] = useState('');
-  const [dlg, setDlg] = useState<null | { kind: 'import' | 'ai' | 'bank' } | { kind: 'host'; quiz: QuizSummary } | { kind: 'move'; quiz: QuizSummary; to: Placement & { subject?: string } }>(null);
+  const [dlg, setDlg] = useState<null | { kind: 'import' | 'ai' | 'bank' } | { kind: 'paper'; preset: { grade?: string; subject?: string; period?: ExamPeriod } } | { kind: 'hostPapers'; papers: QuizSummary[] } | { kind: 'host'; quiz: QuizSummary } | { kind: 'move'; quiz: QuizSummary; to: Placement & { subject?: string } }>(null);
   const [filter, setFilter] = useState('');
   const [catalog, setCatalog] = useState<Catalog>(emptyCatalog);
   const [node, setNodeState] = useState<string>(readNode);
@@ -243,7 +246,8 @@ export default function Library() {
       <div className="row between">
         <div className="tabs" role="tablist">
           <button role="tab" aria-selected={mine} className={`tab ${mine ? 'on' : ''}`} onClick={() => setTab('mine')}>Của tôi ({items?.length ?? 0})</button>
-          <button role="tab" aria-selected={!mine} className={`tab ${!mine ? 'on' : ''}`} onClick={() => setTab('public')}>Thư viện công cộng ({pub.length + BUILTIN_QUIZZES.length})</button>
+          <button role="tab" aria-selected={tab === 'papers'} className={`tab ${tab === 'papers' ? 'on' : ''}`} onClick={() => setTab('papers')}>Đề thi ({(items ?? []).filter((q) => q.paper_period).length})</button>
+          <button role="tab" aria-selected={tab === 'public'} className={`tab ${tab === 'public' ? 'on' : ''}`} onClick={() => setTab('public')}>Thư viện công cộng ({pub.length + BUILTIN_QUIZZES.length})</button>
         </div>
         <input className="input" style={{ maxWidth: 280 }} placeholder="Tìm theo tên…" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Tìm bộ đề" />
       </div>
@@ -253,6 +257,9 @@ export default function Library() {
         </div>
       )}
 
+      {tab === 'papers' ? (
+        <ExamPapers items={items ?? []} filter={filter} onCreate={(preset) => setDlg({ kind: 'paper', preset })} onHost={(papers) => setDlg({ kind: 'hostPapers', papers })} />
+      ) : (
       <div className="lib-layout">
         {!mine && (
           <aside className={`card lib-side ${sideOpen ? 'open' : ''}`}>
@@ -369,7 +376,12 @@ export default function Library() {
           )}
         </div>
       </div>
+      )}
 
+      {dlg?.kind === 'paper' && (
+        <QuestionBankDialog mine={items ?? []} pub={pub} catalog={catalog} paper={dlg.preset} onClose={() => setDlg(null)} onDone={(id) => nav(`/teacher/edit/${id}`)} />
+      )}
+      {dlg?.kind === 'hostPapers' && <HostSetupDialog quiz={dlg.papers[0]} papers={dlg.papers} onClose={() => setDlg(null)} />}
       {(dlg?.kind === 'import' || dlg?.kind === 'ai') && (() => {
         // Bộ đề mới nằm luôn trong mục đang chọn ở cây thư mục (Môn › Chủ đề › Bài)
         const here = current === ALL || current === NONE ? null : placementOf(catalog, current);

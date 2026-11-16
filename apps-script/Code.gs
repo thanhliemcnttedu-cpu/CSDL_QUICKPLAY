@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.6';
+var APP_VERSION = '1.5.7';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -356,6 +356,9 @@ function actSaveQuiz_(req) {
     quiz.id = newId_('qz');
   }
   quiz.visibility = quiz.visibility === 'public' ? 'public' : 'private';
+  // Đề thi (1.5.7): luôn riêng tư để giữ bí mật đề
+  if (['tx', 'gk1', 'ck1', 'gk2', 'ck2'].indexOf(quiz.paper_period) >= 0) quiz.visibility = 'private';
+  else { delete quiz.paper_period; delete quiz.paper_code; }
 
   return withLock_(function () {
     var folder = folder_('quizzes');
@@ -408,6 +411,9 @@ function quizSummary_(quiz, fileId) {
   if (quiz.lesson_id) s.lesson_id = quiz.lesson_id;
   if (quiz.grade) s.grade = quiz.grade;
   if (quiz.cover_url) s.cover_url = quiz.cover_url;
+  // Đề thi (1.5.7): thời điểm kiểm tra và mã đề, để thư viện gom đề theo Khối lớp › Môn › Thời điểm
+  if (['tx', 'gk1', 'ck1', 'gk2', 'ck2'].indexOf(quiz.paper_period) >= 0) s.paper_period = quiz.paper_period;
+  if (quiz.paper_code) s.paper_code = String(quiz.paper_code).slice(0, 40);
   if (fileId) s.file_id = fileId; // mã tệp trên Drive, để tìm lại tệp dù tên tệp thay đổi
   return s;
 }
@@ -605,6 +611,20 @@ function actCreateSession_(req) {
     exam = examRoster_(cls);
     settings.exam_class_id = classId;
   }
+  // Bài kiểm tra nhiều đề (1.5.7): các đề giáo viên đã bốc, phải cùng số câu; học sinh được chia đều khi vào phòng
+  var paperQuizzes = [];
+  if (settings.mode === 'exam' && Array.isArray(req.paper_ids) && req.paper_ids.length > 1) {
+    if (req.paper_ids.length > 10) throw userError_('Một phòng thi dùng tối đa 10 đề.');
+    req.paper_ids.forEach(function (pid) {
+      var id = requireId_(pid, 'Mã đề thi');
+      var pq = readQuiz_(id);
+      if (!pq) throw userError_('Không tìm thấy đề thi (mã ' + id + ').');
+      if (!Array.isArray(pq.questions) || pq.questions.length !== quiz.questions.length) {
+        throw userError_('Các đề thi phải có cùng số câu: đề "' + pq.title + '" có ' + (pq.questions || []).length + ' câu, đề "' + quiz.title + '" có ' + quiz.questions.length + ' câu.');
+      }
+      paperQuizzes.push(pq);
+    });
+  }
 
   return withLock_(function () {
     var index = readSessionIndex_();
@@ -626,10 +646,19 @@ function actCreateSession_(req) {
       question_count: quiz.questions.length
     };
     if (exam) session.exam = exam;
+    if (paperQuizzes.length > 1) {
+      session.papers = paperQuizzes.map(function (pq) {
+        return { quiz_id: pq.id, code: String(pq.paper_code || pq.title).slice(0, 40), title: String(pq.title || '').slice(0, 200) };
+      });
+      // Tên chung của kì thi: bỏ phần "– Mã ..." của đề thứ nhất, ghi số đề
+      var base = String(quiz.title || '').replace(/\s*[–-]\s*Mã\s+\S+\s*$/, '');
+      session.quiz_title = base + ' (' + paperQuizzes.length + ' đề)';
+    }
     applyHomeworkRules_(session, now); // bài về nhà có thể tự mở ngay
 
     // Lưu ảnh chụp bộ đề vào cache để học sinh tải nhanh
     cachePutBig_('Q_' + pin, JSON.stringify(quiz));
+    paperQuizzes.forEach(function (pq, k) { cachePutBig_('Q_' + pin + '_' + k, JSON.stringify(pq)); });
     saveSession_(session, true);
     return { pin: pin, session_id: session.session_id };
   });
@@ -1192,15 +1221,20 @@ function actGetSessionQuiz_(req) {
     if (!quiz) throw userError_('Không tải được đề của phòng này.');
     return { quiz: quiz, settings: s.settings, state: s.state };
   }
-  var cached = cacheGetBig_('Q_' + pin);
+  // Nhiều đề (1.5.7): em nhận đúng đề đã được chia cho mình
+  var me = req.player_id ? findPlayer_(s, String(req.player_id)) : null;
+  var k = Array.isArray(s.papers) && me && typeof me.paper === 'number' && s.papers[me.paper] ? me.paper : -1;
+  var cached = cacheGetBig_(k >= 0 ? 'Q_' + pin + '_' + k : 'Q_' + pin);
   if (cached) {
     try { quiz = JSON.parse(cached); } catch (e) { quiz = null; }
   }
   if (!quiz) {
-    quiz = readQuiz_(s.quiz_id);
+    quiz = readQuiz_(k >= 0 ? s.papers[k].quiz_id : s.quiz_id);
     if (!quiz) throw userError_('Bộ đề của phòng này không còn tồn tại (có thể đã bị xóa).');
   }
-  return { quiz: quiz, settings: s.settings, state: s.state };
+  var out = { quiz: quiz, settings: s.settings, state: s.state };
+  if (k >= 0) out.paper = s.papers[k];
+  return out;
 }
 
 function actJoinSession_(req) {
@@ -1255,6 +1289,13 @@ function actJoinSession_(req) {
         player_id: newId_('p'), name: String(entry.name).slice(0, MAX_NAME_LEN), class_name: String(examClass).slice(0, 20), student_code: code, avatar: avatar,
         score: 0, correct: 0, answered: 0, current_index: 0, finished: false, last_seen: now, joined_at: now, streak: 0
       };
+      // Nhiều đề: em nhận đề đang có ít bạn nhất (bằng nhau thì bốc ngẫu nhiên) — giống src/lib/examPaper.ts
+      if (Array.isArray(s.papers) && s.papers.length > 1) {
+        var counts = s.papers.map(function (_, k) {
+          return s.players.filter(function (x) { return !x.kicked && x.paper === k; }).length;
+        });
+        examPlayer.paper = pickPaper_(counts);
+      }
       s.players.push(examPlayer);
       saveSession_(s, true);
       return { player_id: examPlayer.player_id, player: examPlayer };
@@ -1300,6 +1341,14 @@ function actJoinSession_(req) {
     saveSession_(s, changed);
     return { player_id: player.player_id, player: player };
   });
+}
+
+/** Chia đề: đề có ít học sinh nhất; nhiều đề bằng nhau thì bốc ngẫu nhiên trong số đó. */
+function pickPaper_(counts) {
+  var min = Math.min.apply(null, counts);
+  var ties = [];
+  counts.forEach(function (c, i) { if (c === min) ties.push(i); });
+  return ties[Math.floor(Math.random() * ties.length)] || 0;
 }
 
 /** Bài kiểm tra: tra tên và lớp theo mã số học sinh để em kiểm tra trước khi vào (chỉ đọc, không ghi gì). */

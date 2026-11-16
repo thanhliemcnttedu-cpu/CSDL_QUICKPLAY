@@ -8,6 +8,8 @@ import { BUILTIN_QUIZZES, TYPE_LABELS, builtinQuiz, newQuiz } from '../lib/facto
 import { emptyCatalog, pathOf, type Placement } from '../lib/catalog';
 import { hashString, htmlToText, shuffle, uid } from '../lib/util';
 import { Modal, Spinner, useToast } from './ui';
+import { PaperFields, type PaperInfo } from './PaperFields';
+import { paperTitle, suggestCode } from '../lib/examPaper';
 
 type Source = { id: string; title: string; count: number; where: string; kind: 'mine' | 'public' | 'builtin' };
 const keyOf = (quizId: string, qid: string) => `${quizId}|${qid}`;
@@ -17,7 +19,8 @@ export function copyQuestions(list: Question[]): Question[] {
   return list.map((q) => ({ ...(JSON.parse(JSON.stringify(q)) as Question), id: uid('q') }));
 }
 
-export function QuestionBankDialog({ mine: mineIn, pub: pubIn, catalog: catIn, place, defaultTitle, exclude, onClose, onDone, onPick }: {
+export function QuestionBankDialog({ mine: mineIn, pub: pubIn, catalog: catIn, place, defaultTitle, exclude, onClose, onDone, onPick, paper: paperIn }: {
+  paper?: Partial<PaperInfo>; // mở sẵn ở chế độ "Đề thi" (từ mục Đề thi của thư viện)
   mine?: QuizSummary[]; // không truyền: hộp tự tải danh sách bộ đề
   pub?: QuizSummary[];
   catalog?: Catalog;
@@ -40,6 +43,26 @@ export function QuestionBankDialog({ mine: mineIn, pub: pubIn, catalog: catIn, p
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const mine = useMemo(() => (mineAll ?? []).filter((q) => q.id !== exclude), [mineAll, exclude]);
   const [title, setTitle] = useState(defaultTitle || 'Bộ đề tổng hợp');
+  // Đề thi: Khối lớp, Môn, Thời điểm, Mã đề; tên đề tự đặt theo các ô này cho tới khi thầy cô tự sửa tên
+  const [asPaper, setAsPaper] = useState(!!paperIn);
+  const [paper, setPaper] = useState<PaperInfo>({ grade: paperIn?.grade ?? '', subject: paperIn?.subject ?? '', period: paperIn?.period ?? 'ck1', code: paperIn?.code ?? '' });
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [codeTouched, setCodeTouched] = useState(!!paperIn?.code);
+  /** Mã đề tự đổi theo Khối lớp, Môn, Thời điểm cho tới khi thầy cô tự gõ mã. */
+  const changePaper = (v: PaperInfo) => {
+    if (v.code !== paper.code) {
+      setCodeTouched(true);
+      return setPaper(v);
+    }
+    setPaper(codeTouched ? v : { ...v, code: suggestCode(v.subject, v.grade, v.period, usedCodes) });
+  };
+  const usedCodes = useMemo(() => (mineAll ?? []).map((q) => q.paper_code).filter((c): c is string => !!c), [mineAll]);
+  useEffect(() => {
+    // mã đề gợi ý sẵn khi đã biết danh sách đề trong thư viện
+    if (asPaper && !paper.code && mineAll) setPaper((p) => ({ ...p, code: suggestCode(p.subject, p.grade, p.period, usedCodes) }));
+  }, [asPaper, mineAll]); // eslint-disable-line react-hooks/exhaustive-deps
+  const autoTitle = asPaper ? paperTitle(paper.subject, paper.grade, paper.period, paper.code) : title;
+  const shownTitle = asPaper && !titleTouched ? autoTitle : title;
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState<Map<string, Quiz>>(new Map());
@@ -128,9 +151,19 @@ export function QuestionBankDialog({ mine: mineIn, pub: pubIn, catalog: catIn, p
     }
     setBusy(true);
     try {
-      const quiz = newQuiz(title.trim() || 'Bộ đề tổng hợp');
+      if (asPaper && (!paper.grade || !paper.subject.trim() || !paper.code.trim())) {
+        setBusy(false);
+        return toast('Đề thi cần có Khối lớp, Môn học và Mã đề.', 'error');
+      }
+      const quiz = newQuiz(shownTitle.trim() || 'Bộ đề tổng hợp');
       quiz.questions = copyQuestions(mix ? shuffle(list, hashString(quiz.id)) : list);
-      const saved = await api.saveQuiz({ ...quiz, ...(place ?? {}) });
+      let extra: Partial<Quiz> = { ...(place ?? {}) };
+      if (asPaper) {
+        // gắn với môn trong danh mục nếu trùng tên (cùng khối lớp)
+        const subj = catalog.subjects.find((s) => s.name.toLocaleLowerCase('vi') === paper.subject.trim().toLocaleLowerCase('vi') && (!s.grade || s.grade === paper.grade));
+        extra = { grade: paper.grade, subject: paper.subject.trim(), ...(subj ? { subject_id: subj.id } : {}), paper_period: paper.period, paper_code: paper.code.trim() };
+      }
+      const saved = await api.saveQuiz({ ...quiz, ...extra });
       toast(`Đã tạo bộ đề "${saved.title}" gồm ${list.length} câu. Thầy cô có thể thêm câu mới, sửa và sắp xếp lại.`, 'ok');
       onDone?.(saved.id);
     } catch (e) {
@@ -144,7 +177,7 @@ export function QuestionBankDialog({ mine: mineIn, pub: pubIn, catalog: catIn, p
   return (
     <Modal
       wide
-      title={onPick ? 'Lấy câu hỏi từ kho' : 'Tạo bộ đề từ kho câu hỏi'}
+      title={onPick ? 'Lấy câu hỏi từ kho' : asPaper ? 'Tạo đề thi từ ngân hàng câu hỏi' : 'Tạo bộ đề từ kho câu hỏi'}
       onClose={onClose}
       footer={
         <>
@@ -153,21 +186,36 @@ export function QuestionBankDialog({ mine: mineIn, pub: pubIn, catalog: catIn, p
             {picked.length > 0 && <button type="button" className="btn sm ghost" onClick={() => setPicked([])}><X size={14} /> Bỏ chọn</button>}
           </span>
           <button className="btn ghost" onClick={onClose}>Hủy</button>
-          <button className="btn primary" onClick={create} disabled={busy || !picked.length}><Layers size={18} /> {onPick ? `Thêm ${picked.length} câu vào bộ đề` : busy ? 'Đang tạo…' : `Tạo bộ đề (${picked.length} câu)`}</button>
+          <button className="btn primary" onClick={create} disabled={busy || !picked.length}><Layers size={18} /> {onPick ? `Thêm ${picked.length} câu vào bộ đề` : busy ? 'Đang tạo…' : asPaper ? 'Tạo đề thi (' + picked.length + ' câu)' : `Tạo bộ đề (${picked.length} câu)`}</button>
         </>
       }
     >
       <div className="stack qb">
         <div className="row" style={{ alignItems: 'flex-end' }}>
           {!onPick && (
+            <div className="field" style={{ margin: 0 }}>
+              <span>Tạo thành</span>
+              <div className="row" role="radiogroup" aria-label="Loại bộ đề tạo ra" style={{ gap: 6 }}>
+                <button type="button" role="radio" aria-checked={!asPaper} className={`tab ${!asPaper ? 'on' : ''}`} onClick={() => setAsPaper(false)}>Bộ câu hỏi</button>
+                <button type="button" role="radio" aria-checked={asPaper} className={`tab ${asPaper ? 'on' : ''}`} onClick={() => setAsPaper(true)}>Đề thi (có mã đề)</button>
+              </div>
+            </div>
+          )}
+          {!onPick && (
             <label className="field grow" style={{ minWidth: 220, margin: 0 }}>
-              <span>Tên bộ đề mới</span>
-              <input className="input" value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} />
+              <span>{asPaper ? 'Tên đề thi' : 'Tên bộ đề mới'}</span>
+              <input className="input" value={shownTitle} maxLength={160} onChange={(e) => { setTitle(e.target.value); setTitleTouched(true); }} />
             </label>
           )}
           <label className="switch" style={{ marginBottom: 8 }}><input type="checkbox" checked={mix} onChange={(e) => setMix(e.target.checked)} /> <Shuffle size={16} /> Trộn thứ tự câu</label>
         </div>
-        {place && !onPick && <p className="small muted" style={{ margin: 0 }}><FolderTree size={14} /> Bộ đề mới nằm trong: <b>{pathOf(catalog, place)}</b></p>}
+        {asPaper && !onPick && (
+          <div className="paper-box">
+            <PaperFields value={paper} onChange={changePaper} catalog={catalog} usedCodes={usedCodes} />
+            <small className="muted">Đề thi nằm trong mục <b>Đề thi</b> của thư viện, xếp theo Khối lớp › Môn › Thời điểm. Muốn có nhiều đề cho một kì kiểm tra (để bốc đề ngẫu nhiên), tạo mỗi đề một mã khác nhau và cùng số câu.</small>
+          </div>
+        )}
+        {place && !onPick && !asPaper && <p className="small muted" style={{ margin: 0 }}><FolderTree size={14} /> Bộ đề mới nằm trong: <b>{pathOf(catalog, place)}</b></p>}
         <div className="qb-search">
           <Search size={18} aria-hidden />
           <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm bộ đề, bài học hoặc nội dung câu hỏi (với bộ đề đã mở)…" aria-label="Tìm trong kho câu hỏi" />

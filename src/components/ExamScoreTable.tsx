@@ -18,6 +18,7 @@ export function ExamScoreTable({ s, quiz, onKick }: { s: Session; quiz: Quiz | n
   const rows = useMemo(() => examRows(s, a), [s, a]);
   const exportXlsx = async () => downloadBlob(examFileName(s), await buildXlsx(analyticsSheets(s, a)));
   const graded = rows.filter((r) => r.level);
+  const multi = !!s.papers && s.papers.length > 1;
   return (
     <div className="card rp" style={{ color: 'var(--fg)' }}>
       <div className="row between rp-tools" style={{ marginBottom: 8 }}>
@@ -30,7 +31,7 @@ export function ExamScoreTable({ s, quiz, onKick }: { s: Session; quiz: Quiz | n
       <div className="table-wrap">
         <table className="table">
           <thead>
-            <tr><th>Hạng</th><th>Họ và tên</th><th>Lớp</th><th>Mã số HS</th><th>Trạng thái</th><th>Điểm/10</th><th>Đúng</th><th>Sai</th><th>Bỏ trống</th><th>Mức đánh giá</th>{onKick && <th />}</tr>
+            <tr><th>Hạng</th><th>Họ và tên</th><th>Lớp</th><th>Mã số HS</th>{multi && <th>Mã đề</th>}<th>Trạng thái</th><th>Điểm/10</th><th>Đúng</th><th>Sai</th><th>Bỏ trống</th><th>Mức đánh giá</th>{onKick && <th />}</tr>
           </thead>
           <tbody>
             {rows.map((r) => (
@@ -39,6 +40,7 @@ export function ExamScoreTable({ s, quiz, onKick }: { s: Session; quiz: Quiz | n
                 <td><b>{r.name}</b></td>
                 <td>{r.class_name || '—'}</td>
                 <td><code>{r.student_code || '—'}</code></td>
+                {multi && <td>{r.paper_code ? <span className="paper-code sm">{r.paper_code}</span> : '—'}</td>}
                 <td><span className={`badge ${STATUS_BADGE[r.status]}`}>{EXAM_STATUS[r.status]}</span></td>
                 <td><b>{r.mark10 === null ? '—' : r.mark10.toLocaleString('vi-VN')}</b></td>
                 <td>{r.correct === null ? '—' : `${r.correct}/${r.total}`}</td>
@@ -48,7 +50,7 @@ export function ExamScoreTable({ s, quiz, onKick }: { s: Session; quiz: Quiz | n
                 {onKick && <td>{r.player_id && r.status !== 'submitted' && <button className="btn sm ghost" onClick={() => onKick(r.player_id!, r.name)}>Mời ra</button>}</td>}
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={11} className="muted">Chưa có học sinh nào.</td></tr>}
+            {!rows.length && <tr><td colSpan={12} className="muted">Chưa có học sinh nào.</td></tr>}
           </tbody>
         </table>
       </div>

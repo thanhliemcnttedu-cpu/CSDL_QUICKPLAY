@@ -15,6 +15,7 @@ export interface StudentStat {
   class_name: string;
   avatar: string;
   student_code: string; // bài kiểm tra: mã số học sinh theo lớp
+  paper_code: string; // bài kiểm tra nhiều đề: mã đề em làm
   locked: boolean; // bị khóa do vi phạm
   correct: number; // số câu đúng hoàn toàn
   partial: number; // số câu đúng một phần
@@ -90,6 +91,7 @@ export function analyze(s: Session, quiz: Quiz | null): SessionAnalytics {
         class_name: p.class_name ?? s.paper?.class_name ?? '',
         avatar: p.avatar,
         student_code: p.student_code ?? '',
+        paper_code: s.papers && p.paper !== undefined ? s.papers[p.paper]?.code ?? '' : '',
         locked: !!p.locked,
         correct: r.correct,
         partial: r.partial,
@@ -226,6 +228,7 @@ export interface ExamRow {
   name: string;
   class_name: string;
   student_code: string;
+  paper_code: string; // mã đề (thi nhiều đề)
   status: 'submitted' | 'doing' | 'locked' | 'collected' | 'absent';
   mark10: number | null;
   total: number;
@@ -251,7 +254,7 @@ export function examRows(s: Session, a: SessionAnalytics): ExamRow[] {
     const status: ExamRow['status'] = x.finished ? 'submitted' : done ? 'collected' : x.locked ? 'locked' : 'doing';
     const graded = status === 'submitted' || status === 'collected';
     return {
-      rank: null, name: x.name, class_name: x.class_name, student_code: x.student_code, status, total,
+      rank: null, name: x.name, class_name: x.class_name, student_code: x.student_code, paper_code: x.paper_code, status, total,
       mark10: graded ? x.mark10 : null,
       correct: x.correct,
       wrong: x.partial + x.wrong,
@@ -266,7 +269,7 @@ export function examRows(s: Session, a: SessionAnalytics): ExamRow[] {
   const codes = new Set(present.map((r) => r.student_code).filter(Boolean));
   const absent = (s.exam?.roster ?? [])
     .filter((r) => !codes.has(r.code))
-    .map((r): ExamRow => ({ rank: null, name: r.name, class_name: s.exam?.class_name ?? '', student_code: r.code, status: 'absent', mark10: null, total, correct: null, wrong: null, blank: null, level: null }))
+    .map((r): ExamRow => ({ rank: null, name: r.name, class_name: s.exam?.class_name ?? '', student_code: r.code, paper_code: '', status: 'absent', mark10: null, total, correct: null, wrong: null, blank: null, level: null }))
     .sort((x, y) => x.name.localeCompare(y.name, 'vi'));
   return [...scored, ...doing, ...absent];
 }
@@ -274,6 +277,7 @@ export function examRows(s: Session, a: SessionAnalytics): ExamRow[] {
 /** Trang tính "Bảng điểm" của bài kiểm tra theo mẫu giáo viên dùng: hạng, họ tên, lớp, mã số HS, trạng thái, điểm, số câu, mức đánh giá. */
 export function examSheet(s: Session, a: SessionAnalytics) {
   const rows = examRows(s, a);
+  const multi = !!s.papers && s.papers.length > 1;
   const graded = rows.filter((r) => r.level);
   const count = (g: Level) => graded.filter((r) => r.level === g).length;
   const avg10 = graded.length ? round1(avg(graded.map((r) => r.mark10!))) : '';
@@ -281,10 +285,11 @@ export function examSheet(s: Session, a: SessionAnalytics) {
     name: 'Bảng điểm',
     rows: [
       [`BẢNG ĐIỂM BÀI KIỂM TRA: ${s.quiz_title}`],
+      ...(multi ? [[`Đề thi: ${s.papers!.map((p) => p.code).join(', ')} (học sinh được chia ngẫu nhiên, đều nhau giữa các đề)`]] : []),
       [`Lớp: ${s.exam?.class_name ?? ''}`, `Thời gian làm bài: ${s.settings.exam_minutes ?? 45} phút`, `Ngày: ${new Date(s.started_at ?? s.created_at).toLocaleString('vi-VN')}`, `Mã phòng: ${s.pin}`],
       [],
-      ['Hạng', 'Họ và tên', 'Lớp', 'Mã số HS', 'Trạng thái', 'Điểm (thang 10)', 'Tổng số câu', 'Số câu đúng', 'Số câu sai', 'Số câu bỏ trống', 'Mức đánh giá'],
-      ...rows.map((r) => [r.rank ?? '', r.name, r.class_name, r.student_code, EXAM_STATUS[r.status], r.mark10 ?? '', r.total, r.correct ?? '', r.wrong ?? '', r.blank ?? '', r.level ? LEVEL_LABEL[r.level] : '']),
+      ['Hạng', 'Họ và tên', 'Lớp', 'Mã số HS', ...(multi ? ['Mã đề'] : []), 'Trạng thái', 'Điểm (thang 10)', 'Tổng số câu', 'Số câu đúng', 'Số câu sai', 'Số câu bỏ trống', 'Mức đánh giá'],
+      ...rows.map((r) => [r.rank ?? '', r.name, r.class_name, r.student_code, ...(multi ? [r.paper_code] : []), EXAM_STATUS[r.status], r.mark10 ?? '', r.total, r.correct ?? '', r.wrong ?? '', r.blank ?? '', r.level ? LEVEL_LABEL[r.level] : '']),
       [],
       ['Tổng hợp'],
       ['Sĩ số theo danh sách', s.exam?.roster.length ?? rows.length],

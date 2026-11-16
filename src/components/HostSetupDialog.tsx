@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Radio, Users, Home as HomeIcon, ShieldAlert, Eye, ClipboardCheck } from 'lucide-react';
+import { Radio, Users, Home as HomeIcon, ShieldAlert, Eye, ClipboardCheck, Dices } from 'lucide-react';
+import { drawPapers } from '../lib/examPaper';
 import type { AntiCheatSettings, ClassRoom, QuizSummary, SessionMode, SessionSettings } from '../lib/types';
 import { DEFAULT_ANTI_CHEAT } from '../lib/anticheat';
 import { api } from '../lib/api';
@@ -15,11 +16,17 @@ const MODES: { id: SessionMode; title: string; desc: string; icon: typeof Radio 
 
 const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
-export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose: () => void }) {
+export function HostSetupDialog({ quiz, papers, onClose }: { quiz: QuizSummary; papers?: QuizSummary[]; onClose: () => void }) {
+  // Thi nhiều đề (mục Đề thi): chỉ tổ chức dạng Bài kiểm tra; bốc ngẫu nhiên 1 / 2 đề hoặc dùng tất cả đề đã chọn
+  const multi = !!papers && papers.length > 1;
+  const [draw, setDraw] = useState<'one' | 'two' | 'all'>('one');
   const nav = useNavigate();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [s, setS] = useState<SessionSettings>({
+  const [s, setS] = useState<SessionSettings>(papers ? {
+    mode: 'exam', music: false, shuffle_questions: true, shuffle_options: true, show_leaderboard: false, leaderboard_top: 10, power_ups: false,
+    navigation: 'free', exam_layout: 'one', exam_review: 'end', anti_cheat: { ...DEFAULT_ANTI_CHEAT, enabled: true, max_violations: 3 },
+  } : {
     mode: 'classic_live',
     music: true,
     shuffle_questions: true,
@@ -84,6 +91,15 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
     }
     setBusy(true);
     try {
+      if (papers?.length) {
+        // Bốc đề ngay lúc mở phòng: thầy cô không biết trước đề nào được bốc
+        const k = draw === 'one' ? 1 : draw === 'two' ? 2 : papers.length;
+        const drawn = drawPapers(papers, k);
+        const { pin } = await api.createSession(drawn[0].id, settings, drawn.map((q) => q.id));
+        toast(drawn.length > 1 ? `Đã bốc ${drawn.length} đề: ${drawn.map((q) => q.paper_code || q.title).join(', ')}. Học sinh được chia đều cho các đề khi vào phòng.` : `Đã bốc đề ${drawn[0].paper_code || drawn[0].title}.`, 'ok');
+        nav(`/teacher/host/${pin}`);
+        return;
+      }
       const { pin } = await api.createSession(quiz.id, settings);
       nav(`/teacher/host/${pin}`);
     } catch (e) {
@@ -94,7 +110,7 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
 
   return (
     <Modal
-      title={`Tổ chức: ${quiz.title}`}
+      title={papers?.length ? `Tổ chức thi: ${papers.length} đề` : `Tổ chức: ${quiz.title}`}
       onClose={onClose}
       wide
       footer={
@@ -106,7 +122,26 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
       }
     >
       <div className="stack" style={{ gap: 18 }}>
-        <div className="type-grid" role="radiogroup" aria-label="Chế độ chơi">
+        {papers?.length ? (
+          <div className="paper-box">
+            <b className="row" style={{ gap: 6 }}><Dices size={18} /> Đề thi đã chọn ({papers.length})</b>
+            <div className="row" style={{ gap: 6 }}>{papers.map((q) => <span key={q.id} className="paper-code">{q.paper_code || q.title}</span>)}</div>
+            {multi && (
+              <div className="field" style={{ margin: 0 }}>
+                <span>Cách bốc đề khi mở phòng</span>
+                <div className="row" role="radiogroup" aria-label="Cách bốc đề">
+                  <button type="button" role="radio" aria-checked={draw === 'one'} className={`tab ${draw === 'one' ? 'on' : ''}`} onClick={() => setDraw('one')}>Bốc ngẫu nhiên 1 đề</button>
+                  <button type="button" role="radio" aria-checked={draw === 'two'} className={`tab ${draw === 'two' ? 'on' : ''}`} onClick={() => setDraw('two')}>Bốc ngẫu nhiên 2 đề</button>
+                  {papers.length > 2 && <button type="button" role="radio" aria-checked={draw === 'all'} className={`tab ${draw === 'all' ? 'on' : ''}`} onClick={() => setDraw('all')}>Dùng cả {papers.length} đề</button>}
+                </div>
+                <small className="help">
+                  {draw === 'one' ? 'Cả lớp làm chung một đề, bốc ngẫu nhiên lúc bấm Mở phòng kiểm tra.' : `Bốc ${draw === 'two' ? '2 đề' : `cả ${papers.length} đề`}; mỗi em vào phòng được giao đề đang có ít bạn nhất (bằng nhau thì ngẫu nhiên), nên số em mỗi đề chênh nhau nhiều nhất 1 em. Mã đề hiện trên màn hình của em và trong bảng điểm.`}
+                </small>
+              </div>
+            )}
+          </div>
+        ) : null}
+        {!papers?.length && <div className="type-grid" role="radiogroup" aria-label="Chế độ chơi">
           {MODES.map((m) => (
             <button key={m.id} type="button" role="radio" aria-checked={s.mode === m.id} aria-label={m.title} className="type-btn" onClick={() => pickMode(m.id)}
               style={s.mode === m.id ? { borderColor: 'var(--primary)', background: '#eff6ff' } : undefined}>
@@ -114,7 +149,7 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
               <span><b>{m.title}</b><br /><small className="muted">{m.desc}</small></span>
             </button>
           ))}
-        </div>
+        </div>}
         {s.mode === 'homework' && (
           <div className="stack">
             <div className="field">

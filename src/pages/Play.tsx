@@ -64,6 +64,7 @@ export default function Play() {
   const me = useMemo<SavedPlayer | null>(() => loadPlayer(pin), [pin]);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [settings, setSettings] = useState<SessionSettings | null>(null);
+  const [paperCode, setPaperCode] = useState(""); // bài kiểm tra nhiều đề: mã đề của em
   const [poll, setPoll] = useState<PollResult | null>(null);
   const [err, setErr] = useState('');
   const [offline, setOffline] = useState(false);
@@ -141,9 +142,10 @@ export default function Play() {
       try {
         // Gọi đề và tiến độ CÙNG LÚC (mỗi lần gọi Apps Script mất 1–3 giây, gọi nối tiếp thì cộng dồn)
         const progP = api.getProgress(pin, me.player_id).catch(() => null);
-        const r = await api.getSessionQuiz(pin);
+        const r = await api.getSessionQuiz(pin, me.player_id);
         setQuiz(r.quiz);
         setSettings(r.settings);
+        setPaperCode(r.paper?.code ?? r.quiz.paper_code ?? "");
         const prog = await progP;
         if (prog) {
           const done = new Set(prog.answers.map((a) => a.q_index));
@@ -628,7 +630,7 @@ export default function Play() {
       {exam && examLeftMs !== null && (poll.state === 'IN_PROGRESS' || poll.state === 'PAUSED') && !examSubmitted && (
         <span className={`badge ${examLeftMs < 60000 ? 'red' : 'amber'}`} style={{ fontSize: '1.05rem' }} role="timer" aria-label="Thời gian làm bài còn lại"><Clock size={16} /> Còn {clock(examLeftMs)}</span>
       )}
-      {exam && <span className="badge blue" style={{ fontSize: '1rem' }}><ClipboardCheck size={14} /> Bài kiểm tra</span>}
+      {exam && <span className="badge blue" style={{ fontSize: "1rem" }}><ClipboardCheck size={14} /> {paperCode ? `Mã đề ${paperCode}` : "Bài kiểm tra"}</span>}
       {!exam && <span className="badge blue" style={{ fontSize: '1rem' }}>{shown.current.score.toLocaleString('vi-VN')} điểm</span>}
       {!exam && <span className="badge amber" style={{ fontSize: '1rem' }} title="Điểm thưởng: trả lời nhanh và chuỗi câu đúng"><Coins size={14} /> +{shown.current.coins.toLocaleString('vi-VN')} thưởng</span>}
       {canSeeRank && (
@@ -754,7 +756,7 @@ export default function Play() {
           <div className="er-band" aria-hidden><i /><i /><i /><i /><i /><i /><i /><i /></div>
           <span className="er-icon" aria-hidden>{level === 'excellent' || level === 'good' ? <Trophy size={40} /> : <PartyPopper size={40} />}</span>
           <h1 className="er-title">{handedIn ? 'Chúc mừng em đã hoàn thành bài kiểm tra!' : 'Đã hết giờ làm bài'}</h1>
-          <p className="er-who"><b>{me.name}</b>{me.class_name ? ` · lớp ${me.class_name}` : ''}<br /><span>{quiz.title}</span></p>
+          <p className="er-who"><b>{me.name}</b>{me.class_name ? ` · lớp ${me.class_name}` : ''}<br /><span>{quiz.title}{paperCode && !quiz.title.includes(paperCode) ? ` · Mã đề ${paperCode}` : ""}</span></p>
           {!handedIn && <p className="muted" style={{ margin: 0 }}>Bài của em đã được thu. Các câu em đã trả lời đều được tính điểm.</p>}
           <div className="er-score" role="img" aria-label={`Điểm ${mark.toLocaleString('vi-VN')} trên 10`} style={{ '--p': `${Math.min(100, mark * 10)}%` } as React.CSSProperties}>
             <div><b>{mark.toLocaleString('vi-VN')}</b><span>điểm / 10</span></div>

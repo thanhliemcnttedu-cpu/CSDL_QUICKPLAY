@@ -1,6 +1,7 @@
 // Máy trạng thái phiên – bản chạy trong trình duyệt (chế độ cục bộ). Apps Script cài đặt cùng quy tắc (docs/API.md).
-import type { AnswerRecord, ClassRoom, ExamInfo, Player, PollResult, Session, SessionSettings, ViolationKind } from './types';
+import type { AnswerRecord, ClassRoom, ExamInfo, Player, PollResult, Session, SessionPaper, SessionSettings, ViolationKind } from './types';
 import { uid } from './util';
+import { pickPaper } from './examPaper';
 
 export type HostOp = 'start' | 'pause' | 'resume' | 'next' | 'lock' | 'end' | 'kick' | 'unlock' | 'grade';
 
@@ -101,10 +102,11 @@ export function examSettings(s: SessionSettings): SessionSettings {
   };
 }
 
-export function createSession(pin: string, quizId: string, title: string, count: number, settings: SessionSettings, exam?: ExamInfo): Session {
+export function createSession(pin: string, quizId: string, title: string, count: number, settings: SessionSettings, exam?: ExamInfo, papers?: SessionPaper[]): Session {
   settings = examSettings(settings);
   return {
     ...(exam ? { exam } : {}),
+    ...(papers && papers.length > 1 && settings.mode === 'exam' ? { papers } : {}),
     session_id: uid('s_'),
     pin,
     quiz_id: quizId,
@@ -227,6 +229,8 @@ export function joinPlayer(s: Session, name: string, avatar: string, playerId?: 
       player_id: uid('p_'), name: entry.name.slice(0, 40), class_name: (s.exam?.class_name ?? className).slice(0, 20), student_code: code, avatar,
       score: 0, correct: 0, answered: 0, current_index: 0, finished: false, last_seen: now, joined_at: now, streak: 0,
     };
+    // Nhiều đề: em nhận đề đang có ít bạn nhất (bằng nhau thì bốc ngẫu nhiên)
+    if (s.papers && s.papers.length > 1) pl.paper = pickPaper(s.papers.map((_, k) => s.players.filter((x) => !x.kicked && x.paper === k).length));
     s.players.push(pl);
     return pl;
   }

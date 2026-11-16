@@ -28,6 +28,20 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
 **Tiết kiệm dung lượng (Gmail miễn phí chỉ có 15 GB):** ảnh tự đổi sang WebP (cạnh dài tối đa 1280 điểm ảnh), âm thanh tự đổi sang Opus 24 kbit/s một kênh
 (1 phút khoảng 180 KB) trước khi tải lên; ảnh trùng chỉ lưu một lần. Video nên nhúng link YouTube: không tốn dung lượng Drive, phát mượt trên điện thoại.
 
+## Kho đề thi và tổ chức thi nhiều đề
+
+1. **Ra đề:** Thư viện → thẻ **Đề thi** → **Tạo đề thi từ ngân hàng câu hỏi**. Chọn Khối lớp, Môn, **Thời điểm kiểm tra**
+   (thường xuyên, giữa kì I, cuối kì I, giữa kì II, cuối kì II); **mã đề** tự gợi ý (VD `TIN3-CK1-01`) và sửa được. Tích chọn câu hỏi
+   (từng câu, nhiều câu hoặc cả bộ đề) rồi bấm **Tạo đề thi**; trình soạn mở ra để thêm câu mới, sửa, sắp xếp. Bộ đề có sẵn cũng chuyển thành
+   đề thi được: mở bộ đề, tích **Đây là đề thi**. Đề thi luôn để riêng tư.
+2. **Nhiều đề cho một kì:** trong nhóm kì kiểm tra (VD *Tin học · Lớp 3 · Cuối học kì I*) bấm **Thêm đề**, mã đề tự tăng (…-02, …-03).
+   Các đề cùng kì nên **cùng số câu** (phần mềm không cho tổ chức thi chung các đề khác số câu).
+3. **Tổ chức thi:** tích các đề muốn dùng → **Tổ chức thi** → chọn **Bốc ngẫu nhiên 1 đề** (cả lớp chung một đề), **Bốc ngẫu nhiên 2 đề**
+   hoặc **Dùng cả các đề**. Phần mềm bốc đề lúc bấm Mở phòng kiểm tra (thầy cô không biết trước đề nào). Có từ 2 đề, mỗi em vào phòng được giao
+   đề đang có ít bạn nhất, nên số em mỗi đề chênh nhau nhiều nhất 1 em.
+4. Em thấy **Mã đề** của mình trên màn hình làm bài và màn kết quả; màn giáo viên hiện số em mỗi đề, mã đề của từng em; bảng điểm Excel có cột **Mã đề**.
+   Cần Apps Script 1.5.7 trở lên.
+
 ## Bài kiểm tra theo danh sách lớp
 
 1. **Đặt mã số học sinh:** Dạy học trên lớp → Lớp học → **Mã học sinh**. Gõ mã vào từng ô, hoặc điền chữ đứng đầu (ví dụ `HS`) và số bắt đầu rồi bấm

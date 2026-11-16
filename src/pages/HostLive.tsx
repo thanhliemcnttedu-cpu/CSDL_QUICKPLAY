@@ -105,7 +105,19 @@ export default function HostLive() {
   }, [refresh]);
 
   useEffect(() => {
-    if (s && !quiz) api.getQuiz(s.quiz_id).then(setQuiz).catch(() => {});
+    if (!s || quiz) return;
+    if (s.papers && s.papers.length > 1) {
+      // Thi nhiều đề: gộp câu hỏi các đề để thống kê từng câu (ghi rõ câu của mã đề nào)
+      const papers = s.papers;
+      Promise.all(papers.map((p) => api.getQuiz(p.quiz_id)))
+        .then((list) => setQuiz({
+          ...list[0],
+          questions: list.flatMap((q, k) => q.questions.map((x) => ({ ...x, stem: { ...x.stem, text: `[Mã ${papers[k].code}] ${x.stem.text}` } }))),
+        }))
+        .catch(() => {});
+      return;
+    }
+    api.getQuiz(s.quiz_id).then(setQuiz).catch(() => {});
   }, [s, quiz]);
 
   useEffect(() => {
@@ -587,6 +599,16 @@ function ExamPanel({ s, now, link, qr }: { s: Session; now: number; link: string
         {s.state === 'LOBBY_WAITING' && <span className="badge blue">Đồng hồ chạy khi thầy cô bấm Bắt đầu</span>}
         {s.state === 'COMPLETED' && <span className="badge">Đã thu bài</span>}
       </div>
+      {s.papers && s.papers.length > 1 && (
+        <div className="row" style={{ gap: 6 }} role="status" aria-label="Số học sinh mỗi đề">
+          <span className="small" style={{ fontWeight: 700 }}>Đề thi (chia ngẫu nhiên, đều nhau):</span>
+          {s.papers.map((p, k) => (
+            <span key={p.code + k} className="paper-code sm" title={p.title}>
+              {p.code} · {s.players.filter((x) => !x.kicked && x.paper === k).length} em
+            </span>
+          ))}
+        </div>
+      )}
       {!roster.length && <div className="row" style={{ gap: 8 }}>
         <span className="badge green">Đã vào {byCode.size}/{roster.length}</span>
         <span className="badge blue">Đã nộp bài {handed}</span>
@@ -678,7 +700,7 @@ function ClassStatus({ s, roster, byCode, copy }: {
                   <span className="no">{r.no}</span>
                   <span className="nm">
                     <b>{r.name}</b>
-                    <small><span className="st">{ROSTER_LABEL[r.st]}</span>{r.st === 'doing' && r.p ? ` ${r.p.answered}/${s.question_count} câu` : ''} · {r.code}</small>
+                    <small><span className="st">{ROSTER_LABEL[r.st]}</span>{r.st === 'doing' && r.p ? ` ${r.p.answered}/${s.question_count} câu` : ''} · {r.code}{r.p && s.papers && r.p.paper !== undefined ? ` · đề ${s.papers[r.p.paper]?.code}` : ''}</small>
                   </span>
                 </li>
               ))}

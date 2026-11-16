@@ -747,3 +747,29 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .qb-no { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-grad); color: #fff; font-size: 0.78rem; font-weight: 800; }
 .qb-q svg { flex: none; color: var(--muted-fg); }
 @media (max-width: 560px) { .qb-qs { padding-left: 10px; } .qb-check { width: 44px; } }
+
+/* Thông tin đề thi */
+.paper-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.paper-fields .field { margin: 0; }
+.paper-box { padding: 12px 14px; border-radius: 16px; border: 1.5px solid #f3c27a; background: #fffaf0; display: flex; flex-direction: column; gap: 10px; }
+.paper-intro { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.paper-group { display: flex; flex-direction: column; gap: 10px; border-left: 5px solid #f59e0b; }
+.paper-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1.5px solid var(--border); border-radius: 14px; overflow: hidden; }
+.paper-row { display: flex; align-items: center; gap: 10px; padding-right: 8px; border-top: 1px solid var(--border); background: #fff; }
+.paper-row:first-child { border-top: 0; }
+.paper-row.head { background: var(--muted); }
+.paper-row.on { background: #fffaf0; }
+.paper-row .qb-check { align-self: stretch; min-height: 48px; }
+.paper-code { flex: none; white-space: nowrap; min-width: 112px; padding: 4px 10px; border-radius: 10px; background: #fff3d6; color: #92400e; font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; }
+.paper-name { display: flex; flex-direction: column; min-width: 0; padding: 6px 0; }
+.paper-name b { overflow-wrap: anywhere; }
+.paper-name small { color: var(--muted-fg); }
+@media (max-width: 560px) {
+  .paper-row:not(.head) { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; align-items: center; column-gap: 6px; padding: 6px 8px 6px 0; }
+  .paper-row:not(.head) > .qb-check { grid-row: 1 / span 2; }
+  .paper-row:not(.head) > .paper-code { grid-column: 2; grid-row: 1; justify-self: start; min-width: 0; }
+  .paper-row:not(.head) > a:nth-of-type(1) { grid-column: 3; grid-row: 1; }
+  .paper-row:not(.head) > a:nth-of-type(2) { grid-column: 4; grid-row: 1; }
+  .paper-row:not(.head) > .paper-name { grid-column: 2 / span 3; grid-row: 2; padding: 4px 0 0; }
+}
+.paper-code.sm { min-width: 0; padding: 2px 8px; font-size: 0.82rem; }

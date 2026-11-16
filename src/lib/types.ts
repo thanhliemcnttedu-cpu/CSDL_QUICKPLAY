@@ -79,12 +79,14 @@ export interface Quiz {
   cover_url?: string;
   questions: Question[];
   visibility: 'private' | 'public';
+  paper_period?: ExamPeriod; // đề thi: thời điểm kiểm tra (thường xuyên, giữa kì, cuối kì)
+  paper_code?: string; // đề thi: mã đề (VD TIN3-CK1-01)
   created_at: string;
   updated_at: string;
   owner?: string;
 }
 
-export type QuizSummary = Pick<Quiz, 'id' | 'title' | 'subject' | 'subject_id' | 'chapter_id' | 'lesson_id' | 'grade' | 'visibility' | 'updated_at' | 'cover_url'> & {
+export type QuizSummary = Pick<Quiz, 'id' | 'title' | 'subject' | 'subject_id' | 'chapter_id' | 'lesson_id' | 'grade' | 'visibility' | 'updated_at' | 'cover_url' | 'paper_period' | 'paper_code'> & {
   question_count: number;
 };
 
@@ -156,6 +158,7 @@ export interface Player {
   name: string;
   class_name?: string; // lớp của học sinh (bắt buộc khi vào phòng trực tuyến)
   student_code?: string; // exam: mã số học sinh trong danh sách lớp
+  paper?: number; // exam nhiều đề: em làm đề thứ mấy trong session.papers
   avatar: string;
   score: number;
   correct: number;
@@ -191,11 +194,17 @@ export interface AnswerRecord {
   at: number;
 }
 
+/** Thời điểm kiểm tra của đề thi. */
+export type ExamPeriod = 'tx' | 'gk1' | 'ck1' | 'gk2' | 'ck2';
+/** Một đề trong phòng thi nhiều đề (học sinh được chia ngẫu nhiên, đều nhau giữa các đề). */
+export interface SessionPaper { quiz_id: string; code: string; title: string }
+
 export interface Session {
   session_id: string;
   pin: string; // 6 chữ số
   quiz_id: string;
   quiz_title: string;
+  papers?: SessionPaper[]; // bài kiểm tra nhiều đề (Apps Script 1.5.7): đề đã bốc cho phòng này
   settings: SessionSettings;
   state: SessionState;
   created_at: number;
