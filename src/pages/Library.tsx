@@ -112,6 +112,24 @@ export default function Library() {
     toast('Đã xóa.', 'ok');
     load();
   };
+  // Kho đề thi: xóa một đề, các đề đang chọn, hoặc cả nhóm (kì kiểm tra)
+  const removeMany = async (list: QuizSummary[], what: string) => {
+    if (!list.length) return;
+    // Đề nào cũng có mã đề: chỉ ghi mã trên một dòng cho gọn; không thì ghi tên từng đề
+    const names = list.every((q) => q.paper_code)
+      ? 'Mã đề: ' + list.slice(0, 30).map((q) => q.paper_code).join(', ') + (list.length > 30 ? ` … và ${list.length - 30} đề nữa` : '')
+      : list.slice(0, 8).map((q) => `• ${q.title}`).join('\n') + (list.length > 8 ? `\n… và ${list.length - 8} đề nữa` : '');
+    const ok = await askConfirm(`Xóa ${what}?\n\n${names}\n\nTrên Google Drive, tệp được chuyển vào Thùng rác (khôi phục được trong 30 ngày).`, { danger: true, okLabel: list.length > 1 ? `Xóa ${list.length} đề` : 'Xóa đề' });
+    if (!ok) return;
+    let done = 0;
+    try {
+      for (const q of list) { await api.deleteQuiz(q.id); done++; }
+      toast(`Đã xóa ${done} đề.`, 'ok');
+    } catch (e) {
+      toast(`Đã xóa ${done}/${list.length} đề. Lỗi: ${(e as Error).message}`, 'error');
+    }
+    load();
+  };
   const duplicate = async (q: QuizSummary) => {
     const full = await api.getQuiz(q.id);
     const now = new Date().toISOString();
@@ -256,7 +274,7 @@ export default function Library() {
       )}
 
       {tab === 'papers' ? (
-        <ExamPapers items={items ?? []} filter={filter} onCreate={(preset) => setDlg({ kind: 'paper', preset })} onHost={(papers) => setDlg({ kind: 'hostPapers', papers })} />
+        <ExamPapers items={items ?? []} filter={filter} onCreate={(preset) => setDlg({ kind: 'paper', preset })} onHost={(papers) => setDlg({ kind: 'hostPapers', papers })} onDelete={removeMany} />
       ) : (
       <div className="lib-layout">
         {!mine && (

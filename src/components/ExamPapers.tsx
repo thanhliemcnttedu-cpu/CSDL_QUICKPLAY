@@ -3,7 +3,7 @@
 // bốc ngẫu nhiên 1 đề, 2 đề hoặc dùng tất cả đề đã chọn, học sinh được chia đều cho các đề.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckSquare, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, ClipboardList, Eye, FileStack, Pencil, Play, Plus, Search, Shuffle, Square, X } from 'lucide-react';
+import { AlertTriangle, CheckSquare, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, ClipboardList, Eye, FileStack, Pencil, Play, Plus, Search, Shuffle, Square, Trash2, X } from 'lucide-react';
 
 const GROUPS_STEP = 20; // số kì kiểm tra hiện một lần
 const PAPERS_STEP = 30; // số đề mỗi trang trong một kì (chia hết cho 2 và 3 cột)
@@ -14,11 +14,14 @@ import type { ExamPeriod, QuizSummary } from '../lib/types';
 import { PERIODS, PERIOD_LABEL, drawPapers, groupPapers, paperTitle, type PaperGroup } from '../lib/examPaper';
 import { formatDate } from '../lib/util';
 
-export function ExamPapers({ items, filter, onCreate, onHost }: {
+type OnDelete = (papers: QuizSummary[], what: string) => void;
+
+export function ExamPapers({ items, filter, onCreate, onHost, onDelete }: {
   items: QuizSummary[];
   filter: string;
   onCreate: (preset: { grade?: string; subject?: string; period?: ExamPeriod }) => void;
   onHost: (papers: QuizSummary[]) => void;
+  onDelete: OnDelete;
 }) {
   // Lọc nhanh bằng 3 hàng tab: Lớp → Môn → Thời điểm kiểm tra; mỗi tab ghi số đề (tính theo các lựa chọn ở hàng khác)
   const [f, setF] = useState<{ grade: string; subject: string; period: ExamPeriod | '' }>(() => {
@@ -104,7 +107,7 @@ export function ExamPapers({ items, filter, onCreate, onHost }: {
         </div>
       )}
       {shown.slice(0, groupLimit).map((g) => (
-        <Group key={g.key} g={g} open={autoOpen || open.has(g.key)} onToggle={() => setOpen((s) => { const x = new Set(s); if (x.has(g.key)) x.delete(g.key); else x.add(g.key); return x; })} onCreate={onCreate} onHost={onHost} />
+        <Group key={g.key} g={g} open={autoOpen || open.has(g.key)} onToggle={() => setOpen((s) => { const x = new Set(s); if (x.has(g.key)) x.delete(g.key); else x.add(g.key); return x; })} onCreate={onCreate} onHost={onHost} onDelete={onDelete} />
       ))}
       {shown.length > groupLimit && (
         <button type="button" className="btn ghost" style={{ alignSelf: 'center' }} onClick={() => setGroupLimit((k) => k + GROUPS_STEP)}>
@@ -128,7 +131,7 @@ function Drop({ label, value, options, onPick }: { label: string; value: string;
   );
 }
 
-function Group({ g, open, onToggle, onCreate, onHost }: { g: PaperGroup; open: boolean; onToggle: () => void; onCreate: (p: { grade?: string; subject?: string; period?: ExamPeriod }) => void; onHost: (papers: QuizSummary[]) => void }) {
+function Group({ g, open, onToggle, onCreate, onHost, onDelete }: { g: PaperGroup; open: boolean; onToggle: () => void; onCreate: (p: { grade?: string; subject?: string; period?: ExamPeriod }) => void; onHost: (papers: QuizSummary[]) => void; onDelete: OnDelete }) {
   // Kì ít đề: chọn sẵn tất cả. Kì nhiều đề: chưa chọn đề nào, thầy cô tự chọn (hoặc bốc ngẫu nhiên vài đề)
   const [sel, setSel] = useState<Set<string>>(() => new Set(g.papers.length > BIG_GROUP ? [] : g.papers.map((q) => q.id)));
   const picked = g.papers.filter((q) => sel.has(q.id));
@@ -159,6 +162,20 @@ function Group({ g, open, onToggle, onCreate, onHost }: { g: PaperGroup; open: b
   const pickList = (on: boolean) => setSel((s) => { const n = new Set(s); list.forEach((x) => (on ? n.add(x.id) : n.delete(x.id))); return n; });
   const pickRandom = () => setSel(new Set(drawPapers(list, Math.max(1, Math.min(rnd, list.length))).map((x) => x.id)));
   const all = picked.length === g.papers.length;
+  const groupName = `${g.subject} · ${g.grade} · ${PERIOD_LABEL[g.period]}`;
+  // Xóa đề đang chọn / cả nhóm: hai nút đỏ nhạt, đặt ở dòng chọn đề
+  const delButtons = (
+    <span className="paper-del">
+      <button type="button" className="btn sm ghost danger-ghost" disabled={!picked.length}
+        onClick={() => onDelete(picked, picked.length === 1 ? `đề ${picked[0].paper_code ?? picked[0].title}` : `${picked.length} đề đang chọn của ${groupName}`)}
+        title={picked.length ? 'Xóa các đề đang tích chọn' : 'Tích chọn đề trước'}>
+        <Trash2 size={15} /> Xóa đề đã chọn{picked.length ? ` (${picked.length})` : ''}
+      </button>
+      <button type="button" className="btn sm ghost danger-ghost" onClick={() => onDelete(g.papers, `TẤT CẢ ${g.papers.length} đề của ${groupName}`)} title="Xóa mọi đề trong nhóm này">
+        <Trash2 size={15} /> Xóa cả nhóm ({g.papers.length} đề)
+      </button>
+    </span>
+  );
   return (
     <section className={`card paper-group ${open ? 'open' : 'closed'}`}>
       <header className="paper-group-head">
@@ -197,6 +214,7 @@ function Group({ g, open, onToggle, onCreate, onHost }: { g: PaperGroup; open: b
             </span>
           </span>
           <span className="paper-tools-count"><b>{picked.length}</b>/{g.papers.length} đề đã chọn</span>
+          {delButtons}
         </div>
       )}
       {big && picked.length > 0 && (
@@ -219,7 +237,8 @@ function Group({ g, open, onToggle, onCreate, onHost }: { g: PaperGroup; open: b
           <button type="button" className="qb-check" onClick={() => setSel(all ? new Set() : new Set(g.papers.map((x) => x.id)))} aria-label={all ? 'Bỏ chọn tất cả đề' : 'Chọn tất cả đề'}>
             {all ? <CheckSquare size={20} /> : <Square size={20} />}
           </button>
-          <span className="small muted">Chọn đề để tổ chức thi</span>
+          <span className="small muted grow">Chọn đề để tổ chức thi hoặc để xóa</span>
+          {delButtons}
         </li>}
         {big && !rows.length && <li className="paper-row more"><span className="small muted">Không có đề nào khớp "{q}".</span></li>}
         {rows.map((q) => (
@@ -233,6 +252,7 @@ function Group({ g, open, onToggle, onCreate, onHost }: { g: PaperGroup; open: b
               : <span className="grow paper-name" title={q.title}><b>{q.title}</b><small>{q.question_count} câu · cập nhật {formatDate(q.updated_at)}</small></span>}
             <Link className="btn icon sm ghost" to={`/teacher/preview/${q.id}`} title="Làm thử như học sinh" aria-label={`Làm thử đề ${q.paper_code ?? q.title}`}><Eye size={16} /></Link>
             <Link className="btn icon sm ghost" to={`/teacher/edit/${q.id}`} title="Sửa đề" aria-label={`Sửa đề ${q.paper_code ?? q.title}`}><Pencil size={16} /></Link>
+            <button type="button" className="btn icon sm ghost danger-ghost" onClick={() => onDelete([q], `đề ${q.paper_code ?? q.title}`)} title="Xóa đề" aria-label={`Xóa đề ${q.paper_code ?? q.title}`}><Trash2 size={16} /></button>
           </li>
         ))}
       </ul>
