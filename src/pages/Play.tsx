@@ -368,6 +368,7 @@ export default function Play() {
       const coins = bonus.total;
       if (exam) sfx.saved(); // bài kiểm tra: chuông "đã ghi nhận", không cho biết đúng/sai
       else if (paced) sfx.pop(); // giáo viên điều khiển: đúng/sai phát khi hết giờ
+      else if (a.kind === 'none') sfx.timeup(); // hết giờ: tiếng báo hết giờ, không cho biết đúng / sai
       else if (!oral) ratio === 1 ? sfx.correct() : sfx.wrong();
       if (!paced && !exam && !oral && ratio === 1 && newStreak >= 3) sfx.combo(); // chuỗi đúng liên tiếp
       if (!exam) setFeedback({ ratio, score: pts, q, answer: a, coins });
@@ -443,7 +444,10 @@ export default function Play() {
         };
         advanceRef.current = go;
         // Tự chuyển: có lời giải thích hoặc trả lời chưa đúng thì để lâu hơn cho em kịp đọc. Tắt tự chuyển: chờ em bấm nút.
-        if (settings?.auto_next !== false) advanceTimer.current = window.setTimeout(go, q.explanation || ratio < 1 ? 7000 : homework ? 2200 : 1800);
+        // HẾT GIỜ mà em chưa trả lời: KHÔNG tự chuyển, giữ nguyên màn "Hết giờ" cho tới khi em bấm "Câu tiếp theo"
+        // (hoặc thầy cô kết thúc buổi học).
+        const timedOut = a.kind === 'none';
+        if (settings?.auto_next !== false && !timedOut) advanceTimer.current = window.setTimeout(go, q.explanation || ratio < 1 ? 7000 : homework ? 2200 : 1800);
       }
     },
     [q, order, me, answered, curIndex, homework, exam, free, untimed, streak, settings, pin, paced, order.length, poll?.question_locked, retry, ratios, editing], // eslint-disable-line react-hooks/exhaustive-deps
@@ -994,6 +998,9 @@ export default function Play() {
   // Câu chưa trả lời kế tiếp (vòng lại từ đầu)
   const nextOpen = Array.from({ length: total }, (_, k) => (curIndex + 1 + k) % total).find((i) => !answered.has(i));
   const blocked = poll.state === 'PAUSED' || isLocked || needFullscreen;
+  // Học sinh tự làm (không phải giáo viên điều khiển): hết giờ mà chưa chọn đáp án thì KHÔNG cho thấy đáp án đúng / sai,
+  // chỉ báo "Hết giờ" và chờ em bấm "Câu tiếp theo" (kể cả khi mở lại câu đó trong bảng số câu)
+  const timedOutHere = !paced && !exam && (feedback ? feedback.answer.kind === 'none' : myAnswers.get(curIndex)?.kind === 'none');
   return (
     <Shell>
       {top}
@@ -1122,7 +1129,7 @@ export default function Play() {
           seed={hashString(me.player_id + q.id)}
           shuffleOptions={settings.shuffle_options}
           disabled={!!feedback || locked || (free && answered.has(curIndex) && !(exam && editing.has(curIndex))) || poll.state === 'PAUSED' || isLocked || needFullscreen}
-          reveal={paced ? pacedReveal : exam ? false : !!feedback || (free && !retry && answered.has(curIndex))}
+          reveal={paced ? pacedReveal : exam || timedOutHere ? false : !!feedback || (free && !retry && answered.has(curIndex))}
           chosen={feedback?.answer ?? (answered.has(curIndex) && !(exam && editing.has(curIndex)) ? myAnswers.get(curIndex) ?? null : null)}
           onSubmit={submit}
           draft={exam && editing.has(curIndex) ? myAnswers.get(curIndex) ?? null : draft?.i === curIndex ? draft.a : null}
@@ -1216,7 +1223,7 @@ export default function Play() {
         </div>
       )}
       {feedback && (!paced || pacedReveal || feedback.answer.kind === 'oral') && (
-        <div className={`feedback ${feedback.answer.kind === 'oral' ? '' : feedback.ratio === 1 ? 'ok' : 'bad'}`} role="status">
+        <div className={`feedback ${feedback.answer.kind === 'oral' ? '' : timedOutHere ? 'timeout' : feedback.ratio === 1 ? 'ok' : 'bad'}`} role="status">
           <div className="fb-row">
             {/* Bé Chớp phản ứng theo kết quả: đúng → reo mừng, đúng một phần → suy nghĩ, sai/hết giờ → ối */}
             <Mascot size={92} pose={feedback.answer.kind === 'oral' ? 'think' : feedback.ratio === 1 ? 'cheer' : feedback.ratio > 0 ? 'think' : 'oops'} />
@@ -1224,7 +1231,8 @@ export default function Play() {
           {feedback.answer.kind === 'oral' ? <>Đã gửi – chờ giáo viên chấm</> : feedback.ratio === 1 ? <><Check size={30} /> Chính xác! +{feedback.score.toLocaleString('vi-VN')} điểm{feedback.coins ? ` · +${feedback.coins.toLocaleString('vi-VN')} điểm thưởng` : ''}</> : feedback.ratio > 0 ? <>Đúng một phần +{feedback.score.toLocaleString('vi-VN')} điểm</> : feedback.answer.kind === 'none' ? <><Clock size={30} /> {paced ? 'Hết giờ! Em chưa trả lời câu này.' : 'Hết giờ!'}</> : <><X size={30} /> Chưa đúng</>}
             </span>
           </div>
-          {feedback.q.explanation && <div style={{ fontFamily: 'var(--font-body)', fontSize: '1.05rem', fontWeight: 700, marginTop: 8 }}>{feedback.q.explanation}</div>}
+          {timedOutHere && <div className="small" style={{ fontFamily: 'var(--font-body)', marginTop: 6 }}>Em chưa kịp chọn đáp án. Bấm "Câu tiếp theo" khi em sẵn sàng.</div>}
+          {feedback.q.explanation && !timedOutHere && <div style={{ fontFamily: 'var(--font-body)', fontSize: '1.05rem', fontWeight: 700, marginTop: 8 }}>{feedback.q.explanation}</div>}
           {paced && <div className="small" style={{ fontFamily: 'var(--font-body)', marginTop: 6 }}>Chờ giáo viên chuyển câu tiếp theo…</div>}
           {!paced && <div style={{ marginTop: 10 }}><button type="button" className="btn next-q" autoFocus onClick={() => advanceRef.current?.()}>Câu tiếp theo <ArrowRight size={18} /></button></div>}
         </div>

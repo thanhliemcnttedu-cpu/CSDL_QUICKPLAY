@@ -907,6 +907,8 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 /* Ô báo đúng / sai: khối màu đặc có gờ, chừa chỗ cho Bé Chớp */
 .feedback.ok { background: #16a75a; box-shadow: inset 0 -7px 0 rgba(0, 0, 0, 0.16); }
 .feedback.bad { background: #ec3f63; box-shadow: inset 0 -7px 0 rgba(0, 0, 0, 0.16); }
+/* Hết giờ (học sinh tự làm): màu trung tính, không cho biết đúng / sai */
+.feedback.timeout { background: #f59e0b; box-shadow: inset 0 -7px 0 rgba(0, 0, 0, 0.14); }
 .feedback .next-q { box-shadow: 0 5px 0 rgba(10, 23, 48, 0.25); }
 .feedback .next-q:not(:disabled):active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(10, 23, 48, 0.25); }
 .fb-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }

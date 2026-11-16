@@ -3,9 +3,12 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
 import { installStaleBuildGuard } from './lib/staleBuild';
+import { installAudioUnlock } from './lib/sound';
 
 // Trang mở từ trước khi có bản mới: tự tải lại khi không tìm thấy tệp mã cũ (lỗi "Failed to fetch dynamically imported module")
 installStaleBuildGuard();
+// Điện thoại (kể cả mở link trong Zalo): mở khóa âm thanh ở lần chạm đầu tiên để có nhạc và tiếng đúng / sai
+installAudioUnlock();
 
 // Đường dẫn ngắn dễ nhớ: /giao-vien và /hoc-sinh(?pin=123456) → chuyển sang trang tương ứng trong ứng dụng.
 const SHORT_LINKS: Record<string, string> = {

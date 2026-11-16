@@ -3,6 +3,60 @@
 let ctx: AudioContext | null = null;
 const ac = () => (ctx ??= new (window.AudioContext || (window as any).webkitAudioContext)());
 
+// ---------- Mở khóa âm thanh trên điện thoại (iPhone/iPad Safari, Chrome Android, trình duyệt trong Zalo/Facebook) ----------
+// Điện thoại chỉ cho phát âm thanh khi bộ âm thanh được khởi động NGAY TRONG lần chạm của người dùng; iPhone còn tắt hẳn
+// WebAudio khi gạt nút im lặng. Cách làm: ở mỗi lần chạm / bấm phím, khởi động lại bộ âm thanh, phát một mẫu im lặng,
+// đặt phiên âm thanh là "phát nhạc" (iOS 17+), và chạy một thẻ <audio> im lặng lặp lại (iOS cũ hơn) để tiếng không bị tắt.
+let silentEl: HTMLAudioElement | null = null;
+function silentWav(): string {
+  const rate = 8000, n = rate / 2; // 0,5 giây im lặng, 8 kHz, 8 bit, 1 kênh
+  const buf = new Uint8Array(44 + n);
+  const dv = new DataView(buf.buffer);
+  const w = (o: number, s: string) => [...s].forEach((ch, i) => buf[o + i] = ch.charCodeAt(0));
+  w(0, 'RIFF'); dv.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true); dv.setUint32(24, rate, true);
+  dv.setUint32(28, rate, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); w(36, 'data'); dv.setUint32(40, n, true);
+  buf.fill(128, 44); // 8 bit: 128 là im lặng
+  let s = '';
+  buf.forEach((b) => (s += String.fromCharCode(b)));
+  return 'data:audio/wav;base64,' + btoa(s);
+}
+function unlockAudio() {
+  try {
+    const nav = navigator as Navigator & { audioSession?: { type: string } };
+    if (nav.audioSession && nav.audioSession.type !== 'playback') nav.audioSession.type = 'playback';
+  } catch { /* trình duyệt không hỗ trợ */ }
+  try {
+    const c = ac();
+    if (c.state !== 'running') {
+      c.resume().catch(() => {});
+      const b = c.createBuffer(1, 1, 22050);
+      const s = c.createBufferSource();
+      s.buffer = b;
+      s.connect(c.destination);
+      s.start(0);
+    }
+  } catch { /* bỏ qua */ }
+  try {
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent))) {
+      if (!silentEl) {
+        silentEl = new Audio(silentWav());
+        silentEl.loop = true;
+        silentEl.setAttribute('playsinline', '');
+      }
+      if (silentEl.paused) silentEl.play().catch(() => {});
+    }
+  } catch { /* bỏ qua */ }
+}
+/** Gọi một lần khi mở phần mềm: mọi lần chạm / bấm phím sau đó đều giữ cho âm thanh được phép phát. */
+export function installAudioUnlock() {
+  for (const ev of ['pointerdown', 'touchend', 'click', 'keydown'] as const) window.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+  // quay lại tab / mở khóa màn hình: iPhone tạm dừng bộ âm thanh, lần chạm kế tiếp sẽ mở lại
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') silentEl?.pause();
+  });
+}
+
 const KEY = 'quizzi.sound';
 let enabled = (() => {
   try {
@@ -145,6 +199,11 @@ export const sfx = {
       clap(t0 + t, 0.05 + 0.13 * env * Math.random(), 900 + Math.random() * 1800);
     }
     [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.1, i === 3 ? 0.5 : 0.14, 'triangle', 0.08));
+  }),
+  /** Hết giờ (học sinh tự làm): hai tiếng "tinh tong" nhẹ, không phải tiếng đúng / sai */
+  timeup: play(() => {
+    tone(784, 0, 0.18, 'sine', 0.08);
+    tone(587, 0.2, 0.32, 'sine', 0.08);
   }),
   /** Màn giáo viên: có học sinh vừa trả lời (bong bóng nhỏ) */
   answerIn: play(() => {
