@@ -93,7 +93,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .topnav a svg { flex: none; }
 .nav-short { display: none; }
 /* Máy tính bảng: thanh điều hướng xuống một hàng riêng, các mục chia đều, không dồn thành 2 hàng lộn xộn */
-@media (min-width: 641px) and (max-width: 1000px) {
+@media (min-width: 641px) and (max-width: 1180px) {
   .topbar { flex-wrap: wrap; row-gap: 6px; }
   .topbar > .topnav:not(:has(.btn)) { order: 10; width: 100%; margin-left: 0; flex-wrap: nowrap; }
   .topbar > .topnav:not(:has(.btn)) a { flex: 1 1 0; justify-content: center; min-width: 0; }

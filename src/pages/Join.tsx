@@ -4,6 +4,7 @@ import { ArrowLeft, ClipboardCheck, Gamepad2, LogIn, UserCheck } from 'lucide-re
 import { api } from '../lib/api';
 import { avatarKind, randomAnyAvatar } from '../lib/avatar';
 import { sfx } from '../lib/sound';
+import { MusicButton } from '../components/MusicButton';
 import { enterFullscreen } from '../lib/anticheat';
 import { NAME_USED, NEED_CODE } from '../lib/sessionLogic';
 import { Avatar } from '../components/Avatar';
@@ -206,7 +207,11 @@ export function Join() {
   return (
     <div className="play-bg">
       <div className="play-wrap" style={{ maxWidth: 520, justifyContent: 'center' }}>
-        <Link to="/" className="btn ghost" style={{ alignSelf: 'flex-start' }}><ArrowLeft size={18} /> Trang chủ</Link>
+        <div className="row between" style={{ gap: 8 }}>
+          <Link to="/" className="btn ghost"><ArrowLeft size={18} /> Trang chủ</Link>
+          {/* Làm bài kiểm tra: nhạc nền vui tươi phát ngay từ màn nhập mã (em bấm để tắt); chạy liền sang màn làm bài */}
+          {exam && <MusicButton scope="student" defaultOn className="btn sm ghost" />}
+        </div>
         <form
           className="stack"
           style={{ gap: 18 }}

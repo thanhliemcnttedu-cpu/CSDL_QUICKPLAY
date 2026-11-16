@@ -682,8 +682,10 @@ export default function Play() {
         aria-label={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'} title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}>
         {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
       </button>
-      {/* Nhạc nền vui nhộn (phòng chờ, trò chơi); bài kiểm tra không có nhạc để em tập trung */}
-      {!exam && <MusicButton scope="student" defaultOn initial={settings.music ? undefined : false} paused={doneNow} label={false} className="btn icon sm ghost" />}
+      {/* Nhạc nền vui nhộn: trò chơi theo ô "Nhạc nền" của phòng; bài kiểm tra mặc định có nhạc (bật từ màn nhập mã),
+          em bấm nút này để tắt / bật; nộp bài xong thì dừng */}
+      <MusicButton scope="student" defaultOn initial={exam || settings.music ? undefined : false} paused={doneNow || (exam && examSubmitted) || isLocked} label={false} className="btn icon sm ghost" />
+
     </div>
   );
 
