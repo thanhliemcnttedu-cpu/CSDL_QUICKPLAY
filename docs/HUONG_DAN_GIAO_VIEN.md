@@ -12,8 +12,16 @@ Muốn giữ một bản dự phòng: **Cài đặt → Sao lưu và khôi phụ
 
 ## Cập nhật Apps Script khi có bản mới
 
-Khi Quickplay có bản Apps Script mới, đầu trang giáo viên hiện lời nhắc màu vàng. Vào **Cài đặt → Nơi lưu dữ liệu**, bấm **Xem 5 bước cập nhật**
-(sao chép mã mới → dán đè vào dự án Apps Script đang dùng → Triển khai **Phiên bản mới** → bấm Kiểm tra). Mất khoảng 3 phút; link, khóa và dữ liệu giữ nguyên.
+**Tự cập nhật:** khi Quickplay có bản Apps Script mới, thầy cô chỉ cần mở trang giáo viên. Apps Script tự cập nhật trong khoảng 20 giây
+và hiện thông báo "Apps Script đã tự cập nhật lên phiên bản …". Link, khóa và dữ liệu giữ nguyên. Phần mềm không tự cập nhật khi đang có buổi học trực tiếp.
+
+Để tự cập nhật chạy được, mỗi thầy cô làm **một lần** hai việc (bước 3 của 5 bước cập nhật tay có hướng dẫn):
+1. Dán tệp cấu hình `appsscript.json` của Quickplay vào dự án Apps Script.
+2. Bật **Google Apps Script API** cho Gmail chạy Apps Script.
+
+Khi không tự cập nhật được, đầu trang giáo viên hiện lời nhắc màu vàng nói rõ lý do, kèm nút làm tiếp. Trong **Cài đặt → Tự cập nhật Apps Script** có nút
+**Cập nhật ngay** và **Kiểm tra điều kiện**. Cách dự phòng luôn dùng được là **5 bước cập nhật tay** (sao chép mã mới → dán đè vào dự án đang dùng
+→ Triển khai **Phiên bản mới** → bấm Kiểm tra), mất khoảng 3 phút.
 
 ## Sao lưu, khôi phục và chuyển sang Google Drive mới
 

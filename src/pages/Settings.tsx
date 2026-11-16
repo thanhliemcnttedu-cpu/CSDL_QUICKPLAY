@@ -10,7 +10,8 @@ import type { Quiz } from '../lib/types';
 import { useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller, type InstallResult } from '../components/ScriptInstaller';
 import { SCRIPT_VERSION, compareVersion, pingScript } from '../lib/installer';
-import { noteScriptVersion } from '../lib/scriptUpdate';
+import { checkScriptVersion, noteScriptVersion } from '../lib/scriptUpdate';
+import { ScriptUpdatePanel } from '../components/ScriptUpdate';
 import { ProgressLine, lastFullBackup, useFullBackup, useRestore } from '../components/BackupTools';
 import { checkDriveSpace, driveSpace, fmtGB, type DriveSpace } from '../lib/driveFull';
 import { formatBytes } from '../lib/util';
@@ -64,13 +65,17 @@ export default function Settings() {
   const [server, setServer] = useState<{ version: string } | { error: string } | null>(null);
   useEffect(() => {
     if (!connected) return;
-    pingScript(saved.scriptUrl).then((r) => { setServer({ version: r.version }); noteScriptVersion(r.version); }).catch((e) => setServer({ error: (e as Error).message }));
+    // hỏi phiên bản, giữ lý do của lần tự cập nhật trước (không ghi đè trạng thái như noteScriptVersion)
+    checkScriptVersion(true)
+      .then((r) => (r?.server ? setServer({ version: r.server }) : pingScript(saved.scriptUrl).then((p) => setServer({ version: p.version }))))
+      .catch((e) => setServer({ error: (e as Error).message }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const outdated = !!server && 'version' in server && compareVersion(server.version, SCRIPT_VERSION) < 0;
 
   // Các mục gập đang mở. Mở từ thông báo (…#cap-nhat, …#chuyen-kho) thì mở sẵn đúng mục.
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     const h = location.hash;
+    if (h.includes('tu-cap-nhat')) return new Set(); // khối Tự cập nhật luôn mở sẵn
     if (h.includes('cap-nhat')) return new Set(['cai-dat-5-buoc']);
     return new Set();
   });
@@ -83,7 +88,7 @@ export default function Settings() {
     setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
   };
   useEffect(() => {
-    const id = location.hash.includes('cap-nhat') ? 'ket-noi' : '';
+    const id = location.hash.includes('tu-cap-nhat') ? 'tu-cap-nhat' : location.hash.includes('cap-nhat') ? 'ket-noi' : '';
     if (id) setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
   }, []);
 
@@ -240,14 +245,12 @@ export default function Settings() {
             )}
             {server && 'error' in server && <div className="alert error" role="alert">Không gọi được Apps Script đang lưu: {server.error}</div>}
 
-            {connected && outdated && (
-              <div className="upd-box" role="status">
-                <div className="grow">
-                  <b>Có bản cập nhật Apps Script {SCRIPT_VERSION}</b> (đang chạy {(server as { version: string }).version}).
-                  <small>Làm 5 bước bên dưới, khoảng 3 phút. Link và dữ liệu giữ nguyên.</small>
-                </div>
-                <button className="btn primary" onClick={() => openFold('cai-dat-5-buoc')}><Wand2 size={18} /> Xem 5 bước cập nhật</button>
-              </div>
+            {connected && (
+              <ScriptUpdatePanel
+                server={server && 'version' in server ? server.version : null}
+                onManual={() => openFold('cai-dat-5-buoc')}
+                onServer={(v) => setServer({ version: v })}
+              />
             )}
 
             <Fold key="cai-dat" {...fold('cai-dat-5-buoc')} locked={!compact} icon={<Wand2 size={18} color="var(--primary)" />}

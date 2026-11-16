@@ -5,6 +5,7 @@ import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION as TEACHER_SCRIPT_VERSION, compare
 import { pickFile } from './MediaTools';
 import { downloadBlob } from '../lib/xlsx';
 import { useToast } from './ui';
+import { useCopyManifest } from './ScriptUpdate';
 import '../installer.css';
 
 export interface InstallResult { scriptUrl: string; key: string; folderUrl: string }
@@ -54,6 +55,7 @@ const Step = ({ n, icon, title, done, children }: { n: number; icon: React.React
 
 export function ScriptInstaller({ kind, current, onDone }: Props) {
   const toast = useToast();
+  const copyManifest = useCopyManifest();
   const teacher = kind === 'teacher';
   const SCRIPT_VERSION = teacher ? TEACHER_SCRIPT_VERSION : ADMIN_SCRIPT_VERSION;
   const [mode, setMode] = useState<'new' | 'update'>(current?.scriptUrl ? 'update' : 'new');
@@ -265,6 +267,10 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
               <li>Bấm vào vùng mã, chọn hết <kbd>Ctrl + A</kbd> rồi <kbd>Delete</kbd>.</li>
               <li>Dán mã vừa sao chép <kbd>Ctrl + V</kbd>, bấm Lưu <kbd>Ctrl + S</kbd>.</li>
               {mode === 'new' && <li>Đặt tên dự án, ví dụ <b>{teacher ? 'Quickplay Du lieu' : 'Quickplay Tai khoan'}</b>.</li>}
+              {teacher && <>
+                <li><b>Để các bản sau tự cập nhật</b> (làm một lần): bấm <b>⚙ Cài đặt dự án</b> ở cột trái → tích <b>Hiển thị tệp kê khai "appsscript.json"</b> → quay lại <b>Trình chỉnh sửa</b>, mở <code>appsscript.json</code>, chọn hết, dán tệp cấu hình <button type="button" className="btn sm" onClick={copyManifest}><Copy size={14} /> Sao chép tệp cấu hình</button> rồi <kbd>Ctrl + S</kbd>.</li>
+                <li>Bật <b>Google Apps Script API</b> (một lần cho mỗi Gmail): <a href="https://script.google.com/home/usersettings" target="_blank" rel="noopener noreferrer">mở trang cài đặt Apps Script</a> → gạt <b>Google Apps Script API</b> sang <b>Bật</b>.</li>
+              </>}
             </ol>
           </Step>
         </div>
@@ -283,7 +289,7 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
               <>
                 <p className="ins-path"><Chip>Triển khai ▾</Chip><Then /><Chip>Quản lý các tùy chọn triển khai</Chip><Then /><Chip>✎ (bút chì)</Chip></p>
                 <p className="ins-path">Phiên bản: <Chip>Phiên bản mới</Chip><Then /><Chip strong>Triển khai</Chip></p>
-                {teacher && <p className="muted small">Nếu Google hỏi quyền: <Chip>Cấp quyền truy cập</Chip><Then /><Chip>Nâng cao</Chip><Then /><Chip strong>Cho phép</Chip>.</p>}
+                {teacher && <p className="muted small">Nếu Google hỏi quyền (tệp cấu hình mới thêm quyền tự cập nhật): <Chip>Cấp quyền truy cập</Chip><Then /><Chip>Nâng cao</Chip><Then /><Chip strong>Cho phép</Chip>.</p>}
                 <div className="alert warn"><div><TriangleAlert size={16} /> <b>Không</b> bấm "Tùy chọn triển khai mới": làm vậy Google tạo link khác và link cũ vẫn chạy mã cũ.</div></div>
               </>
             )}

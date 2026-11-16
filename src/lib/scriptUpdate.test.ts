@@ -1,7 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { versionState } from './scriptUpdate';
+import { isFresh, reasonOf, versionState } from './scriptUpdate';
 import { SCRIPT_VERSION } from './installer';
+
+describe('tự cập nhật Apps Script', () => {
+  it('đổi lỗi có mã của Apps Script thành lý do để chỉ đúng việc thầy cô cần làm', () => {
+    expect(reasonOf('API_OFF: Chưa bật Google Apps Script API.')).toEqual({ reason: 'api_off', message: 'Chưa bật Google Apps Script API.' });
+    expect(reasonOf('SCOPES: thiếu quyền').reason).toBe('scopes');
+    expect(reasonOf('MANUAL: cần thêm quyền').reason).toBe('manual');
+    expect(reasonOf('BUSY: đang có buổi học').reason).toBe('busy');
+    expect(reasonOf('Không tải được Code.gs').reason).toBe('error');
+  });
+  it('bản mới nhất thì 6 giờ hỏi lại; chưa cập nhật được thì 15 phút thử lại; chưa thử thì thử ngay', () => {
+    const now = 10 * 3600_000;
+    expect(isFresh({ state: 'current', at: now - 3600_000 }, now)).toBe(true);
+    expect(isFresh({ state: 'current', at: now - 7 * 3600_000 }, now)).toBe(false);
+    expect(isFresh({ state: 'old', at: now - 10 * 60_000, reason: 'api_off' }, now)).toBe(true);
+    expect(isFresh({ state: 'old', at: now - 20 * 60_000, reason: 'api_off' }, now)).toBe(false);
+    expect(isFresh({ state: 'old', at: 0 }, now)).toBe(false);
+    expect(isFresh(null, now)).toBe(false);
+  });
+  it('tệp cấu hình phát hành có đủ quyền tự cập nhật', () => {
+    const scopes: string[] = JSON.parse(readFileSync('apps-script/appsscript.json', 'utf8')).oauthScopes;
+    expect(scopes).toEqual(expect.arrayContaining(['https://www.googleapis.com/auth/script.projects', 'https://www.googleapis.com/auth/script.deployments']));
+  });
+});
 
 describe('nhắc cập nhật Apps Script', () => {
   it('so phiên bản máy chủ với bản phần mềm cần', () => {

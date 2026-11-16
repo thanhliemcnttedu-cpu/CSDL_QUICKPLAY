@@ -36,6 +36,7 @@
 .folder-box { border: 1.5px solid var(--border); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; background: #f7faff; }
 .folder-box > .row.between, .folder-box > .conn-ok, .folder-box > .conn-off, .folder-box > .alert { width: 100%; }
 .folder-box .conn-off { flex-wrap: wrap; }
+#tu-cap-nhat { scroll-margin-top: 84px; } /* mở từ thông báo: tiêu đề khối không bị thanh trên che */
 
 /* Bảng hướng dẫn từng bước ở trang quản trị */
 .guide > summary { cursor: pointer; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; list-style: none; }

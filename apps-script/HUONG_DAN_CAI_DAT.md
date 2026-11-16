@@ -66,9 +66,20 @@ Cập nhật tay bằng 5 bước ở trang Cài đặt.
 `QUICKPLAY_DATA/media/tra_loi_mieng/`, tên tệp `<mã phòng>_<mã học sinh>_cau<số câu>`. Chỉ em đang có trong phòng đang chạy
 mới gửi được; tối đa khoảng 90 giây mỗi bản; em ghi lại thì bản cũ vào Thùng rác. Không cần cấp quyền mới.
 
-**Cập nhật khi có bản mới:** phần mềm nhắc ở đầu trang giáo viên; thầy cô vào **Cài đặt → Nơi lưu dữ liệu → Xem 5 bước cập nhật**
-(sao chép mã mới, dán đè vào dự án đang dùng, triển khai **Phiên bản mới**, bấm Kiểm tra). Link, khóa giáo viên và dữ liệu giữ nguyên.
-Chức năng tự cập nhật đã được gỡ khỏi giao diện vì không chạy ổn định; phần mã `selfUpdate` trong Code.gs còn đó nhưng phần mềm không gọi nữa.
+**Tự cập nhật khi có bản mới (bật lại từ phần mềm bản 1.5.8):** khi thầy cô mở trang giáo viên, phần mềm thấy Apps Script cũ hơn bản cần
+thì gửi `selfUpdate`. Apps Script tự tải mã mới từ trang Quickplay, kiểm tra mã băm SHA-256, ghi đè, tạo phiên bản mới và chuyển link `/exec`
+đang dùng sang bản đó. Link, khóa giáo viên và dữ liệu giữ nguyên.
+- Phần mềm không tự cập nhật khi đang có buổi học trực tiếp; nút **Cập nhật ngay** hỏi trước khi cập nhật trong lúc đó.
+- Chưa cập nhật được thì 15 phút sau thử lại.
+- Hai thẻ trình duyệt mở cùng lúc thì chỉ một thẻ chạy cập nhật.
+
+Cần hai điều kiện, mỗi điều làm **một lần**:
+1. Bật **Google Apps Script API** tại https://script.google.com/home/usersettings bằng Gmail chạy Apps Script.
+2. Dự án có tệp cấu hình `appsscript.json` của Quickplay (quyền `script.projects` và `script.deployments`). Dán ở bước 3 khi cập nhật tay.
+
+Khi không tự cập nhật được, đầu trang giáo viên báo đúng lý do (chưa bật API, thiếu quyền, bản mới cần thêm quyền Google, đang có buổi học).
+Khối **Cài đặt → Tự cập nhật Apps Script** có nút **Cập nhật ngay** và **Kiểm tra điều kiện**. Cách dự phòng vẫn là **5 bước cập nhật tay**
+(sao chép mã mới, dán đè vào dự án đang dùng, triển khai **Phiên bản mới**, bấm Kiểm tra).
 
 **Sao lưu toàn bộ và chuyển Drive (từ bản 1.3.0):** Apps Script đọc hàng loạt bộ câu hỏi, kết quả buổi học, ảnh và âm thanh để phần mềm đóng gói
 một tệp sao lưu toàn bộ (đọc được cả khi Drive đã đầy), báo dung lượng Drive để cảnh báo khi sắp đầy, nhận khôi phục hàng loạt lên Drive mới,

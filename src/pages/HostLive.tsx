@@ -585,7 +585,7 @@ function ExamPanel({ s, now, link, qr }: { s: Session; now: number; link: string
           <div>
             <b>Apps Script của thầy cô đang chạy bản {server.server}, cần bản {SCRIPT_VERSION}.</b> Khi chưa cập nhật, học sinh gõ mã số chưa tự điền được họ tên, lớp
             (các em vẫn vào được bằng mã số) và chưa chọn lại được đáp án; hai lựa chọn "cách làm bài" và "xem lại bài" cũng chưa có tác dụng.{' '}
-            <Link to="/teacher/settings#cap-nhat"><b>Xem 5 bước cập nhật</b></Link> (khoảng 3 phút, link và dữ liệu giữ nguyên; nên cập nhật trước khi mở phòng).
+            <Link to="/teacher/settings#tu-cap-nhat"><b>Cập nhật Apps Script</b></Link> (thường tự cập nhật trong khoảng 20 giây; link và dữ liệu giữ nguyên; nên cập nhật trước khi mở phòng).
           </div>
         </div>
       )}
