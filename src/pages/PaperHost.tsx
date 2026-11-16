@@ -2,7 +2,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
-import { ArrowRight, BellRing, ChartColumn, Download, Home, QrCode, Square } from 'lucide-react';
+import { ArrowRight, BellRing, ChartColumn, Download, Home, PartyPopper, QrCode, Square } from 'lucide-react';
+import { MusicButton } from '../components/MusicButton';
+import { Confetti } from '../components/Confetti';
 import type { Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperOp } from '../lib/paper';
@@ -48,13 +50,26 @@ export default function PaperHost() {
   // Đang quét: màn chiếu chỉ cho biết em nào ĐÃ ĐƯỢC QUÉT, không lộ đáp án đúng và không lộ ai đúng ai sai.
   // Giáo viên bấm Nộp trên điện thoại (hoặc "Hiện kết quả" ở đây) thì mới hiện đáp án, tô xanh/đỏ và phát nhạc chúc mừng.
   const wasReveal = useRef<{ q: number; on: boolean } | null>(null);
+  // Vừa hiện kết quả: tung hoa + vỗ tay chúc mừng các bạn trả lời đúng (nhạc nền vẫn phát)
+  const [party, setParty] = useState<{ burst: number; names: string[]; none: boolean } | null>(null);
+  const partyTimer = useRef(0);
   useEffect(() => {
     if (!s?.paper || s.state !== 'IN_PROGRESS') return;
     const now = { q: s.current_index, on: !!s.paper.reveal };
     const prev = wasReveal.current;
     wasReveal.current = now;
-    if (prev && prev.q === now.q && !prev.on && now.on) sfx.cheer(); // vừa hiện kết quả của câu này
+    if (prev && !(prev.q === now.q && prev.on) && now.on) {
+      const right = s.answers.filter((a) => a.q_index === s.current_index && a.correct).map((a) => a.player_id);
+      const names = s.players.filter((p) => right.includes(p.player_id)).map((p) => p.name);
+      if (names.length) sfx.applause();
+      else sfx.whoosh();
+      setParty({ burst: Date.now(), names, none: !names.length });
+      clearTimeout(partyTimer.current);
+      partyTimer.current = window.setTimeout(() => setParty(null), 6000);
+    }
+    if (!now.on) setParty(null);
   }, [s]);
+  useEffect(() => () => clearTimeout(partyTimer.current), []);
 
   const refresh = useCallback(async () => {
     try {
@@ -224,6 +239,7 @@ export default function PaperHost() {
         <span className="pp-count">Đã quét <b>{done}</b>/{total} thẻ</span>
         {showMark && done > 0 && <span className="pp-count ok">Đúng <b>{nRight}</b> · Sai <b>{done - nRight}</b></span>}
         <span className="grow" />
+        <MusicButton scope="teacher" initial className="btn ghost" />
         <button className="btn ghost" onClick={() => setShowQr((v) => !v)}><QrCode size={18} /> Mã QR</button>
         <button className={`btn ${s.paper.remind ? 'accent' : 'ghost'}`} onClick={() => act('remind')} disabled={!waiting.length}><BellRing size={18} /> Nhắc</button>
         <button className="btn ghost" onClick={() => act('reveal')}><ChartColumn size={18} /> {s.paper.reveal ? 'Ẩn kết quả' : 'Hiện kết quả'}</button>
@@ -274,6 +290,22 @@ export default function PaperHost() {
           </div>
         </section>
       </div>
+      {party && !party.none && <Confetti burst={party.burst} />}
+      {party && (
+        <div className={`pp-party ${party.none ? 'none' : ''}`} role="status" onClick={() => setParty(null)}>
+          {party.none ? (
+            <b>Chưa bạn nào chọn đúng. Cả lớp cùng xem lại đáp án nhé!</b>
+          ) : (
+            <>
+              <b><PartyPopper size={30} /> Chúc mừng {party.names.length} bạn trả lời đúng!</b>
+              <span className="pp-party-names">
+                {party.names.slice(0, 14).map((n) => <i key={n}>{n}</i>)}
+                {party.names.length > 14 && <i>và {party.names.length - 14} bạn nữa</i>}
+              </span>
+            </>
+          )}
+        </div>
+      )}
       <AppFooter compact />
     </div>
   );

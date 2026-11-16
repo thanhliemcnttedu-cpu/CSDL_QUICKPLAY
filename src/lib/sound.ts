@@ -45,6 +45,28 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType = '
   o.stop(t0 + dur + 0.05);
 }
 
+/** Một tiếng vỗ tay: tiếng ồn ngắn qua bộ lọc dải (tần số khác nhau cho tự nhiên). */
+let clapBuf: AudioBuffer | null = null;
+function clap(at: number, vol: number, freq: number) {
+  const c = ac();
+  if (!clapBuf) {
+    clapBuf = c.createBuffer(1, Math.floor(c.sampleRate * 0.08), c.sampleRate);
+    const d = clapBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.012));
+  }
+  const s = c.createBufferSource();
+  s.buffer = clapBuf;
+  s.playbackRate.value = 0.8 + Math.random() * 0.5;
+  const f = c.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.value = freq;
+  f.Q.value = 0.9;
+  const g = c.createGain();
+  g.gain.value = vol;
+  s.connect(f).connect(g).connect(c.destination);
+  s.start(at);
+}
+
 /** Tiếng "xì" ngắn (hi-hat) cho nhịp nhạc nền. */
 let noiseBuf: AudioBuffer | null = null;
 function hat(at: number, vol: number, dest: AudioNode) {
@@ -112,6 +134,18 @@ export const sfx = {
   }),
   /** Bị khóa lượt chơi */
   lock: play(() => tone(300, 0, 0.5, 'sawtooth', 0.05, 120)),
+  /** Vỗ tay chúc mừng (khoảng 3 giây): nhiều tiếng "bốp" ngắn chen nhau, to dần rồi nhỏ dần, kèm kèn mừng ngắn */
+  applause: play(() => {
+    const c = ac();
+    const t0 = c.currentTime + 0.02;
+    const len = 3;
+    for (let i = 0; i < 150; i++) {
+      const t = Math.random() * len;
+      const env = Math.sin((Math.min(t, len) / len) * Math.PI) ** 0.6; // to dần rồi nhỏ dần
+      clap(t0 + t, 0.05 + 0.13 * env * Math.random(), 900 + Math.random() * 1800);
+    }
+    [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.1, i === 3 ? 0.5 : 0.14, 'triangle', 0.08));
+  }),
   /** Màn giáo viên: có học sinh vừa trả lời (bong bóng nhỏ) */
   answerIn: play(() => {
     tone(523, 0, 0.08, 'sine', 0.06, 784);
