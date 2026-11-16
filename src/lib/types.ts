@@ -125,6 +125,8 @@ export interface SessionSettings {
   deadline?: string; // homework: hạn nộp; exam: giờ thu bài (máy chủ đặt khi giáo viên bấm Bắt đầu)
   exam_class_id?: string; // exam: lớp được giao bài kiểm tra
   exam_minutes?: number; // exam: thời gian làm bài (phút)
+  exam_layout?: 'one' | 'page'; // exam: từng câu một như trò chơi (mặc định) hoặc cả bài trên một trang cuộn như đề giấy
+  exam_review?: 'none' | 'end' | 'submit'; // exam: học sinh xem lại bài (đúng/sai, đáp án, lời giải): không cho / khi thầy cô thu bài / ngay khi nộp
   anti_cheat?: AntiCheatSettings;
 }
 

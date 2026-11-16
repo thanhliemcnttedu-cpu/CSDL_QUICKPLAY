@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.4';
+var APP_VERSION = '1.5.5';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -1602,6 +1602,11 @@ function normalizeSettings_(raw) {
     s.power_ups = false;
     s.retry_rounds = 0;
     s.exam_minutes = clamp_(Math.round(Number(raw.exam_minutes) || 45), 1, 300);
+    // Cách làm bài: từng câu một (như trò chơi) hoặc cả bài trên một trang (như đề giấy); cả hai đều cho chọn câu tự do
+    s.exam_layout = raw.exam_layout === 'page' ? 'page' : 'one';
+    s.navigation = 'free';
+    // Xem lại bài sau khi nộp: không cho / khi giáo viên thu bài / ngay khi nộp
+    s.exam_review = raw.exam_review === 'submit' || raw.exam_review === 'none' ? raw.exam_review : 'end';
   }
   if (mode === 'homework') {
     if (raw.start_time) {

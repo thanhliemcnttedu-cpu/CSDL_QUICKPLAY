@@ -27,6 +27,10 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 (một tệp `.json` duy nhất); sang máy khác hoặc đổi Google Drive thì **Khôi phục từ file .json**. Tệp gộp cũ (tên `<tên đăng nhập>_<ngày giờ>.json`)
 còn trong thư mục Drive có thể xóa đi.
 
+**Bản 1.5.5:** bài kiểm tra có thêm hai lựa chọn của giáo viên: `exam_layout` (`one` = làm từng câu như trò chơi, bấm Câu tiếp theo hoặc chọn số câu;
+`page` = cả bài trên một trang cuộn như đề giấy) và `exam_review` (`none` / `end` = xem lại bài khi giáo viên thu bài / `submit` = xem ngay khi nộp).
+Bản cũ bỏ qua hai lựa chọn này nên cần cập nhật tay bằng 5 bước ở trang Cài đặt.
+
 **Bản 1.5.4:** bài kiểm tra theo danh sách lớp. Mỗi lớp (`classes.json`) có thêm `codes`: mã số học sinh do giáo viên đặt, cùng thứ tự với danh sách tên.
 Chế độ tổ chức mới `exam`: phòng lưu danh sách mã được phép vào (`exam.roster`, không gửi cho học sinh); học sinh vào bằng mã PIN + mã số học sinh, mỗi mã làm một lần;
 giờ thu bài = lúc giáo viên bấm Bắt đầu + số phút đã đặt (tạm dừng thì cộng bù), hết giờ phòng tự kết thúc; đã nộp thì không vào lại và không trả lời thêm được.

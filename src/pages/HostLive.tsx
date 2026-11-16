@@ -22,6 +22,7 @@ import { Spinner, useToast, askConfirm } from '../components/ui';
 import { StemMedia } from '../components/MediaView';
 import { Leaderboard, Stats } from './Play';
 import { LiveReport } from '../components/LiveReport';
+import { ExamScoreTable } from '../components/ExamScoreTable';
 
 export function joinUrl(pin: string): string {
   const s = loadSettings();
@@ -292,7 +293,7 @@ export default function HostLive() {
             <OralGrading s={s} quiz={quiz} busy={busy} onGrade={(pid, qi, correct, points, coins) => act('grade', pid, { q_index: qi, correct, points, coins })} />
             <div className="tabs" role="tablist" aria-label="Khu vực điều khiển">
               <button role="tab" aria-selected={tab === 'dash'} className={`tab ${tab === 'dash' ? 'on' : ''}`} onClick={() => setTab('dash')}>
-                <LayoutDashboard size={16} /> Bảng điều khiển
+                <LayoutDashboard size={16} /> {s.settings.mode === 'exam' ? 'Bảng điểm' : 'Bảng điều khiển'}
               </button>
               <button role="tab" aria-selected={tab === 'stats'} className={`tab ${tab === 'stats' ? 'on' : ''}`} onClick={() => setTab('stats')}>
                 <ChartColumn size={16} /> Thống kê
@@ -301,12 +302,15 @@ export default function HostLive() {
                 <ShieldAlert size={16} /> Giám sát gian lận
                 {counted.length > 0 && <span className={`tab-badge ${unseen ? 'pulse' : ''}`}>{unseen || counted.length}</span>}
               </button>
-              <button role="tab" aria-selected={tab === 'lb'} className={`tab ${tab === 'lb' ? 'on' : ''}`} onClick={() => setTab('lb')}>
+              {s.settings.mode !== 'exam' && <button role="tab" aria-selected={tab === 'lb'} className={`tab ${tab === 'lb' ? 'on' : ''}`} onClick={() => setTab('lb')}>
                 <Trophy size={16} /> Bảng xếp hạng
-              </button>
+              </button>}
             </div>
 
-            {tab === 'dash' && (
+            {tab === 'dash' && s.settings.mode === 'exam' && (
+              <ExamScoreTable s={s} quiz={quiz} onKick={async (pid, name) => (await askConfirm(`Mời "${name}" ra?`)) && act('kick', pid)} />
+            )}
+            {tab === 'dash' && s.settings.mode !== 'exam' && (
               <div className="card" style={{ color: 'var(--fg)' }}>
                 <div className="table-wrap">
                   <table className="table">
@@ -442,6 +446,21 @@ function Completed({ s, quiz }: { s: Session; quiz: Quiz | null }) {
   const stats = quiz ? questionStats(quiz, s) : [];
   const [top, setTop] = useState(s.settings.leaderboard_top ?? 0);
   const anti = !!s.settings.anti_cheat?.enabled;
+  if (s.settings.mode === 'exam')
+    return (
+      <div className="stack" style={{ gap: 20 }}>
+        <h1 className="center" style={{ margin: 0 }}>Đã thu bài kiểm tra</h1>
+        <ExamScoreTable s={s} quiz={quiz} />
+        <h2 style={{ margin: 0 }}>Báo cáo chi tiết</h2>
+        <LiveReport s={s} quiz={quiz} />
+        {anti && (
+          <div className="stack">
+            <h2 className="row" style={{ gap: 8, margin: 0 }}><ShieldAlert size={24} /> Nhật ký gian lận</h2>
+            <CheatMonitor s={s} busy newSince={Date.now()} onUnlock={() => {}} onKick={() => {}} />
+          </div>
+        )}
+      </div>
+    );
   return (
     <div className="stack" style={{ gap: 20 }}>
       <h1 className="center" style={{ margin: 0 }}>Bục vinh danh</h1>

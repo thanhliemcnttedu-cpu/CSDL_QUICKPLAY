@@ -103,3 +103,45 @@ describe('bài kiểm tra: giờ làm bài và thông tin gửi cho học sinh',
     expect(locks).toEqual([false, false, false, true]);
   });
 });
+
+describe('bài kiểm tra: cách làm bài, xem lại bài và bảng điểm', () => {
+  it('mặc định làm từng câu, xem lại khi thu bài; luôn cho chọn câu tự do', () => {
+    expect(open().settings).toMatchObject({ exam_layout: 'one', exam_review: 'end', navigation: 'free' });
+    const s = logic.createSession('1', 'q', 'T', 3, { ...settings, exam_layout: 'page', exam_review: 'submit' }, logic.examRoster(cls));
+    expect(s.settings).toMatchObject({ exam_layout: 'page', exam_review: 'submit' });
+  });
+  it('bảng điểm: hạng, mã số HS, trạng thái, điểm 10, đúng/sai/bỏ trống, mức; em chưa vào ở cuối', async () => {
+    const { analyze, examRows, examSheet } = await import('./analytics');
+    const s = open();
+    const a = logic.joinPlayer(s, 'An', 'cat', undefined, '5A', false, 'HS1');
+    const b = logic.joinPlayer(s, 'Bình', 'dog', undefined, '5A', false, 'HS2');
+    logic.applyHostOp(s, 'start');
+    [true, true, true].forEach((c, i) => logic.submitAnswer(s, rec(a.player_id, i, c)));
+    logic.submitAnswer(s, rec(b.player_id, 0, true));
+    logic.submitAnswer(s, rec(b.player_id, 1, false));
+    a.finished = true;
+    b.finished = true;
+    const rows = examRows(s, analyze(s, null));
+    expect(rows.map((r) => [r.rank, r.name, r.student_code, r.status, r.mark10, r.correct, r.wrong, r.blank, r.level])).toEqual([
+      [1, 'Nguyễn An', 'HS1', 'submitted', 10, 3, 0, 0, 'excellent'],
+      [2, 'Trần Bình', 'HS2', 'submitted', 3.3, 1, 1, 1, 'effort'],
+      [null, 'Lê Chi', 'HS3', 'absent', null, null, null, null, null],
+    ]);
+    const sheet = examSheet(s, analyze(s, null));
+    expect(sheet.rows[3]).toEqual(['Hạng', 'Họ và tên', 'Lớp', 'Mã số HS', 'Trạng thái', 'Điểm (thang 10)', 'Tổng số câu', 'Số câu đúng', 'Số câu sai', 'Số câu bỏ trống', 'Mức đánh giá']);
+    expect(sheet.rows[4]).toEqual([1, 'Nguyễn An', '5A', 'HS1', 'Đã nộp', 10, 3, 3, 0, 0, 'Hoàn thành xuất sắc']);
+    expect(sheet.rows[6]).toEqual(['', 'Lê Chi', '5A', 'HS3', 'Chưa vào thi', '', 3, '', '', '', '']);
+  });
+  it('bằng điểm thì cùng hạng; đang làm thì chưa có điểm', async () => {
+    const { analyze, examRows } = await import('./analytics');
+    const s = open();
+    const ps = ['HS1', 'HS2', 'HS3'].map((c) => logic.joinPlayer(s, 'x', 'cat', undefined, '5A', false, c));
+    logic.applyHostOp(s, 'start');
+    logic.submitAnswer(s, rec(ps[0].player_id, 0, true));
+    logic.submitAnswer(s, rec(ps[1].player_id, 0, true));
+    ps[0].finished = ps[1].finished = true;
+    const rows = examRows(s, analyze(s, null));
+    expect(rows.map((r) => r.rank)).toEqual([1, 1, null]);
+    expect(rows[2]).toMatchObject({ status: 'doing', mark10: null, level: null });
+  });
+});

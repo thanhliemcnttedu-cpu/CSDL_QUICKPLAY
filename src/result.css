@@ -48,3 +48,20 @@
 .exam-nums .bad b { color: #b91c1c; }
 .exam-nums .mark { border-color: #9cc3ff; background: var(--primary-soft); }
 .exam-nums .mark b { color: var(--primary-ink); }
+
+/* Bài kiểm tra: cả bài trên một trang (như đề giấy), nút Câu tiếp theo, xem lại bài làm */
+.exam-page { width: 100%; max-width: 860px; margin: 0 auto; gap: 14px; }
+.exam-progress { position: sticky; top: 8px; z-index: 5; gap: 8px; box-shadow: 0 8px 24px rgba(10, 23, 48, 0.12); }
+.exam-progress .qnav-grid { max-height: 96px; overflow-y: auto; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 6px; }
+.exam-progress .qnav-no { min-height: 40px; }
+.exam-q { scroll-margin-top: 200px; gap: 10px; }
+.exam-q.done { border-color: #86efac; }
+.exam-next { width: 100%; max-width: 560px; margin: 12px auto 0; gap: 10px; }
+.exam-rv { gap: 10px; border-left: 6px solid #94a3b8; }
+.exam-rv.ok { border-left-color: var(--success); }
+.exam-rv.bad { border-left-color: var(--danger); }
+.exam-rv.part, .exam-rv.wait { border-left-color: #d97706; }
+@media (max-width: 560px) {
+  .exam-progress .qnav-grid { max-height: 52px; }
+  .exam-q { scroll-margin-top: 150px; }
+}

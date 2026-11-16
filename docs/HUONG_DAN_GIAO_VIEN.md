@@ -32,12 +32,20 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
 
 1. **Đặt mã số học sinh:** Dạy học trên lớp → Lớp học → **Mã học sinh**. Gõ mã vào từng ô, hoặc điền chữ đứng đầu (ví dụ `HS`) và số bắt đầu rồi bấm
    **Tạo mã tự động** (HS1, HS2…). Bấm **Lưu mã**, rồi **Xuất Excel** để in hoặc gửi danh sách (lớp, họ tên, mã số) cho học sinh.
-2. **Giao bài:** Thư viện → **Tổ chức** trên bộ câu hỏi → chọn **Bài kiểm tra** → chọn lớp, điền thời gian làm bài (phút), chọn trả lời lần lượt hay tự do chọn câu,
-   bật / chỉnh **Chống gian lận** (mặc định nhắc nhở 3 lần, lần thứ 4 khóa bài) → **Mở phòng kiểm tra**.
+2. **Giao bài:** Thư viện → **Tổ chức** trên bộ câu hỏi → chọn **Bài kiểm tra** → chọn lớp, điền thời gian làm bài (phút), chọn **cách làm bài**:
+   - **Từng câu một, như trò chơi:** trả lời xong em bấm **Câu tiếp theo** hoặc bấm số câu trong bảng số câu;
+   - **Cả bài trên một trang, như đề giấy:** cuộn xuống làm lần lượt, có thanh "đã trả lời x/y câu" và bảng số câu để nhảy tới câu chưa làm.
+
+   Chọn **xem lại bài làm** sau khi nộp: *Khi thầy cô thu bài* (nên dùng), *Ngay khi nộp* hoặc *Không cho xem*. Xem lại gồm đúng/sai từng câu, đáp án em chọn,
+   đáp án đúng và lời giải. Bật / chỉnh **Chống gian lận** (mặc định nhắc nhở 3 lần, lần thứ 4 khóa bài) → **Mở phòng kiểm tra**.
+   Hai lựa chọn mới cần Apps Script 1.5.5 trở lên (Cài đặt → Xem 5 bước cập nhật).
 3. **Học sinh vào làm:** nhập mã PIN, tên, lớp và **mã số học sinh**. Chỉ mã có trong lớp mới vào được; tên trong bài lấy theo danh sách lớp; mỗi mã làm một lần.
 4. Thầy cô bấm **Bắt đầu**: đồng hồ chạy, hết giờ phần mềm tự thu bài. Trong lúc làm, học sinh không được báo đúng hay sai.
-   Làm xong em bấm **Nộp bài kiểm tra** và thấy số câu đúng, số câu sai, điểm thang 10; nộp rồi không làm lại được.
-5. **Giám sát:** màn hình của thầy cô hiện số em đã vào, đã nộp, chưa vào; thẻ **Giám sát gian lận** hiện từng lần vi phạm và nút **Mở khóa** cho bài bị khóa.
+   Làm xong em bấm **Nộp bài kiểm tra** và thấy số câu đúng, số câu sai, điểm thang 10 và mức đánh giá; nộp rồi không làm lại được.
+5. **Giám sát:** màn hình của thầy cô hiện số em đã vào, đã nộp, chưa vào; thẻ **Bảng điểm** có hạng, họ tên, lớp, mã số HS, trạng thái, điểm/10,
+   số câu đúng, sai, bỏ trống và mức đánh giá; thẻ **Giám sát gian lận** hiện từng lần vi phạm và nút **Mở khóa** cho bài bị khóa.
+6. **Xuất bảng điểm Excel:** trang tính đầu tiên "Bảng điểm" có đủ các cột trên (cả em chưa vào thi), cuối bảng có sĩ số, số em đã nộp, điểm trung bình
+   và số em ở từng mức: Hoàn thành xuất sắc (từ 9 điểm), Hoàn thành tốt (từ 7), Đạt yêu cầu (từ 5), Chưa đạt yêu cầu (dưới 5).
 
 ## Soạn bộ câu hỏi
 

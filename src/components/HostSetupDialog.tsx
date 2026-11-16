@@ -49,7 +49,7 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
   const codesDone = examClass ? (examClass.codes ?? []).filter(Boolean).length : 0;
   /** Chọn chế độ; bài kiểm tra thì bật sẵn chống gian lận với ngưỡng 3 lần. */
   const pickMode = (mode: SessionMode) => setS((x) => (mode === 'exam' && x.mode !== 'exam'
-    ? { ...x, mode, shuffle_questions: x.shuffle_questions, anti_cheat: { ...x.anti_cheat!, enabled: true, max_violations: 3 } }
+    ? { ...x, mode, navigation: 'free', exam_layout: x.exam_layout ?? 'one', exam_review: x.exam_review ?? 'end', anti_cheat: { ...x.anti_cheat!, enabled: true, max_violations: 3 } }
     : { ...x, mode }));
   const [roundsText, setRoundsText] = useState('0');
   /** Lưu số lượt làm lại giáo viên tự điền (0–20). */
@@ -156,14 +156,49 @@ export function HostSetupDialog({ quiz, onClose }: { quiz: QuizSummary; onClose:
             {examClass && codesDone < examClass.students.length && (
               <div className="alert warn"><div>Lớp <b>{examClass.name}</b> mới có mã số cho {codesDone}/{examClass.students.length} em. Vào <Link to="/teacher/paper"><b>Dạy học trên lớp</b></Link> → Lớp học → <b>Mã học sinh</b> để đặt đủ mã rồi quay lại.</div></div>
             )}
+            <div className="field">
+              <span>Cách học sinh làm bài</span>
+              <div className="row" role="radiogroup" aria-label="Cách học sinh làm bài kiểm tra">
+                <button type="button" role="radio" aria-checked={s.exam_layout !== 'page'} className={`tab ${s.exam_layout !== 'page' ? 'on' : ''}`} onClick={() => set({ exam_layout: 'one' })}>Từng câu một, như trò chơi</button>
+                <button type="button" role="radio" aria-checked={s.exam_layout === 'page'} className={`tab ${s.exam_layout === 'page' ? 'on' : ''}`} onClick={() => set({ exam_layout: 'page' })}>Cả bài trên một trang, như đề giấy</button>
+              </div>
+              <small className="help">
+                {s.exam_layout === 'page'
+                  ? 'Học sinh thấy tất cả câu hỏi trên một trang, cuộn xuống để làm, có thanh "đã làm x/y câu" và bảng số câu để nhảy tới câu chưa làm. Nút Nộp bài kiểm tra ở cuối trang.'
+                  : 'Mỗi lần hiện một câu. Trả lời xong, học sinh bấm "Câu tiếp theo" hoặc bấm số câu trong bảng số câu để sang câu khác.'}
+              </small>
+            </div>
+            <div className="field">
+              <span>Sau khi nộp bài, học sinh được xem lại bài làm</span>
+              <div className="row" role="radiogroup" aria-label="Xem lại bài làm">
+                {([['end', 'Khi thầy cô thu bài'], ['submit', 'Ngay khi nộp'], ['none', 'Không cho xem']] as const).map(([v, label]) => (
+                  <button key={v} type="button" role="radio" aria-checked={(s.exam_review ?? 'end') === v} className={`tab ${(s.exam_review ?? 'end') === v ? 'on' : ''}`} onClick={() => set({ exam_review: v })}>{label}</button>
+                ))}
+              </div>
+              <small className="help">
+                {(s.exam_review ?? 'end') === 'none'
+                  ? 'Học sinh chỉ thấy số câu đúng, số câu sai, điểm và mức đánh giá.'
+                  : <>Học sinh thấy từng câu: <b>đúng hay sai</b>, đáp án em chọn, <b>đáp án đúng</b> và lời giải (nếu câu có lời giải). {(s.exam_review ?? 'end') === 'end' ? 'Chỉ mở khi thầy cô bấm Kết thúc hoặc hết giờ, để em nộp sớm không báo đáp án cho bạn.' : 'Lưu ý: em nộp sớm có thể báo đáp án cho bạn chưa nộp.'}</>}
+              </small>
+            </div>
             <p className="help" style={{ margin: 0 }}>
               Học sinh nhập mã PIN của phòng và <b>mã số học sinh</b> của mình; chỉ em có mã trong lớp này mới vào được, mỗi em làm một lần.
               Đồng hồ bắt đầu chạy khi thầy cô bấm <b>Bắt đầu</b>; hết giờ phần mềm tự thu bài. Trong lúc làm, học sinh không được báo đúng hay sai;
-              bấm <b>Nộp bài kiểm tra</b> xong mới thấy số câu đúng, số câu sai và điểm.
+              bấm <b>Nộp bài kiểm tra</b> xong mới thấy số câu đúng, số câu sai, điểm và mức đánh giá.
             </p>
           </div>
         )}
-        {s.mode !== 'instructor_paced' && (
+        {exam && (
+          <div className="field">
+            <span>Khi học sinh bấm Nộp bài mà chưa làm hết</span>
+            <div className="row" role="radiogroup" aria-label="Quy tắc nộp bài">
+              <button type="button" role="radio" aria-checked={!s.require_all} className={`tab ${!s.require_all ? 'on' : ''}`} onClick={() => set({ require_all: false })}>Vẫn nhận bài</button>
+              <button type="button" role="radio" aria-checked={!!s.require_all} className={`tab ${s.require_all ? 'on' : ''}`} onClick={() => set({ require_all: true })}>Phải trả lời hết mới được nộp</button>
+            </div>
+            <small className="help">{s.require_all ? 'Phần mềm báo các câu còn thiếu và không cho nộp (hết giờ thì vẫn tự thu bài).' : 'Phần mềm nhắc các câu còn thiếu, học sinh vẫn nộp được. Câu bỏ trống tính là sai.'}</small>
+          </div>
+        )}
+        {s.mode !== 'instructor_paced' && !exam && (
           <div className="stack" style={{ gap: 8 }}>
             <div className="field">
               <span>Cách học sinh làm bài</span>

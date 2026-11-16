@@ -14,6 +14,8 @@ export interface StudentStat {
   name: string;
   class_name: string;
   avatar: string;
+  student_code: string; // bài kiểm tra: mã số học sinh theo lớp
+  locked: boolean; // bị khóa do vi phạm
   correct: number; // số câu đúng hoàn toàn
   partial: number; // số câu đúng một phần
   wrong: number;
@@ -87,6 +89,8 @@ export function analyze(s: Session, quiz: Quiz | null): SessionAnalytics {
         name: p.name,
         class_name: p.class_name ?? s.paper?.class_name ?? '',
         avatar: p.avatar,
+        student_code: p.student_code ?? '',
+        locked: !!p.locked,
         correct: r.correct,
         partial: r.partial,
         wrong: r.wrong,
@@ -176,6 +180,7 @@ export function analyze(s: Session, quiz: Quiz | null): SessionAnalytics {
 /** Dữ liệu cho tệp Excel báo cáo chi tiết. */
 export function analyticsSheets(s: Session, a: SessionAnalytics) {
   return [
+    ...(s.settings.mode === 'exam' ? [examSheet(s, a)] : []),
     {
       name: 'Tổng quan',
       rows: [
@@ -213,4 +218,81 @@ export function analyticsSheets(s: Session, a: SessionAnalytics) {
       ],
     },
   ];
+}
+
+/** Một dòng bảng điểm bài kiểm tra (cả em chưa vào thi, lấy từ danh sách lớp). */
+export interface ExamRow {
+  rank: number | null; // hạng (bằng điểm thì cùng hạng); chưa vào thi: null
+  name: string;
+  class_name: string;
+  student_code: string;
+  status: 'submitted' | 'doing' | 'locked' | 'collected' | 'absent';
+  mark10: number | null;
+  total: number;
+  correct: number | null;
+  wrong: number | null; // sai hoặc chỉ đúng một phần
+  blank: number | null;
+  level: Level | null; // chỉ xếp mức khi bài đã nộp / đã thu
+  player_id?: string;
+}
+export const EXAM_STATUS: Record<ExamRow['status'], string> = {
+  submitted: 'Đã nộp',
+  doing: 'Đang làm',
+  locked: 'Bị khóa do vi phạm',
+  collected: 'Hết giờ, đã thu bài',
+  absent: 'Chưa vào thi',
+};
+
+/** Bảng điểm bài kiểm tra: xếp hạng theo điểm thang 10, em chưa vào thi ở cuối (theo tên). */
+export function examRows(s: Session, a: SessionAnalytics): ExamRow[] {
+  const total = s.question_count;
+  const done = s.state === 'COMPLETED';
+  const present = a.students.filter((x) => x.latest).map((x): ExamRow => {
+    const status: ExamRow['status'] = x.finished ? 'submitted' : done ? 'collected' : x.locked ? 'locked' : 'doing';
+    const graded = status === 'submitted' || status === 'collected';
+    return {
+      rank: null, name: x.name, class_name: x.class_name, student_code: x.student_code, status, total,
+      mark10: graded ? x.mark10 : null,
+      correct: x.correct,
+      wrong: x.partial + x.wrong,
+      blank: x.blank,
+      level: graded ? x.level : null,
+      player_id: x.player_id,
+    };
+  });
+  const scored = present.filter((r) => r.mark10 !== null).sort((x, y) => y.mark10! - x.mark10! || y.correct! - x.correct! || x.name.localeCompare(y.name, 'vi'));
+  scored.forEach((r, i) => { r.rank = i > 0 && scored[i - 1].mark10 === r.mark10 && scored[i - 1].correct === r.correct ? scored[i - 1].rank : i + 1; });
+  const doing = present.filter((r) => r.mark10 === null).sort((x, y) => x.name.localeCompare(y.name, 'vi'));
+  const codes = new Set(present.map((r) => r.student_code).filter(Boolean));
+  const absent = (s.exam?.roster ?? [])
+    .filter((r) => !codes.has(r.code))
+    .map((r): ExamRow => ({ rank: null, name: r.name, class_name: s.exam?.class_name ?? '', student_code: r.code, status: 'absent', mark10: null, total, correct: null, wrong: null, blank: null, level: null }))
+    .sort((x, y) => x.name.localeCompare(y.name, 'vi'));
+  return [...scored, ...doing, ...absent];
+}
+
+/** Trang tính "Bảng điểm" của bài kiểm tra theo mẫu giáo viên dùng: hạng, họ tên, lớp, mã số HS, trạng thái, điểm, số câu, mức đánh giá. */
+export function examSheet(s: Session, a: SessionAnalytics) {
+  const rows = examRows(s, a);
+  const graded = rows.filter((r) => r.level);
+  const count = (g: Level) => graded.filter((r) => r.level === g).length;
+  const avg10 = graded.length ? round1(avg(graded.map((r) => r.mark10!))) : '';
+  return {
+    name: 'Bảng điểm',
+    rows: [
+      [`BẢNG ĐIỂM BÀI KIỂM TRA: ${s.quiz_title}`],
+      [`Lớp: ${s.exam?.class_name ?? ''}`, `Thời gian làm bài: ${s.settings.exam_minutes ?? 45} phút`, `Ngày: ${new Date(s.started_at ?? s.created_at).toLocaleString('vi-VN')}`, `Mã phòng: ${s.pin}`],
+      [],
+      ['Hạng', 'Họ và tên', 'Lớp', 'Mã số HS', 'Trạng thái', 'Điểm (thang 10)', 'Tổng số câu', 'Số câu đúng', 'Số câu sai', 'Số câu bỏ trống', 'Mức đánh giá'],
+      ...rows.map((r) => [r.rank ?? '', r.name, r.class_name, r.student_code, EXAM_STATUS[r.status], r.mark10 ?? '', r.total, r.correct ?? '', r.wrong ?? '', r.blank ?? '', r.level ? LEVEL_LABEL[r.level] : '']),
+      [],
+      ['Tổng hợp'],
+      ['Sĩ số theo danh sách', s.exam?.roster.length ?? rows.length],
+      ['Đã nộp / đã thu bài', graded.length],
+      ['Chưa vào thi', rows.filter((r) => r.status === 'absent').length],
+      ['Điểm trung bình (thang 10)', avg10],
+      ...LEVELS.map((g) => [LEVEL_LABEL[g], count(g)]),
+      ['Cách xếp mức: Hoàn thành xuất sắc từ 9 điểm · Hoàn thành tốt từ 7 điểm · Đạt yêu cầu từ 5 điểm · Chưa đạt yêu cầu dưới 5 điểm. Số câu sai gồm cả câu chỉ đúng một phần.'],
+    ],
+  };
 }

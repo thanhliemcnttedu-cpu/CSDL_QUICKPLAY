@@ -84,6 +84,10 @@ export function examSettings(s: SessionSettings): SessionSettings {
   return {
     ...s, music: false, show_leaderboard: false, power_ups: false, retry_rounds: 0,
     exam_minutes: Math.min(300, Math.max(1, Math.round(Number(s.exam_minutes) || 45))),
+    exam_layout: s.exam_layout === 'page' ? 'page' : 'one',
+    exam_review: s.exam_review === 'submit' || s.exam_review === 'none' ? s.exam_review : 'end',
+    // cả hai cách làm bài đều cho chọn câu tự do (bảng số câu, nút Câu tiếp theo)
+    navigation: 'free',
     start_time: undefined, deadline: undefined,
   };
 }

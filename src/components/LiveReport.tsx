@@ -26,7 +26,12 @@ export function LiveReport({ s, quiz }: { s: Session; quiz: Quiz | null }) {
     return list;
   }, [a, cls, sort]);
 
-  const exportXlsx = async () => downloadBlob(`Quickplay-bao-cao-${s.pin}.xlsx`, await buildXlsx(analyticsSheets(s, a)));
+  const exam = s.settings.mode === 'exam';
+  const safe = (t: string) => t.replace(/[\\/:*?"<>|]+/g, ' ').trim().replace(/\s+/g, '-').slice(0, 60);
+  const exportXlsx = async () => downloadBlob(
+    exam ? `Bang-diem-lop-${safe(s.exam?.class_name ?? '')}-${safe(s.quiz_title)}.xlsx` : `Quickplay-bao-cao-${s.pin}.xlsx`,
+    await buildXlsx(analyticsSheets(s, a)),
+  );
   // PDF: dùng hộp thoại in của trình duyệt với khổ A4 ngang, lề tối thiểu (chọn "Lưu thành PDF")
   const exportPdf = () => {
     document.documentElement.classList.add('print-report');
@@ -49,7 +54,7 @@ export function LiveReport({ s, quiz }: { s: Session; quiz: Quiz | null }) {
         {a.live ? <span className="badge amber">Đang diễn ra: tạm tính trên các câu mỗi em đã làm</span> : <span className="badge green">Đã kết thúc: tính trên tổng số câu, bỏ trống tính là sai</span>}
         <div className="row">
           <button className="btn ghost" onClick={exportPdf}><FileText size={18} /> Xuất PDF (A4 ngang)</button>
-          <button className="btn primary" onClick={exportXlsx}><Download size={18} /> Xuất Excel chi tiết</button>
+          <button className="btn primary" onClick={exportXlsx}><Download size={18} /> {exam ? 'Xuất bảng điểm Excel' : 'Xuất Excel chi tiết'}</button>
         </div>
       </div>
 
