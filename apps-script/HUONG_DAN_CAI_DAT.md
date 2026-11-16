@@ -27,6 +27,13 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 (một tệp `.json` duy nhất); sang máy khác hoặc đổi Google Drive thì **Khôi phục từ file .json**. Tệp gộp cũ (tên `<tên đăng nhập>_<ngày giờ>.json`)
 còn trong thư mục Drive có thể xóa đi.
 
+**Bản 1.5.9:** chẩn đoán tự cập nhật rõ hơn.
+- Tách hai chỗ "bật API":
+  - Cài đặt của Gmail (`usersettings`) → lỗi `API_OFF`.
+  - Dự án Google Cloud gắn với Apps Script ("Apps Script API has not been used in project … or it is disabled") → lỗi `CLOUD_API`, kèm link bật API mà Google gửi.
+- Mọi lỗi từ chối đều kèm lỗi gốc của Google.
+- Hàm `kiemTraTuCapNhat` (chạy trong trình biên tập) xin lại 2 quyền tự cập nhật nếu còn thiếu, rồi ghi kết quả vào Nhật ký thực thi.
+
 **Bản 1.5.8:** vào phòng nhanh hơn khi cả lớp cùng vào, và một số luật mới:
 - Vào phòng kiểm tra không còn ghi Google Drive ngay trong khóa máy chủ. Bộ nhớ đệm giữ học sinh, lần thăm dò sau ghi bù trong 10 giây. Đo trên máy chủ giả lập với 40 em bấm "Vào" cùng lúc: em cuối chờ khoảng 4 giây (trước đây khoảng 30 giây, vượt giới hạn chờ 10 giây nên báo "Máy chủ đang bận").
 - `joinSession` nhận `boot: true` và trả kèm đề (đúng đề đã chia), cài đặt và tiến độ của em. Học sinh chỉ cần 1 lần gọi thay vì 3; máy khách cũ vẫn chạy như trước.

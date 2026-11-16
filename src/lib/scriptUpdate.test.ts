@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { isFresh, reasonOf, versionState } from './scriptUpdate';
+import { googleDetail, googleLink, isFresh, reasonOf, versionState } from './scriptUpdate';
 import { SCRIPT_VERSION } from './installer';
 
 describe('tự cập nhật Apps Script', () => {
@@ -10,6 +10,14 @@ describe('tự cập nhật Apps Script', () => {
     expect(reasonOf('MANUAL: cần thêm quyền').reason).toBe('manual');
     expect(reasonOf('BUSY: đang có buổi học').reason).toBe('busy');
     expect(reasonOf('Không tải được Code.gs').reason).toBe('error');
+    expect(reasonOf('CLOUD_API: Dự án Google Cloud…').reason).toBe('cloud_api');
+  });
+  it('lấy link và lỗi gốc Google gửi kèm để thầy cô bấm mở', () => {
+    const msg = 'CLOUD_API: … Mở link bật API của Google: https://console.developers.google.com/apis/api/script.googleapis.com/overview?project=123456 , bấm Bật (Google: 403 { "error": { "code": 403 } })';
+    expect(googleLink(msg)).toBe('https://console.developers.google.com/apis/api/script.googleapis.com/overview?project=123456');
+    expect(googleDetail(msg)).toMatch(/^\(Google: 403/);
+    expect(googleLink('SCOPES: … Hoặc mở link cấp quyền: https://script.google.com/macros/d/abc/usercallback?x=1')).toMatch(/^https:\/\/script\.google\.com\/macros/);
+    expect(googleLink('API_OFF: Mở https://script.google.com/home/usersettings')).toBeUndefined();
   });
   it('bản mới nhất thì 6 giờ hỏi lại; chưa cập nhật được thì 15 phút thử lại; chưa thử thì thử ngay', () => {
     const now = 10 * 3600_000;

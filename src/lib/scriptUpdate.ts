@@ -16,6 +16,7 @@ export type UpdateState = 'current' | 'updated' | 'old';
 /** Vì sao chưa tự cập nhật được */
 export type UpdateReason =
   | 'api_off' // Gmail chạy Apps Script chưa bật Google Apps Script API
+  | 'cloud_api' // dự án Google Cloud gắn với Apps Script chưa bật Apps Script API (Google gửi kèm link bật)
   | 'scopes' // dự án chưa có quyền tự cập nhật (chưa dán tệp cấu hình appsscript.json)
   | 'manual' // bản mới cần thêm quyền Google: Google bắt chủ dự án tự cấp → cập nhật tay
   | 'busy' // đang có buổi học trực tiếp: để buổi học xong
@@ -43,8 +44,8 @@ export function versionState(server: string): 'current' | 'old' {
 
 /** Đổi lỗi có mã của Apps Script (API_OFF:, SCOPES:, MANUAL:, BUSY:) thành lý do. */
 export function reasonOf(message: string): { reason: UpdateReason; message: string } {
-  const m = message.match(/^(API_OFF|SCOPES|MANUAL|BUSY):\s*/);
-  const map: Record<string, UpdateReason> = { API_OFF: 'api_off', SCOPES: 'scopes', MANUAL: 'manual', BUSY: 'busy' };
+  const m = message.match(/^(API_OFF|CLOUD_API|SCOPES|MANUAL|BUSY):\s*/);
+  const map: Record<string, UpdateReason> = { API_OFF: 'api_off', CLOUD_API: 'cloud_api', SCOPES: 'scopes', MANUAL: 'manual', BUSY: 'busy' };
   return { reason: m ? map[m[1]] : 'error', message: m ? message.slice(m[0].length) : message };
 }
 
@@ -159,10 +160,21 @@ export function noteScriptVersion(server: string) {
 /** Trang bật Google Apps Script API (một lần cho mỗi Gmail). */
 export const API_SETTINGS_URL = 'https://script.google.com/home/usersettings';
 
+/** Link Google gửi kèm lỗi (trang cấp quyền, trang bật API của dự án Cloud) để thầy cô bấm mở. */
+export function googleLink(message: string | undefined): string | undefined {
+  const m = (message ?? '').match(/https:\/\/(?:console\.(?:developers|cloud)\.google\.com|accounts\.google\.com|script\.google\.com\/macros)[^\s"'(),]*/);
+  return m?.[0];
+}
+/** Phần lỗi gốc của Google "(Google: 403 …)" trong câu báo của Apps Script. */
+export function googleDetail(message: string | undefined): string {
+  return (message ?? '').match(/\(Google:[^)]*\)?/)?.[0] ?? '';
+}
+
 /** Câu giải thích ngắn cho từng lý do chưa tự cập nhật được. */
 export function reasonText(r: UpdateReason | undefined): string {
   switch (r) {
-    case 'api_off': return 'Gmail chạy Apps Script chưa bật Google Apps Script API (bật một lần, khoảng 10 giây).';
+    case 'api_off': return 'Gmail chạy Apps Script chưa bật Google Apps Script API (bật một lần, khoảng 10 giây). Vừa bật thì đợi 2–3 phút rồi kiểm tra lại.';
+    case 'cloud_api': return 'Dự án Google Cloud gắn với Apps Script chưa bật "Apps Script API" — đây là chỗ khác với nút bật trong cài đặt Gmail. Bấm nút mở link bật API của Google bên dưới, chọn Bật (Enable), đợi 2–3 phút rồi kiểm tra lại.';
     case 'scopes': return 'Apps Script chưa được cấp 2 quyền tự cập nhật (quản lý dự án và bản triển khai Apps Script). Trong trình biên tập Apps Script, ô chọn hàm chọn kiemTraTuCapNhat, bấm ▷ Chạy; khi Google hỏi quyền, tích ô "Chọn tất cả" rồi Tiếp tục. Chưa dán tệp cấu hình appsscript.json thì làm 5 bước cập nhật tay (dán cả mã và tệp cấu hình).';
     case 'manual': return 'Bản mới cần thêm quyền Google, Google bắt chủ tài khoản tự cấp quyền. Cập nhật tay lần này.';
     case 'busy': return 'Đang có buổi học trực tiếp. Apps Script sẽ tự cập nhật khi buổi học kết thúc.';

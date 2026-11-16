@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.8';
+var APP_VERSION = '1.5.9';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -2749,10 +2749,19 @@ function scriptApi_(method, path, body) {
   var code = res.getResponseCode();
   var text = res.getContentText();
   if (code >= 200 && code < 300) return text ? JSON.parse(text) : {};
-  if (/has not been used|is disabled|has not enabled|SERVICE_DISABLED|User has not enabled the Apps Script API/i.test(text)) {
-    throw userError_('API_OFF: Chưa bật Google Apps Script API. Mở https://script.google.com/home/usersettings bằng Gmail đang chạy Apps Script này và bật "Google Apps Script API", rồi bấm Kiểm tra lại.');
-  }
   var detail = ' (Google: ' + code + ' ' + String(text).replace(/\s+/g, ' ').slice(0, 220) + ')';
+  // Hai chỗ "bật API" khác nhau:
+  // 1) Cài đặt của người dùng (script.google.com/home/usersettings): "User has not enabled the Apps Script API".
+  // 2) Dự án Google Cloud gắn với Apps Script: "Apps Script API has not been used in project N before or it is disabled",
+  //    Google gửi kèm link console để bật cho đúng dự án đó.
+  if (/User has not enabled the Apps Script API/i.test(text)) {
+    throw userError_('API_OFF: Chưa bật Google Apps Script API trong cài đặt của Gmail chạy Apps Script. Mở https://script.google.com/home/usersettings và bật "Google Apps Script API", đợi 2–3 phút rồi kiểm tra lại.' + detail);
+  }
+  if (/has not been used|is disabled|SERVICE_DISABLED|has not enabled/i.test(text)) {
+    var link = (String(text).match(/https:\/\/console\.(?:developers|cloud)\.google\.com\/[^\s"'\\]+/) || [])[0] || '';
+    throw userError_('CLOUD_API: Dự án Google Cloud của Apps Script chưa bật "Apps Script API" (khác với nút bật trong cài đặt người dùng).' +
+      (link ? ' Mở link bật API của Google: ' + link + ' , bấm Bật (Enable), đợi 2–3 phút rồi kiểm tra lại.' : '') + detail);
+  }
   if (/insufficient.*scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(text)) {
     throw userError_('SCOPES: Apps Script chưa được cấp 2 quyền tự cập nhật. Trong trình biên tập chọn hàm kiemTraTuCapNhat, bấm Chạy; khi Google hỏi, tích "Chọn tất cả" rồi Tiếp tục. Chưa dán tệp cấu hình appsscript.json thì cập nhật tay một lần bằng Trình cài đặt.' + detail);
   }

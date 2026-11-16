@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, Copy, ExternalLink, RefreshCw, ShieldCheck, TriangleAlert, X, Zap } from 'lucide-react';
-import { API_SETTINGS_URL, autoUpdateScript, checkSelfUpdateReady, reasonText, scriptUpdateStatus, type UpdateStatus } from '../lib/scriptUpdate';
+import { API_SETTINGS_URL, autoUpdateScript, checkSelfUpdateReady, googleDetail, googleLink, reasonText, scriptUpdateStatus, type UpdateStatus } from '../lib/scriptUpdate';
 import { SCRIPT_VERSION } from '../lib/installer';
 import { loadSettings } from '../lib/settings';
 import { askConfirm, useToast } from './ui';
@@ -130,9 +130,9 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
     const r0 = await checkSelfUpdateReady();
     // lý do đã biết (thiếu quyền, chưa bật API…): dùng câu hướng dẫn của phần mềm, mới hơn câu của Apps Script đang chạy
     // giữ phần lỗi gốc của Google (nếu Apps Script gửi kèm) để biết đúng nguyên nhân
-    const google = (r0.message ?? '').match(/\(Google:[^)]*\)/)?.[0] ?? '';
-    const link = (r0.message ?? '').match(/link cấp quyền:\s*(https:\/\/\S+)/)?.[1];
-    const r = !r0.ready && r0.reason && r0.reason !== 'error' && r0.reason !== 'no_self' ? { ...r0, message: `${reasonText(r0.reason)} ${google}`.trim(), link } : r0;
+    const google = googleDetail(r0.message);
+    const link = googleLink(r0.message);
+    const r = !r0.ready && r0.reason && r0.reason !== 'error' && r0.reason !== 'no_self' ? { ...r0, message: `${reasonText(r0.reason)} ${google}`.trim(), link } : { ...r0, link };
     setReady(r);
     setBusy('');
     toast(r.ready ? 'Đủ điều kiện: các bản sau Apps Script sẽ tự cập nhật.' : r.message ?? 'Chưa đủ điều kiện tự cập nhật.', r.ready ? 'ok' : 'error');
@@ -165,14 +165,17 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
       </ol>
       {old && st?.reason && (
         <div className={`alert ${st.reason === 'busy' ? 'ok' : 'warn'}`}>
-          <div>{reasonText(st.reason)}{st.reason === 'error' && st.message ? ` ${st.message}` : ''}</div>
+          <div>
+            {reasonText(st.reason)}{st.reason === 'error' && st.message ? ` ${st.message}` : st.reason !== 'busy' && googleDetail(st.message) ? ` ${googleDetail(st.message)}` : ''}
+            {googleLink(st.message) && <> <a className="btn sm" href={googleLink(st.message)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> {/console\./.test(googleLink(st.message)!) ? 'Mở trang bật API của Google Cloud' : 'Mở trang cấp quyền của Google'}</a></>}
+          </div>
         </div>
       )}
       {ready && (
         <div className={`alert ${ready.ready ? 'ok' : 'warn'}`}>
           <div>
             {ready.ready ? 'Đủ hai điều kiện: các bản sau Apps Script sẽ tự cập nhật.' : ready.message}
-            {ready.link && <> <a className="btn sm" href={ready.link} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở trang cấp quyền của Google</a></>}
+            {ready.link && <> <a className="btn sm" href={ready.link} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> {/console\./.test(ready.link) ? 'Mở trang bật API của Google Cloud' : 'Mở trang cấp quyền của Google'}</a></>}
           </div>
         </div>
       )}
