@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.6.0';
+var APP_VERSION = '1.6.1';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -476,6 +476,32 @@ function rebuildQuizIndex_() {
 // TẢI TỆP MEDIA
 // ============================================================================
 
+/**
+ * Bật "Bất kỳ ai có đường liên kết – Xem" cho tệp (1.6.1). Lần đầu lỗi (Google đôi khi từ chối tạm thời) thì thử lại;
+ * vẫn lỗi thì bật cho cả thư mục media (tệp con thừa hưởng quyền). Trả về '' nếu xem được bằng link, ngược lại là lỗi gốc.
+ */
+function shareAnyoneWithLink_(file, folder) {
+  var first = '';
+  for (var i = 0; i < 2; i++) {
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      return '';
+    } catch (e) {
+      first = first || String(e && e.message || e);
+      Utilities.sleep(700);
+    }
+  }
+  try {
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    Utilities.sleep(300);
+    var acc = DriveApp.getFileById(file.getId()).getSharingAccess();
+    if (acc === DriveApp.Access.ANYONE_WITH_LINK || acc === DriveApp.Access.ANYONE) return '';
+  } catch (e2) {
+    return first + ' | thư mục: ' + String(e2 && e2.message || e2);
+  }
+  return first;
+}
+
 function actUploadMedia_(req) {
   var b64 = String(req.base64 || '');
   var mime = String(req.mime || '').trim().toLowerCase();
@@ -525,12 +551,12 @@ function actUploadMedia_(req) {
   }
   var blob = Utilities.newBlob(bytes, mime, fileName);
   var file = mediaFolder.createFile(blob);
-  try {
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  } catch (e) {
+  var shareErr = shareAnyoneWithLink_(file, mediaFolder);
+  if (shareErr) {
     try { file.setTrashed(true); } catch (ignore) { /* bỏ qua */ }
-    throw userError_('Không bật được chia sẻ "Bất kỳ ai có đường liên kết" cho tệp. Tài khoản Google ' +
-      '(thường là tài khoản trường/Workspace) có thể đang chặn chia sẻ ra ngoài. Hãy dùng tài khoản Gmail cá nhân.');
+    // Mã SHARE_BLOCKED: để phần mềm tự lưu ảnh kèm trong bộ đề thay vì báo lỗi
+    throw userError_('SHARE_BLOCKED: Google không cho bật chia sẻ "Bất kỳ ai có đường liên kết" cho tệp trên Drive ' +
+      '(thường do tài khoản trường/Workspace chặn chia sẻ ra ngoài). Lỗi gốc của Google: ' + shareErr);
   }
 
   var id = file.getId();

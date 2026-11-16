@@ -11,7 +11,7 @@ import { gradeRatio, validateQuestion, type Answer } from '../lib/grading';
 import { uploadFile, embedUrl } from '../lib/media';
 import { useSpeech } from '../lib/speech';
 import { OPTION_LABELS, formatBytes, hashString } from '../lib/util';
-import { checkAudio, clipboardImage, imageFromPaste, pickFile, useImageUpload, useRecorder, VideoUrlDialog } from './MediaTools';
+import { checkAudio, imageFromPaste, PasteImageDialog, pickFile, useImageUpload, useRecorder, VideoUrlDialog } from './MediaTools';
 import { useToast } from './ui';
 import { PlayQuestion } from './PlayQuestion';
 
@@ -65,18 +65,24 @@ export function QuestionComposer({ initial, defaultType = 'single_choice', lesso
       return x;
     });
   };
+  const pasteTitle = (target: string) => {
+    const [kind, id] = target.split(':');
+    if (kind === 'opt') {
+      const i = d.options.findIndex((o) => o.id === id);
+      return `Dán ảnh phương án ${OPTION_LABELS[i] ?? ''}`.trim();
+    }
+    return kind === 'expl' ? 'Dán ảnh lời giải' : kind === 'stem' ? 'Dán ảnh câu hỏi' : 'Dán ảnh';
+  };
   const uploadTo = async (target: string, f: Blob | File | null) => {
     if (!f) return;
     const url = await img.upload(f, target.split(':')[0]);
     if (url) putImage(target, url);
   };
-  const pasteFromClipboard = async (target: string) => {
-    const r = await clipboardImage();
-    if (r.blob) return uploadTo(target, r.blob);
-    focusTarget.current = target; // Ctrl+V kế tiếp trong hộp soạn câu hỏi sẽ đưa ảnh vào đúng ô này
-    toast(r.reason === 'empty'
-      ? 'Bộ nhớ tạm chưa có ảnh. Hãy chép một ảnh (chuột phải vào ảnh → Sao chép hình ảnh, hoặc chụp màn hình), rồi nhấn Ctrl + V.'
-      : 'Trình duyệt chưa cho phần mềm tự đọc bộ nhớ tạm. Hãy nhấn Ctrl + V ngay bây giờ để dán ảnh.', 'info');
+  // Nút "Dán ảnh": mở ô dán (Ctrl+V ảnh vừa chép, Win+V chọn ảnh trong lịch sử bộ nhớ tạm)
+  const [pasteFor, setPasteFor] = useState<string | null>(null);
+  const pasteFromClipboard = (target: string) => {
+    focusTarget.current = target;
+    setPasteFor(target);
   };
   const chooseFile = async (target: string) => uploadTo(target, await pickFile('image/*'));
   const linkImage = (target: string) => {
@@ -369,6 +375,7 @@ export function QuestionComposer({ initial, defaultType = 'single_choice', lesso
         </footer>
       </div>
       {playing && <TryPlay q={q} onClose={() => setPlaying(false)} />}
+      {pasteFor && <PasteImageDialog title={pasteTitle(pasteFor)} onClose={() => setPasteFor(null)} onPick={(f) => uploadTo(pasteFor, f)} />}
       {videoDlg && <VideoUrlDialog initial={d.video?.source_type === 'internet_url' ? d.video : undefined} onClose={() => setVideoDlg(false)} onSave={(v) => (set({ video: v }), setVideoDlg(false))} />}
     </div>
   );

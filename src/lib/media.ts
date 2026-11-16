@@ -167,6 +167,11 @@ function rememberUrl(hash: string, url: string) {
   } catch { /* bộ nhớ đầy: bỏ qua */ }
 }
 
+/** Cạnh dài tối đa của ảnh lưu kèm trong bộ đề khi Drive chặn chia sẻ (giữ bộ đề nhẹ). */
+export const INLINE_MAX_SIDE = 960;
+/** Lỗi do Drive không bật được chia sẻ bằng link (mã mới SHARE_BLOCKED hoặc câu báo của Apps Script cũ). */
+export const isShareBlocked = (msg: string) => /^SHARE_BLOCKED:|Không bật được chia sẻ/i.test(msg);
+
 /** Tải lên kho (Drive hoặc cục bộ) và trả về URL. onProgress mô phỏng tiến trình đọc + gửi. */
 export async function uploadFile(f: Blob, name: string, onProgress?: (pct: number) => void): Promise<string> {
   if (f.size > LIMITS.transport)
@@ -197,6 +202,17 @@ export async function uploadFile(f: Blob, name: string, onProgress?: (pct: numbe
     if (hash) rememberUrl(hash, r.url);
     onProgress?.(100);
     return r.url;
+  } catch (e) {
+    // Drive không cho bật chia sẻ bằng link (tài khoản trường chặn, hoặc Apps Script cũ báo lỗi chia sẻ):
+    // ảnh vẫn dùng được — nén nhỏ rồi lưu kèm ngay trong bộ đề (học sinh tải cùng câu hỏi).
+    if (f.type.startsWith('image/') && isShareBlocked((e as Error).message)) {
+      const small = await compressImage(f, INLINE_MAX_SIDE, 0.78);
+      const url = await fileToDataUrl(small);
+      onProgress?.(100);
+      window.dispatchEvent(new CustomEvent('quickplay-media-inline', { detail: (e as Error).message.replace(/^SHARE_BLOCKED:\s*/, '') }));
+      return url;
+    }
+    throw new Error((e as Error).message.replace(/^SHARE_BLOCKED:\s*/, ''));
   } finally {
     clearInterval(timer);
   }
@@ -225,7 +241,26 @@ export function parseVideoUrl(raw: string): Pick<VideoMedia, 'provider' | 'embed
     return id ? { provider: 'vimeo', embed_id: id, url: raw } : null;
   }
   if (/\.(mp4|webm|mov)(\?|$)/i.test(u.pathname)) return { provider: 'file', url: raw };
+  // Link chuyển hướng của Google / Facebook… có kèm link video thật bên trong (?url=, ?q=, ?u=): lấy link đó
+  for (const k of ['url', 'q', 'u', 'link']) {
+    const inner = u.searchParams.get(k);
+    if (inner && /^https?:\/\//i.test(inner) && inner !== raw) {
+      const r = parseVideoUrl(inner);
+      if (r) return r;
+    }
+  }
   return null;
+}
+
+/** Lời nhắc khi link video không dùng được (VD dán nhầm link trang tìm kiếm Google). */
+export function videoUrlHint(raw: string): string {
+  let host = '';
+  try { host = new URL(raw.trim()).hostname.replace(/^www\./, ''); } catch { /* không phải link */ }
+  if (/^google\./.test(host) || host.includes('.google.'))
+    return 'Đây là link trang tìm kiếm Google, không phải link video. Bấm vào video để mở trên YouTube, rồi bấm Chia sẻ → Sao chép đường liên kết và dán vào đây.';
+  if (/facebook\.com|fb\.watch|tiktok\.com|drive\.google/.test(host))
+    return 'Video Facebook, TikTok hoặc Google Drive không nhúng được. Hãy dùng link YouTube, Vimeo, hoặc tải tệp video .mp4 lên bằng nút Chọn tệp.';
+  return 'Link chưa hợp lệ. Hỗ trợ YouTube, Vimeo hoặc link trực tiếp tệp .mp4/.webm.';
 }
 
 export function embedUrl(v: VideoMedia): string | null {

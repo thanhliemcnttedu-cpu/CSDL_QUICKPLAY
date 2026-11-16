@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { VideoMedia } from '../lib/types';
-import { checkAudio, checkEmbeddable, checkImage, compressImage, embedUrl, parseVideoUrl, toWebImage, uploadFile } from '../lib/media';
+import { checkAudio, checkEmbeddable, checkImage, compressImage, embedUrl, parseVideoUrl, toWebImage, uploadFile, videoUrlHint } from '../lib/media';
+import { ClipboardPaste } from 'lucide-react';
 import { Modal, useToast } from './ui';
 
 /** Tải ảnh (kiểm tra định dạng & 10 MB, nén nhẹ) – dùng chung cho câu hỏi, đáp án và lời giải. */
@@ -87,6 +88,55 @@ export function imageFromPaste(e: ClipboardEvent | React.ClipboardEvent): File |
   return Array.from(e.clipboardData?.files ?? []).find((f) => f.type.startsWith('image/') || /\.(png|jpe?g|jfif|webp|gif|bmp)$/i.test(f.name)) ?? null;
 }
 
+/**
+ * Hộp "Dán ảnh": một ô dán đã đặt sẵn con trỏ. Nhấn Ctrl+V để dán ảnh vừa chép, hoặc Win+V để chọn ảnh bất kỳ trong
+ * lịch sử bộ nhớ tạm của Windows (Win+V chỉ dán được vào ô đang nhận chữ, nên phải có ô này).
+ * Nút "Dán ảnh mới nhất" đọc thẳng bộ nhớ tạm (khi trình duyệt cho phép).
+ */
+export function PasteImageDialog({ title = 'Dán ảnh', onPick, onClose }: { title?: string; onPick: (f: File | Blob) => void; onClose: () => void }) {
+  const [msg, setMsg] = useState('');
+  const ua = `${navigator.platform || ''} ${navigator.userAgent}`;
+  const touch = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (navigator.maxTouchPoints > 1 && /Mac/.test(ua));
+  const isWin = !touch && /Win/i.test(ua);
+  const isMac = !touch && /Mac/.test(ua);
+  const hint = touch ? 'Chạm giữ vào ô này → chọn Dán' : isMac ? 'Nhấn ⌘ + V để dán ảnh vừa chép' : 'Nhấn Ctrl + V để dán ảnh vừa chép';
+  const onPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // không để hộp soạn câu hỏi phía sau nhận thêm lần dán này
+    const f = imageFromPaste(e);
+    if (!f) return setMsg('Thứ vừa dán không phải ảnh. Hãy chọn một ảnh trong danh sách (Win + V) hoặc chép lại ảnh rồi dán.');
+    onPick(f);
+    onClose();
+  };
+  const latest = async () => {
+    const r = await clipboardImage();
+    if (r.blob) { onPick(r.blob); onClose(); return; }
+    setMsg(r.reason === 'empty'
+      ? 'Bộ nhớ tạm chưa có ảnh. Chép một ảnh (chuột phải vào ảnh → Sao chép hình ảnh, hoặc chụp màn hình) rồi dán vào ô trên.'
+      : 'Trình duyệt chưa cho phần mềm tự đọc bộ nhớ tạm. Hãy bấm vào ô trên rồi nhấn Ctrl + V.');
+  };
+  return (
+    <Modal title={title} onClose={onClose} footer={
+      <>
+        <button type="button" className="btn ghost" onClick={onClose}>Hủy</button>
+        <button type="button" className="btn primary" onClick={latest}><ClipboardPaste size={16} /> Dán ảnh mới nhất</button>
+      </>
+    }>
+      <div className="stack" style={{ gap: 10 }}>
+        <textarea className="paste-catch" value="" onChange={() => {}} onPaste={onPaste} aria-label="Ô dán ảnh: nhấn Ctrl + V, hoặc Windows + V để chọn ảnh trong lịch sử bộ nhớ tạm"
+          placeholder={hint} />
+        {isWin && (
+          <p className="paste-tip">
+            <span><kbd>⊞ Win</kbd> + <kbd>V</kbd>: mở <b>lịch sử bộ nhớ tạm</b> của Windows, bấm chọn ảnh muốn dán (không chỉ ảnh mới nhất).</span>
+            <small>Lần đầu dùng, Windows có thể hỏi bật lịch sử bộ nhớ tạm: chọn <b>Turn on / Bật</b>.</small>
+          </p>
+        )}
+        {msg && <div className="alert warn" role="status"><div>{msg}</div></div>}
+      </div>
+    </Modal>
+  );
+}
+
 /** Ghi âm qua micro, tự dừng khi đủ `maxSeconds`. */
 export function useRecorder(onDone: (blob: Blob) => void, maxSeconds = 120) {
   const toast = useToast();
@@ -142,7 +192,7 @@ export function VideoUrlDialog({ initial, onClose, onSave }: { initial?: VideoMe
   useEffect(() => setErr(''), [url]);
 
   const save = async () => {
-    if (!preview) return setErr('Link chưa hợp lệ. Hỗ trợ YouTube, Vimeo hoặc link trực tiếp tệp .mp4/.webm.');
+    if (!preview) return setErr(videoUrlHint(url));
     if (preview.start_time && preview.end_time && preview.end_time <= preview.start_time) return setErr('Giây kết thúc phải lớn hơn giây bắt đầu.');
     setChecking(true);
     const e = await checkEmbeddable(preview);

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { PaperLiveNotice } from './components/PaperLiveNotice';
 import { HashRouter, NavLink, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLine, LogOut, UserRound, Monitor, Tablet, Smartphone } from 'lucide-react';
-import { LightboxProvider, Spinner, ToastProvider, askConfirm } from './components/ui';
+import { LightboxProvider, Spinner, ToastProvider, askConfirm, useToast } from './components/ui';
 import { loadSettings } from './lib/settings';
 import { DriveFullBanner } from './components/BackupTools';
 import { ScriptUpdateNotice } from './components/ScriptUpdate';
@@ -89,6 +89,21 @@ function AccountChip() {
   );
 }
 
+/** Drive chặn chia sẻ ảnh → ảnh được lưu kèm trong bộ đề: báo một lần mỗi phiên làm việc. */
+function MediaInlineNotice() {
+  const toast = useToast();
+  useEffect(() => {
+    const on = () => {
+      if (sessionStorage.getItem('quickplay.inlineNoted')) return;
+      try { sessionStorage.setItem('quickplay.inlineNoted', '1'); } catch { /* bỏ qua */ }
+      toast('Google Drive không cho chia sẻ ảnh bằng link, nên ảnh đã được nén nhỏ và lưu kèm trong bộ đề. Ảnh vẫn hiện bình thường với học sinh.', 'info');
+    };
+    window.addEventListener('quickplay-media-inline', on);
+    return () => window.removeEventListener('quickplay-media-inline', on);
+  }, [toast]);
+  return null;
+}
+
 function TeacherShell({ children }: { children: ReactNode }) {
   const s = loadSettings();
   return (
@@ -107,7 +122,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
         <MusicButton scope="teacher" className="btn sm ghost topbar-music" />
         <AccountChip />
       </header>
-      <main className="page"><ScriptUpdateNotice /><DriveFullBanner /><PaperLiveNotice />{children}</main>
+      <main className="page"><MediaInlineNotice /><ScriptUpdateNotice /><DriveFullBanner /><PaperLiveNotice />{children}</main>
       <AppFooter />
     </>
   );
