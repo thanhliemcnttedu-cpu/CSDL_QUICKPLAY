@@ -97,7 +97,9 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
     setBusy('check');
     const r0 = await checkSelfUpdateReady();
     // lý do đã biết (thiếu quyền, chưa bật API…): dùng câu hướng dẫn của phần mềm, mới hơn câu của Apps Script đang chạy
-    const r = !r0.ready && r0.reason && r0.reason !== 'error' && r0.reason !== 'no_self' ? { ...r0, message: reasonText(r0.reason) } : r0;
+    // giữ phần lỗi gốc của Google (nếu Apps Script gửi kèm) để biết đúng nguyên nhân
+    const google = (r0.message ?? '').match(/\(Google:[^)]*\)/)?.[0] ?? '';
+    const r = !r0.ready && r0.reason && r0.reason !== 'error' && r0.reason !== 'no_self' ? { ...r0, message: `${reasonText(r0.reason)} ${google}`.trim() } : r0;
     setReady(r);
     setBusy('');
     toast(r.ready ? 'Đủ điều kiện: các bản sau Apps Script sẽ tự cập nhật.' : r.message ?? 'Chưa đủ điều kiện tự cập nhật.', r.ready ? 'ok' : 'error');

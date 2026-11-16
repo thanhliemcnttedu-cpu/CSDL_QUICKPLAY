@@ -2726,10 +2726,27 @@ function scriptApi_(method, path, body) {
   if (/has not been used|is disabled|has not enabled|SERVICE_DISABLED|User has not enabled the Apps Script API/i.test(text)) {
     throw userError_('API_OFF: Chưa bật Google Apps Script API. Mở https://script.google.com/home/usersettings bằng Gmail đang chạy Apps Script này và bật "Google Apps Script API", rồi bấm Kiểm tra lại.');
   }
-  if (code === 403 || /insufficient.*scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT|PERMISSION_DENIED/i.test(text)) {
-    throw userError_('SCOPES: Apps Script chưa được cấp quyền tự cập nhật. Đã dán tệp cấu hình appsscript.json thì trong trình biên tập chọn hàm doGet, bấm Chạy và cho phép quyền; chưa dán thì cập nhật tay một lần bằng Trình cài đặt (dán cả mã và tệp cấu hình).');
+  var detail = ' (Google: ' + code + ' ' + String(text).replace(/\s+/g, ' ').slice(0, 220) + ')';
+  if (/insufficient.*scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(text)) {
+    throw userError_('SCOPES: Apps Script chưa được cấp quyền tự cập nhật. Đã dán tệp cấu hình appsscript.json thì trong trình biên tập chọn hàm doGet, bấm Chạy và cho phép quyền; chưa dán thì cập nhật tay một lần bằng Trình cài đặt (dán cả mã và tệp cấu hình).' + detail);
+  }
+  if (code === 403 || /PERMISSION_DENIED/i.test(text)) {
+    throw userError_('Google từ chối cho Apps Script tự cập nhật' + detail + '. Thử: bật lại Google Apps Script API, đợi vài phút rồi kiểm tra lại.');
   }
   throw userError_('Apps Script API báo lỗi ' + code + ': ' + text.slice(0, 200));
+}
+
+/**
+ * Chạy tay trong trình biên tập (chọn hàm kiemTraTuCapNhat → ▷ Chạy) để xem Apps Script đã tự cập nhật được chưa.
+ * Kết quả và lỗi gốc của Google hiện ở Nhật ký thực thi. Lần đầu chạy, Google hỏi cấp quyền nếu còn thiếu.
+ */
+function kiemTraTuCapNhat() {
+  try {
+    var r = actUpdateCheck_();
+    Logger.log('ĐỦ ĐIỀU KIỆN TỰ CẬP NHẬT. Bản đang chạy: ' + r.version + ', số tệp: ' + r.files + ', số bản triển khai: ' + r.deployments);
+  } catch (e) {
+    Logger.log('CHƯA TỰ CẬP NHẬT ĐƯỢC: ' + toMessage_(e));
+  }
 }
 
 /** Kiểm tra đã đủ điều kiện tự cập nhật chưa (bật API, có quyền). */
