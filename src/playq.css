@@ -22,6 +22,7 @@
 .pq-tf-btn.right, .pq-opt.right, .match-item.right, .order-item.right, .drop-zone.right { border-color: #129a4b !important; background: #e9f9ef; color: #0b5a2c; }
 .pq-tf-btn.wrong, .pq-opt.wrong, .match-item.wrong, .order-item.wrong, .drop-zone.wrong { border-color: #dc2626 !important; background: #fdecec; color: #8f1b1b; }
 .pq-tf-btn.dim, .pq-opt.dim { opacity: 0.5; }
+.pq-tf-btn.sel { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 3px rgba(22, 104, 242, 0.25); color: var(--primary-ink, #0b4fd0); }
 .pq-tf-btn:disabled, .pq-opt:disabled { cursor: default; }
 
 /* Điền chỗ trống bằng kho từ / kéo thả */

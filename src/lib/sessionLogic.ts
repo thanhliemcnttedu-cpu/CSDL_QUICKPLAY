@@ -62,7 +62,7 @@ export function reportViolation(
 }
 
 /** Chuẩn hóa mã số học sinh để so sánh: bỏ khoảng trắng thừa, không phân biệt hoa thường. */
-export const normCode = (c: unknown) => String(c ?? '').replace(/\s+/g, '').toUpperCase().slice(0, 20);
+export const normCode = (c: unknown) => String(c ?? '').replace(/\s+/g, '').toUpperCase().slice(0, 32);
 
 /** Danh sách được phép vào bài kiểm tra, lấy từ lớp. Báo lỗi nếu lớp chưa đặt đủ mã hoặc mã trùng nhau. */
 export function examRoster(cls: ClassRoom | null | undefined): ExamInfo {
@@ -76,6 +76,15 @@ export function examRoster(cls: ClassRoom | null | undefined): ExamInfo {
     seen.add(r.code);
   }
   return { class_id: cls.id, class_name: cls.name, roster };
+}
+
+/** Bài kiểm tra: em gõ mã số học sinh, phần mềm cho biết tên và lớp theo danh sách để em kiểm tra trước khi vào. */
+export function examStudent(s: Session, studentCode: string): { name: string; class_name: string; code: string; done: boolean } {
+  if (s.settings.mode !== 'exam') throw new Error('Phòng này không phải bài kiểm tra.');
+  const code = normCode(studentCode);
+  const entry = code ? s.exam?.roster.find((r) => r.code === code) : undefined;
+  if (!entry) throw new Error(`Mã số học sinh "${code}" không có trong danh sách lớp ${s.exam?.class_name ?? ''}. Em hãy kiểm tra lại mã.`);
+  return { name: entry.name, class_name: s.exam?.class_name ?? '', code, done: s.players.some((p) => p.student_code === code && p.finished) };
 }
 
 /** Bài kiểm tra: không làm lại, không bảng xếp hạng, không thưởng, không nhạc. */
@@ -278,7 +287,10 @@ export function submitAnswer(s: Session, rec: AnswerRecord): Player {
     //  - giáo viên điều khiển: chọn lại đáp án khi câu đó còn mở (chưa khóa, chưa chuyển câu);
     //  - trực tiếp tự do / bài về nhà: lượt làm lại câu sai, không vượt số lượt giáo viên cho phép.
     const attempt = Math.floor(Number(rec.attempt) || 0);
-    const can = paced
+    // Bài kiểm tra: chưa nộp bài và còn giờ thì em được chọn lại đáp án (như khoanh lại trên đề giấy)
+    const can = s.settings.mode === 'exam'
+      ? !!rec.change
+      : paced
       ? !!rec.change && rec.q_index === s.current_index && !s.question_locked && s.state === 'IN_PROGRESS'
       : attempt > (old.attempt ?? 0) && attempt <= (s.settings.retry_rounds ?? 0) && !old.pending && old.ratio < 1;
     if (!can) return p; // chống nộp trùng

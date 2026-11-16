@@ -31,7 +31,9 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
 ## Bài kiểm tra theo danh sách lớp
 
 1. **Đặt mã số học sinh:** Dạy học trên lớp → Lớp học → **Mã học sinh**. Gõ mã vào từng ô, hoặc điền chữ đứng đầu (ví dụ `HS`) và số bắt đầu rồi bấm
-   **Tạo mã tự động** (HS1, HS2…). Bấm **Lưu mã**, rồi **Xuất Excel** để in hoặc gửi danh sách (lớp, họ tên, mã số) cho học sinh.
+   **Tạo mã tự động** (HS1, HS2…), hoặc bấm **Dán mã có sẵn** để dán số căn cước, mã định danh hay tên đăng nhập từ Excel
+   (mỗi dòng một mã theo thứ tự danh sách, hoặc chép hai cột Họ tên + Mã). Mã dài tối đa 32 ký tự, không phân biệt hoa thường.
+   Bấm **Lưu mã**, rồi **Xuất Excel** để in hoặc gửi danh sách (lớp, họ tên, mã số) cho học sinh.
 2. **Giao bài:** Thư viện → **Tổ chức** trên bộ câu hỏi → chọn **Bài kiểm tra** → chọn lớp, điền thời gian làm bài (phút), chọn **cách làm bài**:
    - **Từng câu một, như trò chơi:** trả lời xong em bấm **Câu tiếp theo** hoặc bấm số câu trong bảng số câu;
    - **Cả bài trên một trang, như đề giấy:** cuộn xuống làm lần lượt, có thanh "đã trả lời x/y câu" và bảng số câu để nhảy tới câu chưa làm.
@@ -39,8 +41,11 @@ và **ảnh, âm thanh trong câu hỏi** (đóng gói ngay trong tệp, nên t�
    Chọn **xem lại bài làm** sau khi nộp: *Khi thầy cô thu bài* (nên dùng), *Ngay khi nộp* hoặc *Không cho xem*. Xem lại gồm đúng/sai từng câu, đáp án em chọn,
    đáp án đúng và lời giải. Bật / chỉnh **Chống gian lận** (mặc định nhắc nhở 3 lần, lần thứ 4 khóa bài) → **Mở phòng kiểm tra**.
    Hai lựa chọn mới cần Apps Script 1.5.5 trở lên (Cài đặt → Xem 5 bước cập nhật).
-3. **Học sinh vào làm:** nhập mã PIN, tên, lớp và **mã số học sinh**. Chỉ mã có trong lớp mới vào được; tên trong bài lấy theo danh sách lớp; mỗi mã làm một lần.
+3. **Học sinh vào làm:** mở link hoặc quét mã QR thầy cô gửi, gõ **mã số học sinh**: họ tên và lớp tự điền theo danh sách lớp để em kiểm tra
+   rồi bấm **Tham gia** (em vẫn có thể tự gõ cả ba ô). Chỉ mã có trong lớp mới vào được; mỗi mã làm một lần.
 4. Thầy cô bấm **Bắt đầu**: đồng hồ chạy, hết giờ phần mềm tự thu bài. Trong lúc làm, học sinh không được báo đúng hay sai.
+   Chưa bấm **Nộp bài kiểm tra** và còn giờ thì em được bấm **Chọn lại đáp án** ở câu đã làm, như khoanh lại trên đề giấy.
+   Tra mã và chọn lại đáp án cần Apps Script 1.5.6 trở lên.
    Làm xong em bấm **Nộp bài kiểm tra** và thấy số câu đúng, số câu sai, điểm thang 10 và mức đánh giá; nộp rồi không làm lại được.
 5. **Giám sát:** màn hình của thầy cô hiện số em đã vào, đã nộp, chưa vào; thẻ **Bảng điểm** có hạng, họ tên, lớp, mã số HS, trạng thái, điểm/10,
    số câu đúng, sai, bỏ trống và mức đánh giá; thẻ **Giám sát gian lận** hiện từng lần vi phạm và nút **Mở khóa** cho bài bị khóa.

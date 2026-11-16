@@ -102,7 +102,7 @@ function TrueFalse({ q, disabled, reveal, chosen, onSubmit }: Props) {
     <div className="pq-tf" role="radiogroup" aria-label="Đúng hay sai">
       {q.options.map((o) => {
         const isSel = picked.includes(o.option_id);
-        const cls = reveal ? (o.is_correct ? 'right' : isSel ? 'wrong' : 'dim') : '';
+        const cls = reveal ? (o.is_correct ? 'right' : isSel ? 'wrong' : 'dim') : isSel ? 'sel' : '';
         return (
           <button key={o.option_id} className={`pq-tf-btn ${cls}`} disabled={disabled} role="radio" aria-checked={isSel} aria-label={o.text.replace(/<[^>]*>/g, '')}
             onClick={() => onSubmit({ kind: 'choice', option_ids: [o.option_id] })}>
@@ -117,9 +117,9 @@ function TrueFalse({ q, disabled, reveal, chosen, onSubmit }: Props) {
 }
 
 // ---------- 3: nhiều đáp án – tích các ô rồi gửi ----------
-function MultiSelect({ q, seed, shuffleOptions, disabled, reveal, chosen, onSubmit }: Props) {
+function MultiSelect({ q, seed, shuffleOptions, disabled, reveal, chosen, onSubmit, draft }: Props) {
   const opts = useMemo(() => (shuffleOptions ? shuffle(q.options, seed) : q.options), [q, seed, shuffleOptions]);
-  const [sel, setSel] = useState<string[]>([]);
+  const [sel, setSel] = useState<string[]>(draft?.kind === 'choice' ? draft.option_ids : []); // chọn lại đáp án: giữ các ô đã tích
   const picked = chosen?.kind === 'choice' ? chosen.option_ids : sel;
   return (
     <>

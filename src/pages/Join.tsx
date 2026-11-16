@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ClipboardCheck, Gamepad2, LogIn } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, Gamepad2, LogIn, UserCheck } from 'lucide-react';
 import { api } from '../lib/api';
 import { avatarKind, randomAnyAvatar } from '../lib/avatar';
 import { sfx } from '../lib/sound';
@@ -78,6 +78,35 @@ export function Join() {
     }).catch(() => {});
     return () => { live = false; };
   }, [pin]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Bài kiểm tra: em gõ mã số học sinh → phần mềm tra danh sách lớp, tự điền họ tên và lớp để em kiểm tra lại trước khi vào
+  const [who, setWho] = useState<{ name: string; class_name: string; done: boolean } | null>(null);
+  const [whoMiss, setWhoMiss] = useState('');
+  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    setWho(null);
+    setWhoMiss('');
+    if (!exam || !/^\d{6}$/.test(pin) || code.length < 2) return;
+    let live = true;
+    const t = window.setTimeout(() => {
+      setLooking(true);
+      api.examStudent(pin, code)
+        .then((r) => {
+          if (!live) return;
+          setWho(r);
+          setName(r.name);
+          setCls(r.class_name);
+        })
+        .catch((e) => {
+          // Apps Script cũ chưa có chức năng tra mã: im lặng, em tự điền như trước
+          if (live && /không có trong danh sách/.test((e as Error).message)) setWhoMiss((e as Error).message);
+        })
+        .finally(() => live && setLooking(false));
+    }, 450);
+    return () => {
+      live = false;
+      window.clearTimeout(t);
+    };
+  }, [exam, pin, code]);
   const nameRef = useRef<HTMLInputElement>(null);
   const again = params.get('again') === '1'; // em vừa bấm "Làm lại bài này": chính em đó làm lại nên không cần hỏi
   const s = params.get('s');
@@ -95,9 +124,11 @@ export function Join() {
       setPinLocked(false);
       return setErr(BAD_PIN);
     }
-    if (!resume && !name.trim()) return setErr('Hãy nhập tên của em.');
-    if (!resume && !cls.trim()) return setErr('Hãy nhập lớp của em (ví dụ: 5A).');
     if (!resume && exam && !code.trim()) return setErr('Hãy nhập mã số học sinh thầy cô đã phát.');
+    if (!resume && exam && who?.done) return setErr(`Mã số ${code} đã nộp bài kiểm tra này rồi, không thể làm lại.`);
+    // Bài kiểm tra: họ tên và lớp lấy theo danh sách lớp của thầy cô, em chỉ cần gõ đúng mã số
+    if (!resume && !exam && !name.trim()) return setErr('Hãy nhập tên của em.');
+    if (!resume && !exam && !cls.trim()) return setErr('Hãy nhập lớp của em (ví dụ: 5A).');
     setBusy(true);
     try {
       const r = await api.joinSession(pin, resume?.name ?? name.trim(), resume?.avatar ?? avatar, resume?.player_id, resume?.class_name ?? cls.trim(), reuse, resume ? undefined : code.trim());
@@ -169,23 +200,40 @@ export function Join() {
             </div>
           ) : (
             <>
-              <label className="field">
-                <span>{pinLocked ? '1' : '2'}. Tên hiển thị</span>
-                <input className="input" maxLength={24} required ref={nameRef} autoFocus={pinLocked} value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Nguyễn Minh Anh" style={{ color: 'var(--fg)', fontSize: '1.2rem' }} autoComplete="nickname" />
-              </label>
-              <label className="field">
-                <span>{pinLocked ? '2' : '3'}. Lớp của em</span>
-                <input className="input" maxLength={20} required value={cls} onChange={(e) => setCls(e.target.value)} placeholder="VD: 5A" style={{ color: 'var(--fg)', fontSize: '1.2rem' }} autoCapitalize="characters" />
-                <small className="help">Thầy cô dùng lớp để thống kê kết quả.</small>
-              </label>
               {exam && (
-                <label className="field">
-                  <span>{pinLocked ? '3' : '4'}. Mã số học sinh</span>
-                  <input className="input" maxLength={20} required value={code} onChange={(e) => setCode(e.target.value.replace(/\s+/g, '').toUpperCase())} placeholder="VD: HS12"
-                    style={{ color: 'var(--fg)', fontSize: '1.4rem', fontWeight: 800, letterSpacing: '.08em' }} autoCapitalize="characters" autoComplete="off" />
-                  <small className="help">Đây là bài kiểm tra: em nhập đúng mã số thầy cô đã phát. Mỗi mã chỉ làm bài một lần; tên trong bài lấy theo danh sách lớp.</small>
-                </label>
+                <div className="stack" style={{ gap: 10 }}>
+                  <label className="field" style={{ margin: 0 }}>
+                    <span>{pinLocked ? '1' : '2'}. Mã số học sinh</span>
+                    <input className="input join-code" maxLength={32} required value={code} autoFocus={pinLocked} onChange={(e) => setCode(e.target.value.replace(/\s+/g, '').toUpperCase())} placeholder="VD: HS12"
+                      autoCapitalize="characters" autoComplete="off" aria-describedby="code-help" />
+                    <small className="help" id="code-help">Em chỉ cần gõ đúng mã số thầy cô đã phát (mã học sinh, số căn cước hoặc tên đăng nhập): họ tên và lớp tự điền theo danh sách lớp. Mỗi mã chỉ làm bài một lần.</small>
+                  </label>
+                  {looking && !who && <div className="muted small" role="status">Đang tìm mã trong danh sách lớp…</div>}
+                  {who && (
+                    <div className={`join-who ${who.done ? 'done' : ''}`} role="status">
+                      <UserCheck size={26} />
+                      <div>
+                        <b>{who.name}</b>
+                        <span>Lớp {who.class_name} · mã {code}</span>
+                        {who.done ? <small>Mã này đã nộp bài kiểm tra, không thể làm lại.</small> : <small>Đúng là em thì bấm <b>Tham gia</b>. Không phải em thì kiểm tra lại mã.</small>}
+                      </div>
+                    </div>
+                  )}
+                  {whoMiss && <div className="alert warn" role="status"><div>{whoMiss}</div></div>}
+                </div>
               )}
+              <label className="field">
+                <span>{exam ? (pinLocked ? '2' : '3') : pinLocked ? '1' : '2'}. {exam ? 'Họ và tên' : 'Tên hiển thị'}</span>
+                <input className="input" maxLength={exam ? 40 : 24} required ref={nameRef} autoFocus={pinLocked && !exam} value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Nguyễn Minh Anh"
+                  readOnly={exam && !!who} style={{ color: 'var(--fg)', fontSize: '1.2rem', ...(exam && who ? { background: 'var(--muted)' } : {}) }} autoComplete="nickname" />
+                {exam && <small className="help">{who ? 'Tự điền theo danh sách lớp của thầy cô.' : 'Gõ mã số ở trên là ô này tự điền. Em cũng có thể tự gõ.'}</small>}
+              </label>
+              <label className="field">
+                <span>{exam ? (pinLocked ? '3' : '4') : pinLocked ? '2' : '3'}. Lớp của em</span>
+                <input className="input" maxLength={20} required value={cls} onChange={(e) => setCls(e.target.value)} placeholder="VD: 5A" autoCapitalize="characters"
+                  readOnly={exam && !!who} style={{ color: 'var(--fg)', fontSize: '1.2rem', ...(exam && who ? { background: 'var(--muted)' } : {}) }} />
+                {!exam && <small className="help">Thầy cô dùng lớp để thống kê kết quả.</small>}
+              </label>
               <div className="av-me">
                 <button type="button" onClick={() => setBuilding(true)} style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }} aria-label="Đổi nhân vật">
                   <Avatar value={avatar} size={96} label />

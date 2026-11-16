@@ -156,6 +156,8 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
           const player = logic.joinPlayer(s, p.name, p.avatar, p.player_id, p.class_name, !!p.reuse_name, p.student_code);
           return { player_id: player.player_id, player };
         });
+      case 'examStudent':
+        return logic.examStudent(readSession(p.pin), p.student_code);
       case 'poll':
         return mutate(p.pin, (s) => logic.pollView(s, p.player_id));
       case 'submitAnswer':
@@ -263,6 +265,9 @@ export const api = {
   /** Xóa báo cáo: các phiên được chọn, hoặc toàn bộ (all). Trên Drive, tệp vào Thùng rác. */
   deleteSessions: (session_ids: string[], all = false) => call<{ removed: number; files: number; audio: number; left: number }>('deleteSessions', { session_ids, all }),
   getSessionQuiz: (pin: string) => call<{ quiz: Quiz; settings: SessionSettings; state: string }>('getSessionQuiz', { pin }),
+  /** Bài kiểm tra: tra tên và lớp theo mã số học sinh (Apps Script 1.5.6). */
+  examStudent: (pin: string, student_code: string) =>
+    call<{ name: string; class_name: string; code: string; done: boolean }>('examStudent', { pin, student_code }),
   joinSession: (pin: string, name: string, avatar: string, player_id?: string, class_name?: string, reuse_name?: boolean, student_code?: string) =>
     call<{ player_id: string; player: import('./types').Player }>('joinSession', { pin, name, avatar, player_id, class_name, reuse_name, student_code }),
   poll: (pin: string, player_id?: string) => call<PollResult>('poll', { pin, player_id }),

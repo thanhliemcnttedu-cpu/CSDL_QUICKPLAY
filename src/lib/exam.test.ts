@@ -145,3 +145,38 @@ describe('bài kiểm tra: cách làm bài, xem lại bài và bảng điểm', 
     expect(rows[2]).toMatchObject({ status: 'doing', mark10: null, level: null });
   });
 });
+
+describe('bài kiểm tra: chọn lại đáp án, tra mã số, dán mã có sẵn', () => {
+  it('chưa nộp bài thì được chọn lại đáp án; câu cũ được thay, không cộng dồn', () => {
+    const s = open();
+    const p = logic.joinPlayer(s, '', 'cat', undefined, '', false, 'HS1');
+    logic.applyHostOp(s, 'start');
+    logic.submitAnswer(s, rec(p.player_id, 0, false));
+    logic.submitAnswer(s, { ...rec(p.player_id, 0, true), change: true });
+    expect(s.answers).toHaveLength(1);
+    expect(p).toMatchObject({ answered: 1, correct: 1, score: 1000 });
+    logic.submitAnswer(s, rec(p.player_id, 0, false)); // gửi trùng không có change: bỏ qua
+    expect(p).toMatchObject({ answered: 1, correct: 1 });
+    p.finished = true;
+    expect(() => logic.submitAnswer(s, { ...rec(p.player_id, 0, false), change: true })).toThrow(/đã nộp bài kiểm tra/);
+  });
+  it('gõ mã số là biết tên và lớp; mã sai thì báo; mã đã nộp thì đánh dấu', () => {
+    const s = open();
+    expect(logic.examStudent(s, ' hs 2 ')).toMatchObject({ name: 'Trần Bình', class_name: '5A', code: 'HS2', done: false });
+    expect(() => logic.examStudent(s, 'HS9')).toThrow(/không có trong danh sách lớp 5A/);
+    const p = logic.joinPlayer(s, '', 'cat', undefined, '', false, 'HS2');
+    p.finished = true;
+    expect(logic.examStudent(s, 'HS2').done).toBe(true);
+  });
+  it('mã có thể là số căn cước 12 số hoặc tên đăng nhập dài', () => {
+    expect(logic.normCode('0792 1200 0001')).toBe('079212000001');
+    expect(logic.normCode('nguyen.van.an.2015@truong')).toBe('NGUYEN.VAN.AN.2015@TRUONG');
+  });
+  it('dán mã từ Excel: theo thứ tự, hoặc hai cột Họ tên + Mã khớp theo tên', async () => {
+    const { pasteCodes } = await import('../components/StudentCodesDialog');
+    const students = ['Nguyễn An', 'Trần Bình', 'Lê Chi'];
+    expect(pasteCodes(students, ['', '', ''], '079212000001\n079212000002\n').codes).toEqual(['079212000001', '079212000002', '']);
+    const r = pasteCodes(students, ['A', 'B', 'C'], 'lê chi\tchi.le\nNguyễn  An\tan.nguyen\nNgười lạ\tx');
+    expect(r).toMatchObject({ codes: ['AN.NGUYEN', 'B', 'CHI.LE'], matched: 2, lines: 3 });
+  });
+});

@@ -679,3 +679,13 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
   .rep-card { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; text-decoration: none; color: var(--fg); }
   .rep-card .btn { align-self: flex-start; }
 }
+
+/* Vào bài kiểm tra: ô mã số học sinh và thẻ "Em là …" tự điền theo danh sách lớp */
+.join-code { color: var(--fg); font-size: 1.4rem; font-weight: 800; letter-spacing: 0.08em; }
+.join-who { display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-radius: 18px; border: 1.5px solid #86d9a8; background: linear-gradient(135deg, #f0fbf4, #e6f6ff); color: #0b5a2c; animation: pop 300ms ease-out; }
+.join-who > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.join-who > div > b { font-size: 1.25rem; color: var(--fg); overflow-wrap: anywhere; }
+.join-who span { font-weight: 700; }
+.join-who small { color: var(--muted-fg); }
+.join-who.done { border-color: #fca5a5; background: #fff1f1; color: #b91c1c; }
+@media (prefers-reduced-motion: reduce) { .join-who { animation: none; } }

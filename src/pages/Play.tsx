@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../components/Avatar';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Pause, Check, X, Clock, Home as HomeIcon, WifiOff, ShieldAlert, Maximize, Lock, Coins, Volume2, VolumeX, Gift, PartyPopper, HeartHandshake, RotateCcw, Trophy, ArrowRight, ClipboardCheck, Send, ListChecks } from 'lucide-react';
+import { Pause, Check, X, Clock, Home as HomeIcon, WifiOff, ShieldAlert, Maximize, Lock, Coins, Volume2, VolumeX, Gift, PartyPopper, HeartHandshake, RotateCcw, Trophy, ArrowRight, ClipboardCheck, Send, ListChecks, Star } from 'lucide-react';
 import type { PollResult, Question, Quiz, SessionSettings, ViolationKind } from '../lib/types';
 import { enterFullscreen, fullscreenSupported, isFullscreen, useAntiCheat, VIOLATION_LABELS } from '../lib/anticheat';
 import { api } from '../lib/api';
@@ -18,9 +18,17 @@ import { Spinner, askConfirm } from '../components/ui';
 import { AppFooter } from '../components/AppFooter';
 import { StudentResult } from '../components/StudentResult';
 import { durationOf } from '../lib/analytics';
-import { LEVEL_LABEL, cheerFor, levelOf, type Cheer } from '../lib/cheer';
+import { LEVEL_LABEL, cheerFor, levelOf, type Cheer, type Level } from '../lib/cheer';
 import '../result.css';
 import { loadPlayer, playerKey, type SavedPlayer } from './Join';
+
+/** Lời nhắn trên màn kết quả bài kiểm tra theo mức đánh giá. */
+const LEVEL_CHEER: Record<Level, string> = {
+  excellent: 'Xuất sắc! Em nắm bài rất chắc. Thầy cô và các bạn rất tự hào về em!',
+  good: 'Rất tốt! Em đã làm bài chắc chắn, cố thêm một chút là đạt xuất sắc.',
+  pass: 'Em đã hoàn thành bài. Xem lại các câu sai để lần sau làm tốt hơn nhé!',
+  effort: 'Đừng nản nhé! Em ôn lại các câu sai, lần sau chắc chắn sẽ tốt hơn.',
+};
 
 type Feedback = { ratio: number; score: number; q: Question; answer: Answer; coins?: number };
 
@@ -117,6 +125,8 @@ export default function Play() {
   const examSubmitted = exam && (submitted || !!poll?.players.find((p) => p.player_id === me?.player_id)?.finished);
   const [submitAsk, setSubmitAsk] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false); // bài kiểm tra: đang mở phần xem lại bài làm
+  const [editing, setEditing] = useState<Set<number>>(new Set()); // bài kiểm tra: các câu em đang chọn lại đáp án
+  const editOn = (i: number, on: boolean) => setEditing((s) => { const n = new Set(s); if (on) n.add(i); else n.delete(i); return n; });
 
   // Thứ tự câu hỏi riêng của từng học sinh (ổn định khi tải lại trang)
   const order = useMemo<Question[]>(() => {
@@ -305,7 +315,9 @@ export default function Play() {
     async (a: Answer, at?: number) => {
       const pos = at ?? curIndex; // vị trí câu đang trả lời
       const q = order[pos];
-      if (!q || !me || submitting.current || answered.has(pos)) return;
+      // Bài kiểm tra: câu đã trả lời vẫn được gửi lại khi em bấm "Chọn lại đáp án" (chưa nộp bài, còn giờ)
+      if (!q || !me || submitting.current || (answered.has(pos) && !(exam && editing.has(pos)))) return;
+      const again = exam && answered.has(pos);
       submitting.current = true;
       const timeMs = untimed ? 0 : elapsed();
       const oral = q.type === 'oral' && a.kind === 'oral';
@@ -340,12 +352,13 @@ export default function Play() {
       setScore((s) => s + pts - before);
       setRatios((m) => new Map(m).set(pos, { ratio, score: pts, oral }));
       setMyAnswers((m) => new Map(m).set(pos, a));
+      if (exam) editOn(pos, false);
       setStreak(newStreak);
       setDraft(null);
       const record: AnswerRecord = {
         player_id: me.player_id, question_id: q.id, q_index: pos, answer: a,
         correct: !oral && ratio === 1, ratio, score: pts, coins, pending: oral || undefined, time_ms: Math.round(timeMs), at: Date.now(),
-        attempt: retry?.round, change: (paced && changed.current.has(pos)) || undefined,
+        attempt: retry?.round, change: (paced && changed.current.has(pos)) || again || undefined,
       };
       // Gửi câu trả lời; mất mạng hoặc máy chủ đang bận thì tự gửi lại ở nền (2, 4, 8, 15 giây) để không mất bài của em
       const send = async (tries: number): Promise<void> => {
@@ -410,7 +423,7 @@ export default function Play() {
         if (settings?.auto_next !== false) advanceTimer.current = window.setTimeout(go, q.explanation || ratio < 1 ? 7000 : homework ? 2200 : 1800);
       }
     },
-    [q, order, me, answered, curIndex, homework, exam, free, untimed, streak, settings, pin, paced, order.length, poll?.question_locked, retry, ratios], // eslint-disable-line react-hooks/exhaustive-deps
+    [q, order, me, answered, curIndex, homework, exam, free, untimed, streak, settings, pin, paced, order.length, poll?.question_locked, retry, ratios, editing], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // Hết giờ -> tự nộp "không trả lời"
@@ -645,7 +658,7 @@ export default function Play() {
               <b className="row" style={{ gap: 8 }}><ClipboardCheck size={20} color="var(--primary)" /> Đây là bài kiểm tra</b>
               <ul style={{ margin: 0, paddingLeft: 20 }}>
                 <li>Bài có <b>{total}</b> câu, làm trong <b>{settings.exam_minutes ?? 45} phút</b>. Đồng hồ chạy khi thầy cô bấm Bắt đầu; hết giờ bài tự được thu.</li>
-                <li>Trong lúc làm, phần mềm <b>không báo đúng hay sai</b>. Mỗi câu chỉ trả lời một lần, em hãy đọc kỹ rồi mới chọn.</li>
+                <li>Trong lúc làm, phần mềm <b>không báo đúng hay sai</b>. Chưa bấm <b>Nộp bài kiểm tra</b> thì em vẫn được bấm <b>Chọn lại đáp án</b> ở câu đã làm, như khoanh lại trên đề giấy.</li>
                 {settings.exam_layout === 'page' && <li>Cả bài nằm trên <b>một trang</b>: em cuộn xuống để làm lần lượt, bấm số câu ở đầu trang để tới câu chưa làm.</li>}
                 {settings.exam_layout === 'one' && <li>Mỗi lần hiện <b>một câu</b>. Trả lời xong em bấm <b>Câu tiếp theo</b>, hoặc bấm số câu trong bảng số câu để chọn câu muốn làm.</li>}
                 {settings.exam_review === 'submit' && <li>Nộp bài xong em được <b>xem lại bài làm</b>: đáp án đúng và lời giải từng câu.</li>}
@@ -737,18 +750,27 @@ export default function Play() {
     return (
       <Shell>
         {top}
-        <div className="card stack center exam-result" style={{ margin: reviewOpen ? '0 auto' : 'auto', alignItems: 'center', maxWidth: 560, width: '100%', color: 'var(--fg)' }}>
-          <PartyPopper size={56} color="var(--primary)" />
-          <h1 style={{ margin: 0 }}>{handedIn ? 'Chúc mừng em đã hoàn thành bài kiểm tra!' : 'Đã hết giờ làm bài'}</h1>
-          <p style={{ margin: 0 }}><b>{me.name}</b>{me.class_name ? ` · lớp ${me.class_name}` : ''} · {quiz.title}</p>
+        <div className={`card stack center exam-result lv-${level}`} style={{ margin: reviewOpen ? '0 auto' : 'auto', alignItems: 'center', maxWidth: 600, width: '100%', color: 'var(--fg)' }}>
+          <div className="er-band" aria-hidden><i /><i /><i /><i /><i /><i /><i /><i /></div>
+          <span className="er-icon" aria-hidden>{level === 'excellent' || level === 'good' ? <Trophy size={40} /> : <PartyPopper size={40} />}</span>
+          <h1 className="er-title">{handedIn ? 'Chúc mừng em đã hoàn thành bài kiểm tra!' : 'Đã hết giờ làm bài'}</h1>
+          <p className="er-who"><b>{me.name}</b>{me.class_name ? ` · lớp ${me.class_name}` : ''}<br /><span>{quiz.title}</span></p>
           {!handedIn && <p className="muted" style={{ margin: 0 }}>Bài của em đã được thu. Các câu em đã trả lời đều được tính điểm.</p>}
+          <div className="er-score" role="img" aria-label={`Điểm ${mark.toLocaleString('vi-VN')} trên 10`} style={{ '--p': `${Math.min(100, mark * 10)}%` } as React.CSSProperties}>
+            <div><b>{mark.toLocaleString('vi-VN')}</b><span>điểm / 10</span></div>
+          </div>
+          {!oralWait && (
+            <span className={`er-level ${level}`}>
+              <Star size={18} fill="currentColor" /> Mức đánh giá: {LEVEL_LABEL[level]}
+            </span>
+          )}
+          {!oralWait && <p className="er-cheer">{LEVEL_CHEER[level]}</p>}
           <div className="exam-nums" role="status">
             <div className="ok"><b>{right}</b><span>câu đúng</span></div>
             <div className="bad"><b>{wrong}</b><span>câu sai{blank ? ` (gồm ${blank} câu bỏ trống)` : ''}</span></div>
-            <div className="mark"><b>{mark.toLocaleString('vi-VN')}</b><span>điểm (thang 10)</span></div>
+            <div className="mark"><b>{total}</b><span>câu cả bài</span></div>
           </div>
-          {!oralWait && <span className={`sr-level ${level}`}>Mức đánh giá: {LEVEL_LABEL[level]}</span>}
-          <p style={{ margin: 0, fontSize: '1.1rem' }}>Bài kiểm tra em làm đúng <b>{right}/{total}</b> câu, sai <b>{wrong}</b> câu. Điểm em đạt được là <b>{mark.toLocaleString('vi-VN')}</b>.</p>
+          <p style={{ margin: 0, fontSize: '1.05rem' }}>Bài kiểm tra em làm đúng <b>{right}/{total}</b> câu, sai <b>{wrong}</b> câu. Điểm em đạt được là <b>{mark.toLocaleString('vi-VN')}</b>.</p>
           {oralWait > 0 && <p className="muted" style={{ margin: 0 }}>Còn {oralWait} câu trả lời miệng chờ thầy cô chấm; điểm sẽ được cộng thêm sau khi chấm.</p>}
           <p className="muted small" style={{ margin: 0 }}>Bài đã nộp và đã khóa, em không thể làm lại bài kiểm tra này.</p>
           {canReview && !reviewOpen && <button className="btn primary" onClick={() => setReviewOpen(true)}><ListChecks size={18} /> Xem lại bài làm</button>}
@@ -881,17 +903,22 @@ export default function Play() {
             <section key={qq.id} id={`exam-q-${i}`} className={`card stack exam-q ${answered.has(i) ? 'done' : ''}`} style={{ color: 'var(--fg)' }}>
               <div className="row between">
                 <b>Câu {i + 1}/{total}</b>
+                {answered.has(i) && !editing.has(i) && !blocked && (
+                  <button className="btn sm ghost" onClick={() => editOn(i, true)}><RotateCcw size={14} /> Chọn lại đáp án</button>
+                )}
+                {editing.has(i) && <button className="btn sm ghost" onClick={() => editOn(i, false)}>Giữ đáp án cũ</button>}
                 {answered.has(i) ? <span className="badge green"><Check size={14} /> Đã trả lời</span> : <span className="badge">Chưa trả lời</span>}
               </div>
               <PlayQuestion
                 q={qq}
                 seed={hashString(me.player_id + qq.id)}
                 shuffleOptions={settings.shuffle_options}
-                disabled={answered.has(i) || blocked}
+                key={editing.has(i) ? 'sua' : 'xem'}
+                disabled={(answered.has(i) && !editing.has(i)) || blocked}
                 reveal={false}
-                chosen={answered.has(i) ? myAnswers.get(i) ?? null : null}
+                chosen={answered.has(i) && !editing.has(i) ? myAnswers.get(i) ?? null : null}
                 onSubmit={(a) => submit(a, i)}
-                draft={null}
+                draft={editing.has(i) ? myAnswers.get(i) ?? null : null}
                 onDraft={() => {}}
                 uploadAudio={(b) => uploadAudio(b, i)}
               />
@@ -899,7 +926,7 @@ export default function Play() {
           ))}
           <div className="card stack center" style={{ alignItems: 'center', color: 'var(--fg)' }}>
             <b>{missing.length ? `Em còn ${missing.length} câu chưa trả lời.` : `Em đã trả lời hết ${total} câu.`}</b>
-            <span className="muted small">Mỗi câu chỉ trả lời một lần. Sau khi nộp, bài được khóa lại và em không thể làm lại.</span>
+            <span className="muted small">Trước khi nộp, em có thể bấm "Chọn lại đáp án" ở câu muốn sửa. Sau khi nộp, bài được khóa lại và em không thể làm lại.</span>
             <button className="btn success lg" onClick={handInExam} disabled={isLocked}><Send size={20} /> Nộp bài kiểm tra</button>
           </div>
         </div>
@@ -912,15 +939,15 @@ export default function Play() {
       </div>}
       {q && !pageMode && (
         <PlayQuestion
-          key={`${curIndex}-${q.id}-${attempt}`}
+          key={`${curIndex}-${q.id}-${attempt}-${exam && editing.has(curIndex) ? 'sua' : 'xem'}`}
           q={q}
           seed={hashString(me.player_id + q.id)}
           shuffleOptions={settings.shuffle_options}
-          disabled={!!feedback || locked || (free && answered.has(curIndex)) || poll.state === 'PAUSED' || isLocked || needFullscreen}
+          disabled={!!feedback || locked || (free && answered.has(curIndex) && !(exam && editing.has(curIndex))) || poll.state === 'PAUSED' || isLocked || needFullscreen}
           reveal={paced ? pacedReveal : exam ? false : !!feedback || (free && !retry && answered.has(curIndex))}
-          chosen={feedback?.answer ?? (answered.has(curIndex) ? myAnswers.get(curIndex) ?? null : null)}
+          chosen={feedback?.answer ?? (answered.has(curIndex) && !(exam && editing.has(curIndex)) ? myAnswers.get(curIndex) ?? null : null)}
           onSubmit={submit}
-          draft={draft?.i === curIndex ? draft.a : null}
+          draft={exam && editing.has(curIndex) ? myAnswers.get(curIndex) ?? null : draft?.i === curIndex ? draft.a : null}
           onDraft={onDraft}
           uploadAudio={uploadAudio}
         />
@@ -933,9 +960,13 @@ export default function Play() {
           <button className="btn success lg" onClick={handInExam} disabled={isLocked}><Send size={20} /> Nộp bài kiểm tra</button>
         </div>
       )}
-      {exam && settings.exam_layout === 'one' && answered.has(curIndex) && (
+      {exam && editing.has(curIndex) && (
+        <div className="alert" role="status"><div>Em đang chọn lại đáp án câu {curIndex + 1}. Chọn xong em gửi lại, hoặc <button className="btn sm ghost" onClick={() => editOn(curIndex, false)}>Giữ đáp án cũ</button></div></div>
+      )}
+      {exam && settings.exam_layout === 'one' && answered.has(curIndex) && !editing.has(curIndex) && (
         <div className="card stack center exam-next" role="status" style={{ alignItems: 'center', color: 'var(--fg)' }}>
           <b><Check size={18} color="var(--success)" /> Đã ghi nhận câu trả lời câu {curIndex + 1}.</b>
+          {!blocked && <button className="btn sm ghost" onClick={() => editOn(curIndex, true)}><RotateCcw size={14} /> Chọn lại đáp án</button>}
           {nextOpen !== undefined ? (
             <button className="btn primary lg next-q" autoFocus onClick={() => goTo(nextOpen)}>Câu tiếp theo{nextOpen !== curIndex + 1 ? ` (câu ${nextOpen + 1} chưa làm)` : ''} <ArrowRight size={20} /></button>
           ) : (

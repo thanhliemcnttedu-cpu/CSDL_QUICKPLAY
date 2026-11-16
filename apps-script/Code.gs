@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.5.5';
+var APP_VERSION = '1.5.6';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -145,6 +145,7 @@ function getRoutes_() {
 
     getSessionQuiz: { teacher: false, fn: actGetSessionQuiz_ },
     joinSession: { teacher: false, fn: actJoinSession_ },
+    examStudent: { teacher: false, fn: actExamStudent_ }, // 1.5.6: em gõ mã số, xem tên và lớp trước khi vào
     poll: { teacher: false, fn: actPoll_ },
     submitAnswer: { teacher: false, fn: actSubmitAnswer_ },
     saveProgress: { teacher: false, fn: actSaveProgress_ },
@@ -717,7 +718,7 @@ function cleanStudents_(raw) {
 
 /** Chuẩn hóa mã số học sinh: bỏ khoảng trắng, viết hoa, tối đa 20 ký tự (giống normCode ở giao diện). */
 function normCode_(c) {
-  return String(c == null ? '' : c).replace(/\s+/g, '').toUpperCase().slice(0, 20);
+  return String(c == null ? '' : c).replace(/\s+/g, '').toUpperCase().slice(0, 32); // đủ cho số căn cước 12 số, tên đăng nhập
 }
 
 /** Danh sách được phép vào bài kiểm tra, lấy từ lớp. Báo lỗi nếu lớp chưa đặt đủ mã hoặc mã trùng nhau. */
@@ -1301,6 +1302,20 @@ function actJoinSession_(req) {
   });
 }
 
+/** Bài kiểm tra: tra tên và lớp theo mã số học sinh để em kiểm tra trước khi vào (chỉ đọc, không ghi gì). */
+function actExamStudent_(req) {
+  var pin = normalizePin_(req.pin);
+  var s = loadSession_(pin, false);
+  if (!s.settings || s.settings.mode !== 'exam') throw userError_('Phòng này không phải bài kiểm tra.');
+  var code = normCode_(req.student_code);
+  var roster = s.exam && Array.isArray(s.exam.roster) ? s.exam.roster : [];
+  var entry = code ? roster.filter(function (r) { return r.code === code; })[0] : null;
+  var examClass = s.exam ? s.exam.class_name : '';
+  if (!entry) throw userError_('Mã số học sinh "' + code + '" không có trong danh sách lớp ' + examClass + '. Em hãy kiểm tra lại mã.');
+  var done = s.players.some(function (p) { return p.student_code === code && p.finished; });
+  return { name: String(entry.name), class_name: String(examClass), code: code, done: done };
+}
+
 function actPoll_(req) {
   var pin = normalizePin_(req.pin);
   var pid = req.player_id ? String(req.player_id) : '';
@@ -1375,7 +1390,10 @@ function actSubmitAnswer_(req) {
     if (old) {
       // Chỉ thay câu trả lời cũ khi: (giáo viên điều khiển) chọn lại đáp án lúc câu còn mở;
       // hoặc (tự do / bài về nhà) lượt làm lại câu sai trong giới hạn giáo viên cho phép.
-      var can = paced
+      // Bài kiểm tra (1.5.6): chưa nộp bài và còn giờ thì em được chọn lại đáp án, như khoanh lại trên đề giấy.
+      var can = s.settings.mode === 'exam'
+        ? rec.change === true
+        : paced
         ? rec.change === true && qi === s.current_index && !s.question_locked
         : attempt > (old.attempt || 0) && attempt <= (s.settings.retry_rounds || 0) && !old.pending && (old.ratio || 0) < 1;
       if (!can) {
