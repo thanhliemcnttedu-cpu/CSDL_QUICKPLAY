@@ -52,7 +52,10 @@ export function reasonOf(message: string): { reason: UpdateReason; message: stri
 /** Đã đến lúc hỏi lại chưa (không hỏi dồn dập mỗi lần chuyển trang). */
 export function isFresh(s: UpdateStatus | null, now = Date.now()): boolean {
   if (!s) return false;
-  return now - s.at < (s.state === 'old' ? RETRY_MS : EVERY_MS);
+  // Chưa thiết lập tự cập nhật (chưa bật API, chưa có quyền, Apps Script quá cũ): việc thầy cô tự làm ở mục Nâng cao,
+  // không cần thử lại mỗi 15 phút → 6 giờ thử lại một lần (nút "Cập nhật ngay" / "Kiểm tra điều kiện" vẫn thử ngay).
+  const notSetUp = s.state === 'old' && (s.reason === 'api_off' || s.reason === 'cloud_api' || s.reason === 'scopes' || s.reason === 'no_self');
+  return now - s.at < (s.state === 'old' && !notSetUp ? RETRY_MS : EVERY_MS);
 }
 
 /** Hai thẻ trình duyệt cùng mở: chỉ một thẻ được tự cập nhật (giữ chỗ 2 phút). */

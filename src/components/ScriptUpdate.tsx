@@ -53,20 +53,22 @@ export function ScriptUpdateNotice() {
       }
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // Ở trang Cài đặt đã có khối Tự cập nhật, không nhắc hai lần
+  // Ở trang Cài đặt đã có hộp cập nhật, không nhắc hai lần
   const onSettings = useLocation().pathname.startsWith('/teacher/settings');
   if (hide || onSettings || loadSettings().backend !== 'drive' || st?.state !== 'old') return null;
-  // chưa thử tự cập nhật lần nào (vừa mở trang): đang tự cập nhật ngầm, chưa cần làm gì
+  // chưa thử tự cập nhật lần nào (vừa mở trang): đang thử tự cập nhật ngầm (với ai đã bật ở mục Nâng cao), chờ kết quả
   if (st.reason === undefined) return null;
   const busy = st.reason === 'busy';
+  // Mặc định chỉ đường tới 5 bước cập nhật tay: ngắn gọn, ai cũng làm được.
+  // Lý do kỹ thuật (chưa bật API, thiếu quyền…) chỉ hiện trong mục Nâng cao của trang Cài đặt.
   return (
     <div className="script-notice" role="status">
       <TriangleAlert size={20} />
       <span>
-        Apps Script của thầy cô đang chạy bản <b>{st.server}</b>, phần mềm cần <b>{SCRIPT_VERSION}</b>. {reasonText(st.reason)}
-        {st.reason === 'error' && st.message ? ` ${st.message}` : ''}
+        Apps Script của thầy cô đang chạy bản <b>{st.server}</b>, phần mềm cần <b>{SCRIPT_VERSION}</b>.{' '}
+        {busy ? 'Đang có buổi học trực tiếp, Apps Script sẽ tự cập nhật khi buổi học kết thúc.' : 'Cập nhật mất khoảng 3 phút; link và dữ liệu giữ nguyên.'}
       </span>
-      {!busy && <Link className="btn sm primary" to="/teacher/settings#tu-cap-nhat">{st.reason === 'api_off' ? 'Bật API' : 'Xem cách làm'}</Link>}
+      {!busy && <Link className="btn sm primary" to="/teacher/settings#cap-nhat">Xem 5 bước cập nhật</Link>}
       <button className="btn icon ghost sm" aria-label="Ẩn thông báo" onClick={() => { sessionStorage.setItem('quickplay.hideScriptNotice', '1'); setHide(true); }}><X size={16} /></button>
     </div>
   );
@@ -142,25 +144,36 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
   const needApi = (old && reason === 'api_off') || (ready && !ready.ready && /Apps Script API/.test(ready.message ?? ''));
   const needManual = old && (reason === 'scopes' || reason === 'manual' || reason === 'no_self');
   return (
-    <div className="folder-box" id="tu-cap-nhat">
+    <div className="folder-box">
       <div className="row between" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <b className="row" style={{ gap: 6 }}><RefreshCw size={18} color="var(--primary)" /> Tự cập nhật Apps Script</b>
+        <b className="row" style={{ gap: 6 }}><RefreshCw size={18} color="var(--primary)" /> Tự cập nhật Apps Script (không bắt buộc)</b>
         {server && !old && <span className="badge green"><CheckCircle2 size={14} /> Đang chạy bản mới nhất {server}</span>}
         {old && <span className="badge amber"><TriangleAlert size={14} /> Đang chạy {server}, cần {SCRIPT_VERSION}</span>}
       </div>
       <p className="muted" style={{ margin: 0 }}>
-        Khi Quickplay có bản mới, Apps Script của thầy cô <b>tự cập nhật</b> lúc thầy cô mở phần mềm (không cập nhật khi đang có buổi học trực tiếp).
-        Link, khóa giáo viên và dữ liệu giữ nguyên. Cần hai điều kiện, mỗi điều làm <b>một lần</b>:
+        Không làm phần này thì thầy cô vẫn dùng Quickplay bình thường và cập nhật bằng <b>5 bước cập nhật tay</b>.
+        Làm đủ 5 việc dưới đây (mỗi việc <b>một lần</b>, cần Gmail có xác thực hai bước) thì khi Quickplay có bản mới, Apps Script <b>tự cập nhật</b>
+        lúc thầy cô mở phần mềm (không cập nhật khi đang có buổi học trực tiếp); link, khóa giáo viên và dữ liệu giữ nguyên.
       </p>
       <ol className="move-steps">
         <li>
-          Bật <b>Google Apps Script API</b> cho Gmail đang chạy Apps Script: mở trang cài đặt, gạt <b>Google Apps Script API</b> sang <b>Bật</b>.{' '}
+          Bật <b>xác thực hai bước</b> cho Gmail chạy Apps Script (Google Cloud bắt buộc từ 10/2026): Tài khoản Google → <b>Bảo mật</b> → <b>Xác minh 2 bước</b>.{' '}
+          <a className="btn sm" href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở trang xác minh 2 bước</a>
+        </li>
+        <li>
+          Bật <b>Google Apps Script API</b> trong cài đặt của Gmail: gạt sang <b>Bật</b>.{' '}
           <a className="btn sm" href={API_SETTINGS_URL} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở trang bật API</a>
         </li>
         <li>
-          Dự án Apps Script có <b>tệp cấu hình appsscript.json</b> của Quickplay (quyền tự cập nhật). Làm khi cập nhật tay: bước 3 của 5 bước có hướng dẫn dán tệp này
-          — dán vào tệp <code>appsscript.json</code>, <b>không</b> dán vào <code>Mã.gs</code>.{' '}
+          Dán <b>tệp cấu hình</b> vào tệp <code>appsscript.json</code> của dự án (⚙ Cài đặt dự án → Chung → tích "Hiển thị tệp kê khai…"), <b>không</b> dán vào <code>Mã.gs</code>, rồi <kbd>Ctrl + S</kbd>.{' '}
           <button type="button" className="btn sm" onClick={copyManifest}><Copy size={14} /> Sao chép tệp cấu hình</button>
+        </li>
+        <li>
+          Trong trình biên tập Apps Script, ô chọn hàm chọn <b>kiemTraTuCapNhat</b> → <b>▷ Chạy</b>. Google hỏi quyền thì <b>tích "Chọn tất cả"</b> → Tiếp tục.
+        </li>
+        <li>
+          Nhật ký thực thi báo cần bật API cho <b>dự án Google Cloud</b> thì mở link trong nhật ký (hoặc nút "Mở trang bật API của Google Cloud" khi bấm Kiểm tra điều kiện),
+          bấm <b>Chấp nhận</b> điều khoản rồi <b>Bật (Enable)</b>, đợi 2–3 phút, chạy lại hàm. Nhật ký báo <b>"ĐỦ ĐIỀU KIỆN TỰ CẬP NHẬT"</b> là xong; triển khai Phiên bản mới như mọi lần.
         </li>
       </ol>
       {old && st?.reason && (
@@ -174,7 +187,7 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
       {ready && (
         <div className={`alert ${ready.ready ? 'ok' : 'warn'}`}>
           <div>
-            {ready.ready ? 'Đủ hai điều kiện: các bản sau Apps Script sẽ tự cập nhật.' : ready.message}
+            {ready.ready ? 'Đủ điều kiện: các bản sau Apps Script sẽ tự cập nhật.' : ready.message}
             {ready.link && <> <a className="btn sm" href={ready.link} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> {/console\./.test(ready.link) ? 'Mở trang bật API của Google Cloud' : 'Mở trang cấp quyền của Google'}</a></>}
           </div>
         </div>

@@ -5,7 +5,6 @@ import { ADMIN_SCRIPT_VERSION, SCRIPT_VERSION as TEACHER_SCRIPT_VERSION, compare
 import { pickFile } from './MediaTools';
 import { downloadBlob } from '../lib/xlsx';
 import { useToast } from './ui';
-import { useCopyManifest } from './ScriptUpdate';
 import '../installer.css';
 
 export interface InstallResult { scriptUrl: string; key: string; folderUrl: string }
@@ -47,7 +46,7 @@ const Then = () => <span className="ins-then" aria-hidden>›</span>;
 
 /** Nhắc tích "Chọn tất cả" trên màn hình đồng ý của Google: bỏ trống ô nào thì Google coi là từ chối quyền đó và không hỏi lại. */
 const ConsentTip = () => (
-  <div className="alert warn"><div><TriangleAlert size={16} /> Ở màn hình danh sách quyền của Google, <b>tích ô "Chọn tất cả"</b> rồi mới bấm Tiếp tục. Bỏ trống ô nào thì Google coi là thầy cô từ chối quyền đó và <b>không hỏi lại</b>; khi ấy Apps Script không tự cập nhật được.</div></div>
+  <div className="alert warn"><div><TriangleAlert size={16} /> Ở màn hình danh sách quyền của Google, <b>tích ô "Chọn tất cả"</b> rồi mới bấm Tiếp tục. Bỏ trống ô nào thì Google coi là thầy cô từ chối quyền đó và <b>không hỏi lại</b>; khi ấy Apps Script có thể không lưu được dữ liệu lên Drive.</div></div>
 );
 
 const Step = ({ n, icon, title, done, children }: { n: number; icon: React.ReactNode; title: string; done?: boolean; children: React.ReactNode }) => (
@@ -60,7 +59,6 @@ const Step = ({ n, icon, title, done, children }: { n: number; icon: React.React
 
 export function ScriptInstaller({ kind, current, onDone }: Props) {
   const toast = useToast();
-  const copyManifest = useCopyManifest();
   const teacher = kind === 'teacher';
   const SCRIPT_VERSION = teacher ? TEACHER_SCRIPT_VERSION : ADMIN_SCRIPT_VERSION;
   const [mode, setMode] = useState<'new' | 'update'>(current?.scriptUrl ? 'update' : 'new');
@@ -272,14 +270,9 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
               <li>Bấm vào vùng mã, chọn hết <kbd>Ctrl + A</kbd> rồi <kbd>Delete</kbd>.</li>
               <li>Dán mã vừa sao chép <kbd>Ctrl + V</kbd>, bấm Lưu <kbd>Ctrl + S</kbd>.</li>
               {mode === 'new' && <li>Đặt tên dự án, ví dụ <b>{teacher ? 'Quickplay Du lieu' : 'Quickplay Tai khoan'}</b>.</li>}
-              {teacher && <>
-                <li><b>Để các bản sau tự cập nhật</b> (làm một lần): bấm <b>⚙ Cài đặt dự án</b> ở cột trái (biểu tượng bánh răng, dưới cùng) → mục <b>Chung</b>, tích ô <b>Hiển thị tệp kê khai "appsscript.json" trong trình biên tập</b> → bấm <b>&lt;&gt; Trình biên tập</b> để quay lại. Cột Tệp giờ có thêm tệp <code>appsscript.json</code>: bấm vào <b>tệp đó</b>, chọn hết <kbd>Ctrl + A</kbd>, dán tệp cấu hình <button type="button" className="btn sm" onClick={copyManifest}><Copy size={14} /> Sao chép tệp cấu hình</button> rồi <kbd>Ctrl + S</kbd>.
-                  <div className="alert warn" style={{ marginTop: 6 }}><div><TriangleAlert size={16} /> <b>Không</b> dán tệp cấu hình vào <code>Mã.gs</code> (sẽ báo "Lỗi cú pháp … Unexpected token ':'"). Lỡ dán rồi: mở <code>Mã.gs</code>, xóa khối bắt đầu bằng <code>{'{'}</code> và <code>"timeZone"</code> ở cuối tệp, lưu lại.</div></div>
-                </li>
-                <li><b>Cấp quyền tự cập nhật</b> (làm một lần, sau khi dán tệp cấu hình): bấm lại vào <code>Mã.gs</code>, ô chọn hàm trên thanh công cụ chọn <b>kiemTraTuCapNhat</b>, bấm <b>▷ Chạy</b> → <b>Xem xét quyền</b> → chọn Gmail → <b>Nâng cao</b> → <b>Đi tới … (không an toàn)</b> → <b>tích "Chọn tất cả"</b> → <b>Tiếp tục</b>. Nhật ký thực thi báo <b>"ĐỦ ĐIỀU KIỆN TỰ CẬP NHẬT"</b> là xong. Chỉ bấm Triển khai thì Google <b>không</b> hỏi quyền mới.</li>
-                <li>Bật <b>Google Apps Script API</b> (một lần cho mỗi Gmail): <a href="https://script.google.com/home/usersettings" target="_blank" rel="noopener noreferrer">mở trang cài đặt Apps Script</a> → gạt <b>Google Apps Script API</b> sang <b>Bật</b>.</li>
-              </>}
             </ol>
+            {/* Tự cập nhật là tùy chọn nâng cao (cần Google Cloud), không phải bước bắt buộc khi cài hoặc cập nhật */}
+            {teacher && <p className="muted small" style={{ margin: 0 }}>Chỉ cần dán vào <code>Mã.gs</code>, không phải sửa tệp nào khác. Muốn Apps Script tự cập nhật (không bắt buộc): xem mục <b>Nâng cao: tự cập nhật</b> trong trang Cài đặt.</p>}
           </Step>
         </div>
 
@@ -298,7 +291,7 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
               <>
                 <p className="ins-path"><Chip>Triển khai ▾</Chip><Then /><Chip>Quản lý các tùy chọn triển khai</Chip><Then /><Chip>✎ (bút chì)</Chip></p>
                 <p className="ins-path">Phiên bản: <Chip>Phiên bản mới</Chip><Then /><Chip strong>Triển khai</Chip></p>
-                {teacher && <p className="muted small">Nếu Google hỏi quyền (tệp cấu hình mới thêm quyền tự cập nhật): <Chip>Cấp quyền truy cập</Chip><Then /><Chip>Nâng cao</Chip><Then /><Chip strong>Chọn tất cả</Chip><Then /><Chip strong>Tiếp tục</Chip>.</p>}
+                {teacher && <p className="muted small">Nếu Google hỏi quyền: <Chip>Cấp quyền truy cập</Chip><Then /><Chip>Nâng cao</Chip><Then /><Chip strong>Chọn tất cả</Chip><Then /><Chip strong>Tiếp tục</Chip>.</p>}
                 {teacher && <ConsentTip />}
                 <div className="alert warn"><div><TriangleAlert size={16} /> <b>Không</b> bấm "Tùy chọn triển khai mới": làm vậy Google tạo link khác và link cũ vẫn chạy mã cũ.</div></div>
               </>

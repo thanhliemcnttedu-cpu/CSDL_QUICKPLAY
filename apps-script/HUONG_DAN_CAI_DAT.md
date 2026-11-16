@@ -73,20 +73,27 @@ Cập nhật tay bằng 5 bước ở trang Cài đặt.
 `QUICKPLAY_DATA/media/tra_loi_mieng/`, tên tệp `<mã phòng>_<mã học sinh>_cau<số câu>`. Chỉ em đang có trong phòng đang chạy
 mới gửi được; tối đa khoảng 90 giây mỗi bản; em ghi lại thì bản cũ vào Thùng rác. Không cần cấp quyền mới.
 
-**Tự cập nhật khi có bản mới (bật lại từ phần mềm bản 1.5.8):** khi thầy cô mở trang giáo viên, phần mềm thấy Apps Script cũ hơn bản cần
-thì gửi `selfUpdate`. Apps Script tự tải mã mới từ trang Quickplay, kiểm tra mã băm SHA-256, ghi đè, tạo phiên bản mới và chuyển link `/exec`
+**Cập nhật khi có bản mới:** cách mặc định là **5 bước cập nhật tay** (lời nhắc đầu trang giáo viên trỏ tới đây). Chỉ dán `Code.gs` vào `Mã.gs`, không cần sửa `appsscript.json`.
+
+**Tự cập nhật: tùy chọn nâng cao, không bắt buộc** (mục gập "Nâng cao: tự cập nhật (cần Google Cloud)" trong Cài đặt).
+Kiểm thử thật cho thấy Google còn yêu cầu bật Apps Script API cho **dự án Google Cloud ẩn** của Apps Script. Việc này cần Gmail có
+**xác thực hai bước** (Google Cloud bắt buộc từ 10/2026) và đồng ý điều khoản Google Cloud, nên không đưa vào các bước cài đặt chung.
+Cách chạy: khi thầy cô mở trang giáo viên, phần mềm thấy Apps Script cũ hơn bản cần thì gửi `selfUpdate`. Apps Script tự tải mã mới từ trang Quickplay, kiểm tra mã băm SHA-256, ghi đè, tạo phiên bản mới và chuyển link `/exec`
 đang dùng sang bản đó. Link, khóa giáo viên và dữ liệu giữ nguyên.
 - Phần mềm không tự cập nhật khi đang có buổi học trực tiếp; nút **Cập nhật ngay** hỏi trước khi cập nhật trong lúc đó.
-- Chưa cập nhật được thì 15 phút sau thử lại.
+- Đang có buổi học thì 15 phút sau thử lại.
+- Chưa thiết lập xong tự cập nhật thì 6 giờ mới thử lại một lần.
 - Hai thẻ trình duyệt mở cùng lúc thì chỉ một thẻ chạy cập nhật.
 
-Cần hai điều kiện, mỗi điều làm **một lần**:
-1. Bật **Google Apps Script API** tại https://script.google.com/home/usersettings bằng Gmail chạy Apps Script.
-2. Dự án có tệp cấu hình `appsscript.json` của Quickplay (quyền `script.projects` và `script.deployments`). Dán ở bước 3 khi cập nhật tay.
+Điều kiện, mỗi việc làm **một lần**:
+1. Bật xác thực hai bước cho Gmail.
+2. Bật **Google Apps Script API** tại https://script.google.com/home/usersettings.
+3. Dán tệp cấu hình `appsscript.json` của Quickplay (quyền `script.projects` và `script.deployments`) vào tệp `appsscript.json` của dự án.
+4. Chạy hàm `kiemTraTuCapNhat` trong trình biên tập. Khi Google hỏi quyền, tích "Chọn tất cả".
+5. Mở link trong nhật ký để bật Apps Script API cho dự án Google Cloud (lỗi `CLOUD_API`).
 
-Khi không tự cập nhật được, đầu trang giáo viên báo đúng lý do (chưa bật API, thiếu quyền, bản mới cần thêm quyền Google, đang có buổi học).
-Khối **Cài đặt → Tự cập nhật Apps Script** có nút **Cập nhật ngay** và **Kiểm tra điều kiện**. Cách dự phòng vẫn là **5 bước cập nhật tay**
-(sao chép mã mới, dán đè vào dự án đang dùng, triển khai **Phiên bản mới**, bấm Kiểm tra).
+Lời nhắc đầu trang luôn trỏ tới 5 bước cập nhật tay. Lý do kỹ thuật (chưa bật API, thiếu quyền…) kèm lỗi gốc của Google chỉ hiện trong mục gập Nâng cao,
+nơi có nút **Cập nhật ngay** và **Kiểm tra điều kiện**.
 
 **Sao lưu toàn bộ và chuyển Drive (từ bản 1.3.0):** Apps Script đọc hàng loạt bộ câu hỏi, kết quả buổi học, ảnh và âm thanh để phần mềm đóng gói
 một tệp sao lưu toàn bộ (đọc được cả khi Drive đã đầy), báo dung lượng Drive để cảnh báo khi sắp đầy, nhận khôi phục hàng loạt lên Drive mới,

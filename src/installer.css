@@ -36,7 +36,9 @@
 .folder-box { border: 1.5px solid var(--border); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; background: #f7faff; }
 .folder-box > .row.between, .folder-box > .conn-ok, .folder-box > .conn-off, .folder-box > .alert { width: 100%; }
 .folder-box .conn-off { flex-wrap: wrap; }
-#tu-cap-nhat { scroll-margin-top: 84px; }
+#tu-cap-nhat, #cai-dat-5-buoc { scroll-margin-top: 84px; }
+/* Lỗi gốc của Google có chuỗi dài không dấu cách (ACCESS_TOKEN_SCOPE_INSUFFICIENT, link console…): cho ngắt dòng, không làm tràn ngang trên điện thoại */
+.folder-box .alert, .folder-box .move-steps, .scope-fix { overflow-wrap: anywhere; min-width: 0; }
 /* Hướng dẫn cấp quyền tự cập nhật (2 cách) */
 .scope-fix { width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1.5px solid var(--border); line-height: 1.55; }
 .scope-fix ol { margin: 6px 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }

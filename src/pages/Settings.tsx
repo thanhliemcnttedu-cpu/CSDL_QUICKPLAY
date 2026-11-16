@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, ChevronRight, KeyRound, Mail, Wand2, Wrench } from 'lucide-react';
+import { PlugZap, Save, UploadCloud, Eye, EyeOff, ExternalLink, CheckCircle2, TriangleAlert, Download, Upload, FolderOpen, DatabaseBackup, ChevronRight, KeyRound, Mail, RefreshCw, Wand2, Wrench } from 'lucide-react';
 import { loadSettings, saveSettings, type AppSettings } from '../lib/settings';
 import { GeminiKeyPanel } from '../components/GeminiKeyPanel';
 import { changePassword, currentAccount, saveVault, setRecoveryEmail } from '../lib/account';
@@ -75,7 +75,7 @@ export default function Settings() {
   // Các mục gập đang mở. Mở từ thông báo (…#cap-nhat, …#chuyen-kho) thì mở sẵn đúng mục.
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     const h = location.hash;
-    if (h.includes('tu-cap-nhat')) return new Set(); // khối Tự cập nhật luôn mở sẵn
+    if (h.includes('tu-cap-nhat')) return new Set(['tu-cap-nhat']); // mục gập Nâng cao: tự cập nhật
     if (h.includes('cap-nhat')) return new Set(['cai-dat-5-buoc']);
     return new Set();
   });
@@ -245,18 +245,33 @@ export default function Settings() {
             )}
             {server && 'error' in server && <div className="alert error" role="alert">Không gọi được Apps Script đang lưu: {server.error}</div>}
 
-            {connected && (
-              <ScriptUpdatePanel
-                server={server && 'version' in server ? server.version : null}
-                onManual={() => openFold('cai-dat-5-buoc')}
-                onServer={(v) => setServer({ version: v })}
-              />
+            {/* Mặc định: có bản mới thì chỉ đường tới 5 bước cập nhật tay (ngắn gọn, ai cũng làm được) */}
+            {connected && outdated && (
+              <div className="upd-box" role="status">
+                <div className="grow">
+                  <b>Có bản cập nhật Apps Script {SCRIPT_VERSION}</b> (đang chạy {(server as { version: string }).version}).
+                  <small>Làm 5 bước bên dưới, khoảng 3 phút. Link và dữ liệu giữ nguyên.</small>
+                </div>
+                <button className="btn primary" onClick={() => openFold('cai-dat-5-buoc')}><Wand2 size={18} /> Xem 5 bước cập nhật</button>
+              </div>
             )}
 
             <Fold key="cai-dat" {...fold('cai-dat-5-buoc')} locked={!compact} icon={<Wand2 size={18} color="var(--primary)" />}
               title={compact ? 'Cập nhật hoặc cài đặt lại Apps Script (5 bước)' : 'Kết nối Google Drive (5 bước)'} note={compact ? (outdated ? 'Cần làm: có bản mới' : 'Khi có bản mới, đổi Gmail hoặc đổi thư mục') : undefined}>
               <ScriptInstaller kind="teacher" current={{ scriptUrl: saved.scriptUrl, key: saved.teacherKey, folderUrl: saved.folderUrl }} onDone={installed} />
             </Fold>
+
+            {/* Nâng cao, không bắt buộc: tự cập nhật cần Gmail có xác thực hai bước và bật API trong Google Cloud */}
+            {connected && (
+              <Fold key="tu-cap-nhat" {...fold('tu-cap-nhat')} icon={<RefreshCw size={18} color="var(--primary)" />}
+                title="Nâng cao: tự cập nhật (cần Google Cloud)" note="Không bắt buộc">
+                <ScriptUpdatePanel
+                  server={server && 'version' in server ? server.version : null}
+                  onManual={() => openFold('cai-dat-5-buoc')}
+                  onServer={(v) => setServer({ version: v })}
+                />
+              </Fold>
+            )}
 
 
             <Fold key="sua-tay" {...fold('sua-tay')} icon={<Wrench size={18} color="var(--primary)" />} title="Sửa tay link và khóa" note="Ít khi cần dùng">

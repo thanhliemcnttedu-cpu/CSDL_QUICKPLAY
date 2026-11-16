@@ -19,12 +19,15 @@ describe('tự cập nhật Apps Script', () => {
     expect(googleLink('SCOPES: … Hoặc mở link cấp quyền: https://script.google.com/macros/d/abc/usercallback?x=1')).toMatch(/^https:\/\/script\.google\.com\/macros/);
     expect(googleLink('API_OFF: Mở https://script.google.com/home/usersettings')).toBeUndefined();
   });
-  it('bản mới nhất thì 6 giờ hỏi lại; chưa cập nhật được thì 15 phút thử lại; chưa thử thì thử ngay', () => {
+  it('bản mới nhất thì 6 giờ hỏi lại; tạm chưa được (đang có buổi học) thì 15 phút thử lại; chưa thử thì thử ngay', () => {
     const now = 10 * 3600_000;
     expect(isFresh({ state: 'current', at: now - 3600_000 }, now)).toBe(true);
     expect(isFresh({ state: 'current', at: now - 7 * 3600_000 }, now)).toBe(false);
-    expect(isFresh({ state: 'old', at: now - 10 * 60_000, reason: 'api_off' }, now)).toBe(true);
-    expect(isFresh({ state: 'old', at: now - 20 * 60_000, reason: 'api_off' }, now)).toBe(false);
+    expect(isFresh({ state: 'old', at: now - 10 * 60_000, reason: 'busy' }, now)).toBe(true);
+    expect(isFresh({ state: 'old', at: now - 20 * 60_000, reason: 'busy' }, now)).toBe(false);
+    // chưa thiết lập tự cập nhật (mục Nâng cao): 6 giờ mới thử lại
+    expect(isFresh({ state: 'old', at: now - 20 * 60_000, reason: 'cloud_api' }, now)).toBe(true);
+    expect(isFresh({ state: 'old', at: now - 7 * 3600_000, reason: 'api_off' }, now)).toBe(false);
     expect(isFresh({ state: 'old', at: 0 }, now)).toBe(false);
     expect(isFresh(null, now)).toBe(false);
   });
