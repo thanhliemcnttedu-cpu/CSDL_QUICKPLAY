@@ -108,7 +108,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .topbar-clock .tc-time { font-family: var(--font-head); font-weight: 800; font-size: 1.15rem; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
 .topbar-clock .tc-date { font-size: 0.72rem; font-weight: 600; color: var(--muted-fg); white-space: nowrap; }
 /* Máy tính vừa (1181–1599px) không đủ chỗ cạnh menu: chỉ hiện giờ */
-@media (min-width: 1181px) and (max-width: 1599px) { .topbar-clock .tc-date { display: none; } .topbar-clock { padding: 6px 10px; } }
+@media (min-width: 1181px) and (max-width: 1599px) { .topbar-clock:not(.full) .tc-date { display: none; } .topbar-clock:not(.full) { padding: 6px 10px; } }
 /* Máy tính vừa: nút Đăng xuất chỉ còn biểu tượng, menu sát hơn — đủ chỗ cho đồng hồ mà không xuống dòng */
 @media (min-width: 1181px) and (max-width: 1599px) {
   .acc-out { display: none; }

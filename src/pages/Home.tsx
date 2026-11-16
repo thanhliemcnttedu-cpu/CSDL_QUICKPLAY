@@ -4,6 +4,7 @@ import { Cloud, Mic, Sparkles, Shapes, MonitorSmartphone, FileText, ArrowRight, 
 import { Brand } from '../App';
 import { AppFooter } from '../components/AppFooter';
 import { JoinShare } from '../components/JoinShare';
+import { TopbarClock } from '../components/TopbarClock';
 
 const FEATURES = [
   { ic: Shapes, t: '7 dạng câu hỏi', d: 'Một/nhiều đáp án, Đúng/Sai, điền chỗ trống, sắp xếp, nối cột, trả lời miệng.' },
@@ -23,6 +24,7 @@ export function Home() {
     <>
       <header className="topbar">
         <Brand />
+        <TopbarClock full />
         <nav className="topnav">
           <Link to="/login" className="btn primary">Dành cho giáo viên <ArrowRight size={18} /></Link>
         </nav>
