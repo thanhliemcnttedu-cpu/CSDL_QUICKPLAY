@@ -23,6 +23,8 @@ import { StemMedia } from '../components/MediaView';
 import { Leaderboard, Stats } from './Play';
 import { LiveReport } from '../components/LiveReport';
 import { ExamScoreTable } from '../components/ExamScoreTable';
+import { checkScriptVersion, type UpdateStatus } from '../lib/scriptUpdate';
+import { SCRIPT_VERSION } from '../lib/installer';
 
 export function joinUrl(pin: string): string {
   const s = loadSettings();
@@ -559,8 +561,22 @@ function ExamPanel({ s, now, link, qr }: { s: Session; now: number; link: string
   const left = due ? Math.max(0, due - now) : 0;
   const sec = Math.ceil(left / 1000);
   const running = s.state === 'IN_PROGRESS' || s.state === 'PAUSED';
+  // Hỏi lại phiên bản Apps Script ngay khi mở phòng kiểm tra: bản cũ thì học sinh chưa tự điền được tên theo mã, chưa chọn lại đáp án được
+  const [server, setServer] = useState<UpdateStatus | null>(null);
+  useEffect(() => {
+    checkScriptVersion(true).then(setServer).catch(() => {});
+  }, []);
   return (
     <div className="card stack" style={{ color: 'var(--fg)', marginBottom: 16 }} role="status">
+      {server?.state === 'old' && s.state !== 'COMPLETED' && (
+        <div className="alert warn">
+          <div>
+            <b>Apps Script của thầy cô đang chạy bản {server.server}, cần bản {SCRIPT_VERSION}.</b> Khi chưa cập nhật, học sinh gõ mã số chưa tự điền được họ tên, lớp
+            (các em vẫn vào được bằng mã số) và chưa chọn lại được đáp án; hai lựa chọn "cách làm bài" và "xem lại bài" cũng chưa có tác dụng.{' '}
+            <Link to="/teacher/settings#cap-nhat"><b>Xem 5 bước cập nhật</b></Link> (khoảng 3 phút, link và dữ liệu giữ nguyên; nên cập nhật trước khi mở phòng).
+          </div>
+        </div>
+      )}
       <div className="row between">
         <b style={{ fontSize: '1.15rem' }}>Bài kiểm tra lớp {s.exam?.class_name} · {s.settings.exam_minutes ?? 45} phút</b>
         {running && due > 0 && (

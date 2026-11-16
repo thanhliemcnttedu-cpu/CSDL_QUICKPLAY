@@ -82,23 +82,42 @@ export function Join() {
   const [who, setWho] = useState<{ name: string; class_name: string; done: boolean } | null>(null);
   const [whoMiss, setWhoMiss] = useState('');
   const [looking, setLooking] = useState(false);
+  const [noLookup, setNoLookup] = useState(false); // Apps Script của thầy cô chưa có chức năng tra mã (bản cũ hơn 1.5.6)
+  // Bài kiểm tra: không giữ họ tên, lớp của em dùng máy này lần trước (phòng máy dùng chung) — tên lấy theo mã số
+  const filled = useRef(false);
+  const auto = useRef(false); // họ tên, lớp đang hiện là do tự điền theo mã
+  useEffect(() => {
+    if (!exam || filled.current) return;
+    filled.current = true;
+    setName('');
+    setCls('');
+  }, [exam]);
   useEffect(() => {
     setWho(null);
+    if (auto.current) {
+      // đổi sang mã khác: bỏ họ tên, lớp vừa tự điền theo mã cũ
+      auto.current = false;
+      setName('');
+      setCls('');
+    }
     setWhoMiss('');
-    if (!exam || !/^\d{6}$/.test(pin) || code.length < 2) return;
+    if (!exam || !/^\d{6}$/.test(pin) || code.length < 2 || noLookup) return;
     let live = true;
     const t = window.setTimeout(() => {
       setLooking(true);
       api.examStudent(pin, code)
         .then((r) => {
           if (!live) return;
+          auto.current = true;
           setWho(r);
           setName(r.name);
           setCls(r.class_name);
         })
         .catch((e) => {
-          // Apps Script cũ chưa có chức năng tra mã: im lặng, em tự điền như trước
-          if (live && /không có trong danh sách/.test((e as Error).message)) setWhoMiss((e as Error).message);
+          if (!live) return;
+          const m = (e as Error).message;
+          if (/không có trong danh sách/.test(m)) setWhoMiss(m);
+          else if (/Hành động không hợp lệ/.test(m)) setNoLookup(true); // máy chủ bản cũ: không hỏi lại nữa
         })
         .finally(() => live && setLooking(false));
     }, 450);
@@ -106,7 +125,7 @@ export function Join() {
       live = false;
       window.clearTimeout(t);
     };
-  }, [exam, pin, code]);
+  }, [exam, pin, code, noLookup]);
   const nameRef = useRef<HTMLInputElement>(null);
   const again = params.get('again') === '1'; // em vừa bấm "Làm lại bài này": chính em đó làm lại nên không cần hỏi
   const s = params.get('s');
@@ -220,6 +239,11 @@ export function Join() {
                     </div>
                   )}
                   {whoMiss && <div className="alert warn" role="status"><div>{whoMiss}</div></div>}
+                  {noLookup && (
+                    <div className="alert" role="status">
+                      <div>Phòng này chưa tự điền được họ tên theo mã (máy chủ của thầy cô chưa cập nhật). Em <b>chỉ cần gõ đúng mã số</b> rồi bấm <b>Tham gia</b>: họ tên và lớp trong bài sẽ lấy theo danh sách lớp của thầy cô.</div>
+                    </div>
+                  )}
                 </div>
               )}
               <label className="field">
