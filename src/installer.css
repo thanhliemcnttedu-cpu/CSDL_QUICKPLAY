@@ -36,7 +36,11 @@
 .folder-box { border: 1.5px solid var(--border); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; background: #f7faff; }
 .folder-box > .row.between, .folder-box > .conn-ok, .folder-box > .conn-off, .folder-box > .alert { width: 100%; }
 .folder-box .conn-off { flex-wrap: wrap; }
-#tu-cap-nhat { scroll-margin-top: 84px; } /* mở từ thông báo: tiêu đề khối không bị thanh trên che */
+#tu-cap-nhat { scroll-margin-top: 84px; }
+/* Hướng dẫn cấp quyền tự cập nhật (2 cách) */
+.scope-fix { width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1.5px solid var(--border); line-height: 1.55; }
+.scope-fix ol { margin: 6px 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.scope-fix .alert { margin-top: 6px; } /* mở từ thông báo: tiêu đề khối không bị thanh trên che */
 
 /* Bảng hướng dẫn từng bước ở trang quản trị */
 .guide > summary { cursor: pointer; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; list-style: none; }

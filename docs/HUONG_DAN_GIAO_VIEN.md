@@ -15,9 +15,20 @@ Muốn giữ một bản dự phòng: **Cài đặt → Sao lưu và khôi phụ
 **Tự cập nhật:** khi Quickplay có bản Apps Script mới, thầy cô chỉ cần mở trang giáo viên. Apps Script tự cập nhật trong khoảng 20 giây
 và hiện thông báo "Apps Script đã tự cập nhật lên phiên bản …". Link, khóa và dữ liệu giữ nguyên. Phần mềm không tự cập nhật khi đang có buổi học trực tiếp.
 
-Để tự cập nhật chạy được, mỗi thầy cô làm **một lần** hai việc (bước 3 của 5 bước cập nhật tay có hướng dẫn):
-1. Dán tệp cấu hình `appsscript.json` của Quickplay vào dự án Apps Script.
-2. Bật **Google Apps Script API** cho Gmail chạy Apps Script.
+Để tự cập nhật chạy được, mỗi thầy cô làm **một lần** ba việc (bước 3 của 5 bước cập nhật tay có hướng dẫn):
+1. Dán tệp cấu hình `appsscript.json` của Quickplay vào **tệp `appsscript.json`** của dự án, không dán vào `Mã.gs`. Muốn thấy tệp này: ⚙ Cài đặt dự án → mục Chung → tích "Hiển thị tệp kê khai…".
+2. Cấp quyền: trong `Mã.gs`, ô chọn hàm chọn `kiemTraTuCapNhat`, bấm ▷ Chạy. Khi Google hỏi, **tích "Chọn tất cả"** rồi Tiếp tục.
+   Nhật ký thực thi báo "ĐỦ ĐIỀU KIỆN TỰ CẬP NHẬT" là xong. Chỉ bấm Triển khai thì Google không hỏi quyền mới.
+3. Bật **Google Apps Script API** cho Gmail chạy Apps Script.
+
+**Báo "chưa được cấp 2 quyền tự cập nhật":** nguyên nhân thường là lúc cấp quyền đã bỏ trống ô quyền "quản lý dự án / bản triển khai Apps Script".
+Google coi như từ chối và không hỏi lại.
+- **Cách 1:** chạy `kiemTraTuCapNhat` như mục 2 ở trên, tích "Chọn tất cả".
+- **Cách 2, chỉ khi Google vẫn không hỏi:**
+  1. Mở https://myaccount.google.com/connections bằng Gmail chạy Apps Script.
+  2. Tìm đúng tên dự án Apps Script của mình, chọn **Xóa mọi quyền truy cập**.
+  3. Chạy lại `kiemTraTuCapNhat` và tích "Chọn tất cả".
+  - Từ lúc xóa tới lúc cấp lại (khoảng 1 phút), link Apps Script ngừng chạy, học sinh không vào phòng được. Chỉ làm khi không có lớp.
 
 Khi không tự cập nhật được, đầu trang giáo viên hiện lời nhắc màu vàng nói rõ lý do, kèm nút làm tiếp. Trong **Cài đặt → Tự cập nhật Apps Script** có nút
 **Cập nhật ngay** và **Kiểm tra điều kiện**. Cách dự phòng luôn dùng được là **5 bước cập nhật tay** (sao chép mã mới → dán đè vào dự án đang dùng

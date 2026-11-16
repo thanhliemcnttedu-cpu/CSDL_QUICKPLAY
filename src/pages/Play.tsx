@@ -280,6 +280,7 @@ export default function Play() {
   const examLeftMs = exam && poll?.deadline ? poll.deadline - (Date.now() + clockOffset.current) : null;
   const examTimeUp = examLeftMs !== null && examLeftMs <= 0 && poll?.state === 'IN_PROGRESS';
   const [timedOut, setTimedOut] = useState(false); // bài bị thu vì hết giờ (em chưa tự bấm nộp)
+  const selfSubmitted = useRef(false); // em vừa tự bấm Nộp bài trên máy này
   useEffect(() => {
     if (examTimeUp && !examSubmitted) {
       setTimedOut(true);
@@ -777,7 +778,13 @@ export default function Play() {
     const blank = Math.max(0, total - ratios.size);
     const mark = total ? Math.round((part / total) * 1000) / 100 : 0;
     const level = levelOf(total ? Math.round((part / total) * 100) : 0);
-    const handedIn = examSubmitted && !timedOut;
+    // Em tự nộp bài hay bị thu bài: dựa vào máy chủ (giờ nộp so với giờ thu bài), không dựa vào việc máy này có
+    // "chứng kiến" lúc hết giờ hay không — mở lại trang sau giờ thu bài (máy khác, tải lại) vẫn hiện đúng.
+    const meP = poll.players.find((p) => p.player_id === me.player_id) as ({ finished?: boolean; finished_at?: number } | undefined);
+    const due = poll.deadline ?? 0;
+    const serverHanded = !!meP?.finished && !!meP.finished_at && (!due || meP.finished_at < due);
+    const handedIn = examSubmitted && !timedOut && (selfSubmitted.current || serverHanded);
+    const collectedTitle = due && Date.now() + clockOffset.current >= due ? 'Đã hết giờ làm bài' : 'Thầy cô đã thu bài';
     // Xem lại bài: giáo viên cho xem ngay khi nộp, hoặc chỉ khi đã thu bài cả lớp
     const review = settings.exam_review ?? 'none';
     const canReview = review === 'submit' || (review === 'end' && poll.state === 'COMPLETED');
@@ -787,7 +794,7 @@ export default function Play() {
         <div className={`card stack center exam-result lv-${level}`} style={{ margin: reviewOpen ? '0 auto' : 'auto', alignItems: 'center', maxWidth: 600, width: '100%', color: 'var(--fg)' }}>
           <div className="er-band" aria-hidden><i /><i /><i /><i /><i /><i /><i /><i /></div>
           <span className="er-icon" aria-hidden>{level === 'excellent' || level === 'good' ? <Trophy size={40} /> : <PartyPopper size={40} />}</span>
-          <h1 className="er-title">{handedIn ? 'Chúc mừng em đã hoàn thành bài kiểm tra!' : 'Đã hết giờ làm bài'}</h1>
+          <h1 className="er-title">{handedIn ? 'Chúc mừng em đã hoàn thành bài kiểm tra!' : collectedTitle}</h1>
           <p className="er-who"><b>{me.name}</b>{me.class_name ? ` · lớp ${me.class_name}` : ''}<br /><span>{quiz.title}{paperCode && !quiz.title.includes(paperCode) ? ` · Mã đề ${paperCode}` : ""}</span></p>
           {!handedIn && <p className="muted" style={{ margin: 0 }}>Bài của em đã được thu. Các câu em đã trả lời đều được tính điểm.</p>}
           <div className="er-score" role="img" aria-label={`Điểm ${mark.toLocaleString('vi-VN')} trên 10`} style={{ '--p': `${Math.min(100, mark * 10)}%` } as React.CSSProperties}>
@@ -893,6 +900,7 @@ export default function Play() {
   const missing = Array.from({ length: total }, (_, i) => i).filter((i) => !answered.has(i));
   const finish = () => {
     setSubmitAsk(false);
+    selfSubmitted.current = true; // em tự bấm Nộp bài (trước giờ thu bài)
     setSubmitted(true); // nếu còn lượt làm lại câu sai thì màn hỏi làm lại hiện ra trước khi nộp hẳn
   };
   /** Bài kiểm tra: hỏi lại trước khi nộp, vì nộp rồi không làm lại được. */

@@ -12,8 +12,14 @@ function useUpdateStatus() {
   const [st, setSt] = useState<UpdateStatus | null>(scriptUpdateStatus());
   useEffect(() => {
     const on = () => setSt(scriptUpdateStatus());
+    // thẻ / khung khác (cùng trang web) vừa tự cập nhật hoặc kiểm tra: sự kiện "storage" báo sang để mọi thẻ hiện cùng một trạng thái
+    const onStorage = (e: StorageEvent) => { if (!e.key || e.key === 'quickplay.scriptUpdate') on(); };
     window.addEventListener('quickplay-script-update', on);
-    return () => window.removeEventListener('quickplay-script-update', on);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('quickplay-script-update', on);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
   return st;
 }
@@ -66,6 +72,32 @@ export function ScriptUpdateNotice() {
   );
 }
 
+/** Trang Google quản lý các ứng dụng đã được cấp quyền (xóa quyền để Google hỏi lại từ đầu). */
+export const GOOGLE_CONNECTIONS_URL = 'https://myaccount.google.com/connections';
+
+/** Hướng dẫn cấp 2 quyền tự cập nhật: cách 1 chạy hàm kiểm tra; cách 2 (dự phòng) xóa quyền rồi cấp lại. */
+export function ScopeFix() {
+  return (
+    <div className="scope-fix">
+      <b>Cách cấp quyền tự cập nhật</b>
+      <div>
+        <b>Cách 1 (làm trước):</b> mở dự án Apps Script → bấm <code>Mã.gs</code> → ô chọn hàm chọn <b>kiemTraTuCapNhat</b> → <b>▷ Chạy</b>.
+        Khi Google hỏi: <b>Xem xét quyền</b> → chọn Gmail → <b>Nâng cao</b> → <b>Đi tới … (không an toàn)</b> → <b>tích "Chọn tất cả"</b> → <b>Tiếp tục</b>.
+        Nhật ký thực thi báo <b>"ĐỦ ĐIỀU KIỆN TỰ CẬP NHẬT"</b> là xong. (Mã Apps Script chưa có hàm này thì làm 5 bước cập nhật tay trước.)
+      </div>
+      <div>
+        <b>Cách 2 (chỉ khi Google không hỏi lại):</b> trước đây có lần bỏ trống ô quyền nên Google không hỏi nữa. Xóa quyền cũ để Google hỏi lại từ đầu:
+        <ol>
+          <li>Mở trang quyền truy cập của Google bằng Gmail chạy Apps Script. <a className="btn sm" href={GOOGLE_CONNECTIONS_URL} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Mở trang quyền truy cập</a></li>
+          <li>Tìm đúng <b>tên dự án Apps Script của mình</b> (tên ghi ở đầu trình biên tập Apps Script), bấm vào → <b>Xóa mọi quyền truy cập</b>. Không xóa ứng dụng khác.</li>
+          <li>Quay lại Apps Script, chạy lại <b>kiemTraTuCapNhat</b> như cách 1 và nhớ <b>tích "Chọn tất cả"</b>.</li>
+        </ol>
+        <div className="alert warn"><div><TriangleAlert size={16} /> Từ lúc xóa quyền tới lúc cấp lại (khoảng 1 phút), link Apps Script <b>ngừng chạy</b>: học sinh không vào phòng được. Chỉ làm khi không có lớp.</div></div>
+      </div>
+    </div>
+  );
+}
+
 /** Khối "Tự cập nhật Apps Script" trong trang Cài đặt: trạng thái, nút Cập nhật ngay, điều kiện cần làm một lần. */
 export function ScriptUpdatePanel({ server, onManual, onServer }: {
   server: string | null; // phiên bản Apps Script đang chạy (null: chưa biết)
@@ -76,7 +108,7 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
   const st = useUpdateStatus();
   const copyManifest = useCopyManifest();
   const [busy, setBusy] = useState<'' | 'update' | 'check'>('');
-  const [ready, setReady] = useState<{ ready: boolean; message?: string; link?: string } | null>(null);
+  const [ready, setReady] = useState<{ ready: boolean; message?: string; link?: string; reason?: string } | null>(null);
   const old = !!server && st?.state === 'old';
 
   const updateNow = async () => {
@@ -144,6 +176,7 @@ export function ScriptUpdatePanel({ server, onManual, onServer }: {
           </div>
         </div>
       )}
+      {((old && st?.reason === 'scopes') || (ready && !ready.ready && ready.reason === 'scopes')) && <ScopeFix />}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {old && !needManual && <button className="btn primary" onClick={updateNow} disabled={!!busy}><Zap size={18} /> {busy === 'update' ? 'Đang cập nhật… (khoảng 20 giây)' : needApi ? 'Đã bật API, cập nhật ngay' : 'Cập nhật ngay'}</button>}
         {(needManual || (old && reason === 'error')) && <button className="btn primary" onClick={onManual}>Xem 5 bước cập nhật tay</button>}
