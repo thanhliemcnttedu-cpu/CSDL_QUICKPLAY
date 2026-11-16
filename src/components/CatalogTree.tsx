@@ -1,5 +1,5 @@
 // Cây danh mục của giáo viên: Khối lớp → Môn học → Chương/Chủ đề → Bài, và các ô chọn vị trí cho một bộ đề.
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, ChevronDown, ChevronRight, FileText, FolderPlus, GraduationCap, Inbox, Layers, LibraryBig, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Catalog } from '../lib/types';
@@ -28,7 +28,20 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
   /** Chỉ xem (thư viện công cộng): không có nút thêm / đổi tên / xóa, chỉ hiện các lớp đang có bộ đề */
   readOnly?: boolean;
 }) {
-  const [closed, setClosed] = useState<Set<string>>(new Set());
+  // Mặc định THU GỌN (chỉ hiện các khối lớp, đỡ rối mắt); thầy cô bấm mũi tên để mở nhánh cần xem.
+  // Nhánh chứa mục đang chọn tự mở; các nhánh đã mở được nhớ cho lần sau (trên máy này).
+  const KEY = readOnly ? 'quickplay.catOpen.pub' : 'quickplay.catOpen';
+  const [opened, setOpened] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(KEY) || '[]') as string[]); } catch { return new Set(); }
+  });
+  const saveOpened = (n: Set<string>) => { try { localStorage.setItem(KEY, JSON.stringify([...n].slice(-200))); } catch { /* bỏ qua */ } return n; };
+  useEffect(() => {
+    const f = findNode(catalog, selected);
+    if (!f) return;
+    const up = [gradeId(f.subject.grade ?? ''), ...(f.kind !== 'subject' ? [f.subject.id] : []), ...(f.kind === 'lesson' && f.chapter ? [f.chapter.id] : [])];
+    setOpened((s) => (up.every((id) => s.has(id)) ? s : saveOpened(new Set([...s, ...up]))));
+  }, [selected, catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+  const closed = { has: (id: string) => !opened.has(id) };
   const [dlg, setDlg] = useState<NameDialog | null>(null);
   const [name, setName] = useState('');
   const [toGrade, setToGrade] = useState(''); // đổi tên môn: có thể chuyển môn sang lớp khác
@@ -36,12 +49,13 @@ export function CatalogTree({ catalog, counts, selected, onSelect, onChange, foo
   const grades = gradesOf(catalog).filter((g) => !readOnly || subjectsOfGrade(catalog, g).length > 0);
   const ungraded = subjectsOfGrade(catalog, '');
 
-  const toggle = (id: string) => setClosed((s) => {
+  const toggle = (id: string) => setOpened((s) => {
     const n = new Set(s);
-    n.has(id) ? n.delete(id) : n.add(id);
-    return n;
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return saveOpened(n);
   });
-  const expand = (id?: string) => id && setClosed((s) => { const n = new Set(s); n.delete(id); return n; });
+  const expand = (id?: string) => id && setOpened((s) => saveOpened(new Set([...s, id])));
   const open = (d: NameDialog) => {
     setDlg(d);
     setName(d.mode === 'rename' ? d.old : '');

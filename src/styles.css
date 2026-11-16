@@ -63,6 +63,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 h1, h2, h3, h4 { font-family: var(--font-head); line-height: 1.2; margin: 0 0 0.4em; font-weight: 800; letter-spacing: -0.02em; }
+/* Ngắt dòng đẹp: tiêu đề, nhãn chia đều các dòng; đoạn văn không để một chữ đứng lẻ ở dòng cuối ("một / khẩu.") */
+h1, h2, h3, h4, .badge, .tab, .btn, b, strong, label > span { text-wrap: balance; }
+p, li, small, .help, .muted, figcaption, dd, td { text-wrap: pretty; }
 h1 { font-size: clamp(1.8rem, 3.5vw, 2.6rem); }
 h2 { font-size: 1.5rem; }
 h3 { font-size: 1.2rem; }
@@ -838,6 +841,8 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .paper-list.dense .paper-row.more { grid-column: 1 / -1; }
 .paper-list.dense .paper-name b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .paper-list.dense .paper-code { font-size: 0.85rem; }
+.lib-listbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.lib-listbar b { color: var(--primary-ink, #0b4fd0); }
 .paper-picked { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .paper-picked-chip { display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid #f59e0b; background: #fffaf0; color: #7c2d12; border-radius: 999px; padding: 4px 10px; font: inherit; font-weight: 800; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
 .paper-picked-chip:hover { background: #fee2e2; border-color: #f87171; }

@@ -4,6 +4,9 @@ import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOp
 import type { Catalog, Quiz, QuizSummary } from '../lib/types';
 import { api } from '../lib/api';
 import { buildPublicCatalog } from '../lib/publicCatalog';
+import { Pager } from '../components/Pager';
+
+const LIB_PAGE = 12; // số thẻ bộ đề mỗi trang (chia hết cho 2, 3, 4 cột)
 import { BUILTIN_QUIZZES, newQuiz, sampleQuiz, type BuiltinQuiz } from '../lib/factory';
 import { ALL, NONE, UNGRADED, countByNode, emptyCatalog, ensurePath, gradeOfId, inNode, isGradeId, nodeExists, pathOf, placementOf, resolve, type Placement } from '../lib/catalog';
 import { formatDate, uid } from '../lib/util';
@@ -43,6 +46,12 @@ export default function Library() {
   const [node, setNodeState] = useState<string>(readNode);
   const [sideOpen, setSideOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Kho nhiều bộ đề (VD 100 bộ): chia trang 12 thẻ / trang (vừa 2, 3, 4 cột) và sắp xếp
+  const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<'new' | 'name' | 'count'>(() => {
+    try { return (localStorage.getItem('quickplay.libSort') as 'new' | 'name' | 'count') || 'new'; } catch { return 'new'; }
+  });
+  useEffect(() => setPage(0), [tab, node, pubNode, filter]); // đổi kho / mục / từ khóa: về trang 1
 
   const setNode = (id: string) => {
     setNodeState(id);
@@ -206,6 +215,14 @@ export default function Library() {
 
   const list = (mine ? items?.filter((q) => inNode(catalog, q, current)) : pub.filter((q) => inPub(q.id)))?.filter(byName);
   const builtins = mine ? [] : BUILTIN_QUIZZES.filter(byName).filter((b) => inPub(b.id));
+  const sorted = list && [...list].sort((a, b) =>
+    sort === 'name' ? a.title.localeCompare(b.title, 'vi', { numeric: true })
+      : sort === 'count' ? b.question_count - a.question_count
+        : (b.updated_at ?? '').localeCompare(a.updated_at ?? ''));
+  const pages = Math.max(1, Math.ceil((sorted?.length ?? 0) / LIB_PAGE));
+  const cur = Math.min(page, pages - 1);
+  const pageItems = sorted?.slice(cur * LIB_PAGE, (cur + 1) * LIB_PAGE) ?? [];
+  const goPage = (p: number) => { setPage(p); document.querySelector('.lib-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   const inNodeView = mine && current !== ALL;
   const sampleBtn = (
     <button type="button" className="btn sm ghost cat-sample" onClick={addDemoData} disabled={busy} title="Tạo hai môn mẫu kèm hai bộ đề đủ mọi dạng câu hỏi">
@@ -296,8 +313,22 @@ export default function Library() {
               )}
             </div>
           ) : (
+            <>
+            {(sorted?.length ?? 0) > 1 && (
+              <div className="lib-listbar">
+                <span className="small muted"><b>{sorted!.length}</b> bộ đề{pages > 1 ? ` · trang ${cur + 1}/${pages}` : ''}</span>
+                <label className="row" style={{ gap: 6 }}>
+                  <span className="small muted">Sắp xếp</span>
+                  <select className="input" style={{ width: 'auto' }} value={sort} onChange={(e) => { const v = e.target.value as typeof sort; setSort(v); setPage(0); try { localStorage.setItem('quickplay.libSort', v); } catch { /* bỏ qua */ } }} aria-label="Sắp xếp bộ đề">
+                    <option value="new">Mới cập nhật</option>
+                    <option value="name">Theo tên A → Z</option>
+                    <option value="count">Nhiều câu nhất</option>
+                  </select>
+                </label>
+              </div>
+            )}
             <div className="grid">
-              {builtins.map((b) => {
+              {cur === 0 && builtins.map((b) => {
                 const copy = existingCopy(b);
                 return (
                   <article key={b.id} className="card quiz-card builtin">
@@ -320,7 +351,7 @@ export default function Library() {
                   </article>
                 );
               })}
-              {list.map((q) => {
+              {pageItems.map((q) => {
                 const path = mine ? pathOf(catalog, q) : '';
                 return (
                   <article key={q.id} className="card quiz-card">
@@ -354,6 +385,8 @@ export default function Library() {
                 );
               })}
             </div>
+            <Pager page={cur} pages={pages} total={sorted?.length ?? 0} size={LIB_PAGE} unit="Bộ đề" onPage={goPage} label="Trang thư viện" />
+            </>
           )}
         </div>
       </div>

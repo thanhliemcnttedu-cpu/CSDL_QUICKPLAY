@@ -3,21 +3,13 @@
 // bốc ngẫu nhiên 1 đề, 2 đề hoặc dùng tất cả đề đã chọn, học sinh được chia đều cho các đề.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, ClipboardList, Eye, FileStack, Pencil, Play, Plus, Search, Shuffle, Square, X } from 'lucide-react';
+import { AlertTriangle, CheckSquare, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, ClipboardList, Eye, FileStack, Pencil, Play, Plus, Search, Shuffle, Square, X } from 'lucide-react';
 
 const GROUPS_STEP = 20; // số kì kiểm tra hiện một lần
 const PAPERS_STEP = 30; // số đề mỗi trang trong một kì (chia hết cho 2 và 3 cột)
 const BIG_GROUP = 8; // kì có hơn chừng này đề thì hiện thanh tìm / sắp xếp / chọn nhanh và danh sách 2 cột
 
-/** Số trang hiện trên thanh chia trang: 1 … 4 5 6 … 10 (-1 là dấu …). */
-export function pageList(cur: number, pages: number): number[] {
-  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i);
-  const set = new Set([0, pages - 1, cur - 1, cur, cur + 1].filter((p) => p >= 0 && p < pages));
-  const s = [...set].sort((a, b) => a - b);
-  const out: number[] = [];
-  s.forEach((p, i) => { if (i && p - s[i - 1] > 1) out.push(-1); out.push(p); });
-  return out;
-}
+import { Pager } from './Pager';
 import type { ExamPeriod, QuizSummary } from '../lib/types';
 import { PERIODS, PERIOD_LABEL, drawPapers, groupPapers, paperTitle, type PaperGroup } from '../lib/examPaper';
 import { formatDate } from '../lib/util';
@@ -244,16 +236,7 @@ function Group({ g, open, onToggle, onCreate, onHost }: { g: PaperGroup; open: b
           </li>
         ))}
       </ul>
-      {pages > 1 && (
-        <nav className="pager" aria-label="Trang danh sách đề">
-          <button type="button" className="btn sm ghost" disabled={cur === 0} onClick={() => setPage(cur - 1)} aria-label="Trang trước"><ChevronLeft size={16} /></button>
-          {pageList(cur, pages).map((p, i) => p < 0
-            ? <span key={`gap${i}`} className="muted">…</span>
-            : <button key={p} type="button" className={`btn sm ${p === cur ? 'primary' : 'ghost'}`} aria-current={p === cur ? 'page' : undefined} onClick={() => setPage(p)}>{p + 1}</button>)}
-          <button type="button" className="btn sm ghost" disabled={cur >= pages - 1} onClick={() => setPage(cur + 1)} aria-label="Trang sau"><ChevronRight size={16} /></button>
-          <span className="small muted">Đề {cur * PAPERS_STEP + 1}–{Math.min(list.length, (cur + 1) * PAPERS_STEP)} / {list.length}</span>
-        </nav>
-      )}
+      <Pager page={cur} pages={pages} total={list.length} size={PAPERS_STEP} unit="Đề" onPage={setPage} label="Trang danh sách đề" />
       </>}
       {!big && counts.length > 1 && (
         <div className="alert warn" role="status"><div><AlertTriangle size={16} /> Các đề đã chọn có số câu khác nhau ({counts.sort((a, b) => a - b).join(', ')} câu). Để chấm điểm công bằng, các đề thi cùng kì cần cùng số câu: sửa lại đề hoặc chỉ chọn các đề cùng số câu.</div></div>
