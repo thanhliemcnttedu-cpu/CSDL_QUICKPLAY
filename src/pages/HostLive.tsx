@@ -13,7 +13,7 @@ import { startPolling } from '../lib/pollTimer';
 import type { HostOp } from '../lib/sessionLogic';
 import { answerKey } from '../lib/sessionLogic';
 import { loadSettings, scriptRef } from '../lib/settings';
-import { htmlToText, sanitizeHtml } from '../lib/util';
+import { OPTION_LABELS, htmlToText, sanitizeHtml } from '../lib/util';
 import { Check, X, MessageSquareText } from 'lucide-react';
 import { MusicButton } from '../components/MusicButton';
 import { download, questionStats, rankedPlayers, sessionCsv, totalOf } from '../lib/report';
@@ -51,6 +51,7 @@ export default function HostLive() {
   const lastAlerted = useRef<number | null>(null);
   const [tick, setTick] = useState(Date.now()); // nhịp đồng hồ đếm ngược của câu (giáo viên điều khiển)
   const autoLocked = useRef(-1);
+  const earlyLocked = useRef(-1); // câu đã tự chốt sớm vì cả lớp trả lời xong trước khi hết giờ
   useEffect(() => {
     const id = window.setInterval(() => setTick(Date.now()), 500);
     return () => clearInterval(id);
@@ -167,9 +168,15 @@ export default function HostLive() {
   const nowMs = s.state === 'PAUSED' && s.paused_at ? s.paused_at : tick;
   const remainMs = paced && s.question_opened_at ? Math.max(0, limitMs - (nowMs - s.question_opened_at)) : 0;
 
-  // Hết giờ thì máy giáo viên tự khóa câu (một lần cho mỗi câu) để không ai nộp muộn và kết quả hiện ra
-  if (paced && s.state === 'IN_PROGRESS' && !s.question_locked && s.question_opened_at && remainMs <= 0 && autoLocked.current !== s.current_index && !busy) {
+  // Học sinh còn trả lời được (không bị mời ra, không bị khóa vì vi phạm)
+  const canAnswer = players.filter((p) => !p.locked);
+  const allAnswered = canAnswer.length > 0 && canAnswer.every((p) =>
+    s.answers.some((a) => a.player_id === p.player_id && a.q_index === s.current_index && (a.answer as { kind?: string } | null)?.kind !== 'none'));
+  // Máy giáo viên tự khóa câu (một lần cho mỗi câu) khi HẾT GIỜ, hoặc sớm hơn khi CẢ LỚP ĐÃ TRẢ LỜI XONG
+  // (không phải chờ đếm hết thời gian suy nghĩ): đáp án, số em đúng / sai, điểm và top hiện ra ngay.
+  if (paced && s.state === 'IN_PROGRESS' && !s.question_locked && s.question_opened_at && (remainMs <= 0 || allAnswered) && autoLocked.current !== s.current_index && !busy) {
     autoLocked.current = s.current_index;
+    if (remainMs > 0) earlyLocked.current = s.current_index;
     window.setTimeout(() => act('lock'), 0);
   }
 
@@ -256,7 +263,12 @@ export default function HostLive() {
                     {!s.question_locked && <span className={`badge ${remainMs <= 5000 ? 'red' : 'amber'}`} role="timer" style={{ fontSize: '1rem' }}><Clock size={14} /> {Math.ceil(remainMs / 1000)} giây</span>}
                     {s.question_locked && <span className="badge">Đã khóa câu</span>}
                     <span className="badge blue">{answeredCur}/{players.length} đã trả lời</span>
-                    {!s.question_locked && <button className="btn" disabled={busy} onClick={() => act('lock')}><Lock size={18} /> Khóa & xem đáp án</button>}
+                    {!s.question_locked && (
+                      <button className="btn accent" disabled={busy} onClick={() => { earlyLocked.current = -1; autoLocked.current = s.current_index; act('lock'); }}
+                        title="Chốt câu này ngay, không chờ hết giờ: học sinh không trả lời thêm được, đáp án, số em đúng / sai, điểm và top hiện ra">
+                        <Lock size={18} /> Chốt đáp án ngay
+                      </button>
+                    )}
                     <button className="btn primary" disabled={busy || s.state === 'PAUSED'} onClick={() => act('next')}>
                       <SkipForward size={18} /> {s.current_index + 1 >= s.question_count ? 'Kết thúc' : 'Câu tiếp theo'}
                     </button>
@@ -273,18 +285,55 @@ export default function HostLive() {
                   };
                   const group = (k: string) => players.filter((p) => kind(p.player_id) === k);
                   const rows: [string, string, string][] = [['ok', 'Trả lời đúng', 'green'], ['bad', 'Trả lời sai', 'red'], ['none', 'Chưa trả lời', 'amber'], ['wait', 'Trả lời miệng chờ chấm', 'blue']];
+                  // Điểm từng em ở câu này (điểm câu + điểm thưởng), em được nhiều điểm đứng trước
+                  const gained = (pid: string) => { const a = cur.get(pid); return a ? (a.score ?? 0) + (a.coins ?? 0) : 0; };
+                  const right = curQ.options.filter((o) => o.is_correct);
+                  const top5 = ranked.slice(0, 5);
                   return (
-                    <div className="stack" style={{ gap: 6 }} aria-label="Trạng thái trả lời của từng học sinh">
-                      {rows.map(([k, label, tone]) => {
-                        const list = group(k);
-                        if (!list.length && k === 'wait') return null;
-                        return (
-                          <div key={k} className="row" style={{ gap: 6, alignItems: 'flex-start' }}>
-                            <span className={`badge ${tone}`} style={{ flex: 'none' }}>{label}: {list.length}</span>
-                            <span className="small">{list.map((p) => p.name).join(' · ') || '—'}</span>
-                          </div>
-                        );
-                      })}
+                    <div className="stack" style={{ gap: 10 }}>
+                      {earlyLocked.current === s.current_index && (
+                        <div className="alert ok" role="status"><div><b>Cả lớp đã trả lời xong</b> nên phần mềm chốt câu sớm, không chờ hết giờ.</div></div>
+                      )}
+                      {right.length > 0 && (
+                        <div className="host-answer" role="status">
+                          <b>Đáp án đúng:</b>{' '}
+                          {right.map((o) => {
+                            const i = curQ.options.indexOf(o);
+                            return <span key={o.option_id} className="host-answer-chip">{curQ.type === 'true_false' ? '' : `${OPTION_LABELS[i]}. `}<span dangerouslySetInnerHTML={{ __html: sanitizeHtml(o.text) }} /></span>;
+                          })}
+                        </div>
+                      )}
+                      <div className="stack" style={{ gap: 6 }} aria-label="Trạng thái trả lời của từng học sinh">
+                        {rows.map(([k, label, tone]) => {
+                          const list = group(k).sort((a, b) => gained(b.player_id) - gained(a.player_id));
+                          if (!list.length && k === 'wait') return null;
+                          return (
+                            <div key={k} className="row" style={{ gap: 6, alignItems: 'flex-start' }}>
+                              <span className={`badge ${tone}`} style={{ flex: 'none' }}>{label}: {list.length}</span>
+                              <span className="small host-names">
+                                {list.length ? list.map((p) => (
+                                  <span key={p.player_id}>{p.name}{k === 'ok' || gained(p.player_id) > 0 ? <b> +{gained(p.player_id).toLocaleString('vi-VN')}</b> : null}</span>
+                                )) : '—'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {top5.length > 0 && (
+                        <div className="host-top">
+                          <b><Trophy size={18} /> Top {top5.length} sau câu {s.current_index + 1}</b>
+                          <ol>
+                            {top5.map((p, i) => (
+                              <li key={p.player_id} className={i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}>
+                                <span className="rk">{i + 1}</span>
+                                <Avatar value={p.avatar} size={28} />
+                                <span className="nm">{p.name}</span>
+                                <b>{totalOf(p).toLocaleString('vi-VN')}</b>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
