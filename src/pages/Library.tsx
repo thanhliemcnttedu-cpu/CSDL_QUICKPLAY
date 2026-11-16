@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOpenCheck, Eye, FolderInput, FolderTree, ChevronDown, ChevronUp, DatabaseZap, Star, CopyPlus, Layers } from 'lucide-react';
 import type { Catalog, Quiz, QuizSummary } from '../lib/types';
 import { api } from '../lib/api';
+import { buildPublicCatalog } from '../lib/publicCatalog';
 import { BUILTIN_QUIZZES, newQuiz, sampleQuiz, type BuiltinQuiz } from '../lib/factory';
-import { ALL, NONE, UNGRADED, addSubject, countByNode, emptyCatalog, ensurePath, gradeOfId, inNode, isGradeId, nodeExists, pathOf, placementOf, resolve, subjectsOfGrade, type Placement } from '../lib/catalog';
+import { ALL, NONE, UNGRADED, countByNode, emptyCatalog, ensurePath, gradeOfId, inNode, isGradeId, nodeExists, pathOf, placementOf, resolve, type Placement } from '../lib/catalog';
 import { formatDate, uid } from '../lib/util';
 import { Modal, Spinner, useToast, askConfirm } from '../components/ui';
 import { ImportDialog } from '../components/ImportDialog';
@@ -195,27 +196,7 @@ export default function Library() {
   const byName = (q: { title: string }) => q.title.toLowerCase().includes(needle);
   // Thư viện công cộng: cây thư mục chỉ xem, dựng từ bộ mặc định của Quickplay (Lớp 1) và lớp + môn mà giáo viên ghi trên bộ đề công khai
   const pubView = useMemo(() => {
-    let cat: Catalog = emptyCatalog();
-    const place = new Map<string, Placement>();
-    for (const b of BUILTIN_QUIZZES) {
-      const r = ensurePath(cat, ...b.path, b.grade);
-      cat = r.catalog;
-      place.set(b.id, r.placement);
-    }
-    for (const q of pub) {
-      const name = (q.subject ?? '').trim();
-      if (!name) continue; // không ghi môn → "Chưa phân loại"
-      const grade = (q.grade ?? '').replace(/\s+/g, ' ').trim();
-      try {
-        let s = subjectsOfGrade(cat, grade).find((x) => x.name.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'));
-        if (!s) {
-          const r = addSubject(cat, name, grade);
-          cat = r.catalog;
-          s = cat.subjects.find((x) => x.id === r.id)!;
-        }
-        place.set(q.id, { subject_id: s.id });
-      } catch { /* tên môn không hợp lệ: để ở Chưa phân loại */ }
-    }
+    const { cat, place } = buildPublicCatalog(pub);
     const all: Placement[] = [...BUILTIN_QUIZZES.map((b) => place.get(b.id) ?? {}), ...pub.map((q) => place.get(q.id) ?? {})];
     return { cat, place, counts: countByNode(cat, all) };
   }, [pub]);

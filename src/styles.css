@@ -776,6 +776,25 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); bac
 .paper-fields .field { margin: 0; }
 .paper-box { padding: 12px 14px; border-radius: 16px; border: 1.5px solid #f3c27a; background: #fffaf0; display: flex; flex-direction: column; gap: 10px; }
 .paper-intro { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+/* Kho đề thi: 3 hàng tab lọc Lớp / Môn / Thời điểm, mỗi tab kèm số đề */
+.paper-tabs { display: flex; flex-direction: column; gap: 10px; position: relative; padding: 14px 16px; }
+.facet-row { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 10px; align-items: center; }
+.facet-label { font-weight: 800; color: var(--muted-fg); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.facet-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.facet { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--border); background: #fff; color: var(--fg); border-radius: 999px; padding: 6px 8px 6px 14px; font: inherit; font-weight: 700; cursor: pointer; min-height: 38px; }
+.facet b { min-width: 26px; padding: 2px 8px; border-radius: 999px; background: #eef2f7; color: #334155; font-size: 0.85rem; text-align: center; }
+.facet:hover { border-color: #93c5fd; }
+.facet:focus-visible { outline: 3px solid #93c5fd; outline-offset: 1px; }
+.facet.on { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.7); }
+.facet.on b { background: rgba(255, 255, 255, 0.25); color: #fff; }
+.facet.zero:not(.on) { opacity: 0.5; }
+.paper-tabs-clear { position: absolute; top: 10px; right: 10px; }
+@media (max-width: 600px) {
+  .facet-row { grid-template-columns: 1fr; gap: 6px; }
+  .facet-tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .facet { flex: none; }
+  .paper-tabs-clear { position: static; align-self: flex-end; }
+}
 .paper-group { display: flex; flex-direction: column; gap: 10px; border-left: 5px solid #f59e0b; }
 .paper-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1.5px solid var(--border); border-radius: 14px; overflow: hidden; }
 .paper-row { display: flex; align-items: center; gap: 10px; padding-right: 8px; border-top: 1px solid var(--border); background: #fff; }

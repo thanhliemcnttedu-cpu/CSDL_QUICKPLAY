@@ -14,23 +14,44 @@ export function ExamPapers({ items, filter, onCreate, onHost }: {
   onCreate: (preset: { grade?: string; subject?: string; period?: ExamPeriod }) => void;
   onHost: (papers: QuizSummary[]) => void;
 }) {
-  const [grade, setGrade] = useState('');
-  const [period, setPeriod] = useState<ExamPeriod | ''>('');
+  // Lọc nhanh bằng 3 hàng tab: Lớp → Môn → Thời điểm kiểm tra; mỗi tab ghi số đề (tính theo các lựa chọn ở hàng khác)
+  const [f, setF] = useState<{ grade: string; subject: string; period: ExamPeriod | '' }>(() => {
+    try { return { grade: '', subject: '', period: '', ...JSON.parse(sessionStorage.getItem('quickplay.paperTabs') || '{}') }; } catch { return { grade: '', subject: '', period: '' }; }
+  });
+  const pick = (p: Partial<typeof f>) => setF((o) => {
+    const n = { ...o, ...p };
+    try { sessionStorage.setItem('quickplay.paperTabs', JSON.stringify(n)); } catch { /* bỏ qua */ }
+    return n;
+  });
   const needle = filter.trim().toLocaleLowerCase('vi');
-  const groups = useMemo(() => groupPapers(items), [items]);
-  const grades = [...new Set(groups.map((g) => g.grade))];
-  const shown = groups
-    .filter((g) => (!grade || g.grade === grade) && (!period || g.period === period))
-    .map((g) => ({ ...g, papers: g.papers.filter((q) => !needle || `${q.title} ${q.paper_code ?? ''} ${g.subject}`.toLocaleLowerCase('vi').includes(needle)) }))
-    .filter((g) => g.papers.length);
-  const total = groups.reduce((t, g) => t + g.papers.length, 0);
+  const groups = useMemo(
+    () => groupPapers(items)
+      .map((g) => ({ ...g, papers: g.papers.filter((q) => !needle || `${q.title} ${q.paper_code ?? ''} ${g.subject}`.toLocaleLowerCase('vi').includes(needle)) }))
+      .filter((g) => g.papers.length),
+    [items, needle],
+  );
+  const n = (gs: PaperGroup[]) => gs.reduce((t, g) => t + g.papers.length, 0);
+  const total = n(groups);
+  const grades = [...new Set(groups.map((g) => g.grade))].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
+  const grade = grades.includes(f.grade) ? f.grade : '';
+  const inGrade = groups.filter((g) => !grade || g.grade === grade);
+  const subjects = [...new Set(inGrade.map((g) => g.subject))].sort((a, b) => a.localeCompare(b, 'vi'));
+  const subject = subjects.includes(f.subject) ? f.subject : '';
+  const inSubject = inGrade.filter((g) => !subject || g.subject === subject);
+  const period = f.period;
+  const shown = inSubject.filter((g) => !period || g.period === period);
+  // số đề của từng tab: tab Lớp đếm theo Môn + Thời điểm đang chọn, v.v.
+  const byPeriod = (gs: PaperGroup[]) => gs.filter((g) => !period || g.period === period);
+  const gradeCount = (gr: string) => n(byPeriod(groups.filter((g) => (!gr || g.grade === gr) && (!subject || g.subject === subject))));
+  const subjectCount = (s: string) => n(byPeriod(inGrade.filter((g) => !s || g.subject === s)));
+  const periodCount = (p: ExamPeriod | '') => n(inSubject.filter((g) => !p || g.period === p));
 
   return (
     <div className="stack" style={{ gap: 14 }}>
       <div className="card paper-intro">
         <ClipboardList size={28} color="var(--primary)" />
         <div className="grow stack" style={{ gap: 4 }}>
-          <b>Kho đề thi: {total} đề trong {groups.length} kì kiểm tra</b>
+          <b>Kho đề thi: {total} đề trong {groups.length} kì kiểm tra{shown.length !== groups.length ? ` · đang xem ${n(shown)} đề` : ''}</b>
           <span className="small muted">
             Mỗi đề có Khối lớp, Môn, Thời điểm kiểm tra và Mã đề. Tích chọn các đề của một kì rồi bấm <b>Tổ chức thi</b>: phần mềm bốc ngẫu nhiên 1 hoặc 2 đề (hoặc dùng tất cả đề đã chọn) và chia đều học sinh cho các đề.
           </span>
@@ -38,15 +59,14 @@ export function ExamPapers({ items, filter, onCreate, onHost }: {
         <button className="btn primary" onClick={() => onCreate({})}><Plus size={18} /> Tạo đề thi từ ngân hàng câu hỏi</button>
       </div>
       {groups.length > 0 && (
-        <div className="row" style={{ gap: 8 }}>
-          <select className="input" style={{ maxWidth: 200 }} value={grade} onChange={(e) => setGrade(e.target.value)} aria-label="Lọc theo khối lớp">
-            <option value="">Tất cả khối lớp</option>
-            {grades.map((g) => <option key={g} value={g}>{g}</option>)}
-          </select>
-          <select className="input" style={{ maxWidth: 260 }} value={period} onChange={(e) => setPeriod(e.target.value as ExamPeriod | '')} aria-label="Lọc theo thời điểm kiểm tra">
-            <option value="">Mọi thời điểm kiểm tra</option>
-            {PERIODS.map((p) => <option key={p} value={p}>{PERIOD_LABEL[p]}</option>)}
-          </select>
+        <div className="card paper-tabs">
+          <FacetRow label="Lớp" value={grade} onPick={(v) => pick({ grade: v, subject: '' })}
+            options={[{ v: '', t: 'Tất cả lớp', c: gradeCount('') }, ...grades.map((g) => ({ v: g, t: g, c: gradeCount(g) }))]} />
+          <FacetRow label="Môn" value={subject} onPick={(v) => pick({ subject: v })}
+            options={[{ v: '', t: 'Tất cả môn', c: subjectCount('') }, ...subjects.map((s) => ({ v: s, t: s, c: subjectCount(s) }))]} />
+          <FacetRow label="Thời điểm" value={period} onPick={(v) => pick({ period: v as ExamPeriod | '' })}
+            options={[{ v: '', t: 'Mọi thời điểm', c: periodCount('') }, ...PERIODS.map((p) => ({ v: p, t: PERIOD_LABEL[p].replace(/^Kiểm tra (.)/, (_, c: string) => c.toLocaleUpperCase('vi')), c: periodCount(p) }))]} />
+          {(grade || subject || period) && <button type="button" className="btn sm ghost paper-tabs-clear" onClick={() => pick({ grade: '', subject: '', period: '' })}>Bỏ lọc</button>}
         </div>
       )}
       {!groups.length && (
@@ -61,6 +81,22 @@ export function ExamPapers({ items, filter, onCreate, onHost }: {
       )}
       {shown.map((g) => <Group key={g.key} g={g} onCreate={onCreate} onHost={onHost} />)}
       {groups.length > 0 && !shown.length && <p className="muted">Không có đề thi nào khớp bộ lọc.</p>}
+    </div>
+  );
+}
+
+/** Một hàng tab lọc (Lớp / Môn / Thời điểm), mỗi tab kèm số đề; tab 0 đề mờ đi nhưng vẫn bấm được. */
+function FacetRow({ label, value, options, onPick }: { label: string; value: string; options: { v: string; t: string; c: number }[]; onPick: (v: string) => void }) {
+  return (
+    <div className="facet-row" role="tablist" aria-label={`Lọc theo ${label.toLowerCase()}`}>
+      <span className="facet-label">{label}</span>
+      <div className="facet-tabs">
+        {options.map((o) => (
+          <button key={o.v || 'all'} type="button" role="tab" aria-selected={value === o.v} className={`facet ${value === o.v ? 'on' : ''} ${o.c ? '' : 'zero'}`} onClick={() => onPick(o.v)}>
+            {o.t} <b>{o.c}</b>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -3,8 +3,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, KeyRound, Pencil, Plus, Printer, ScanLine, Trash2, Users } from 'lucide-react';
 import { StudentCodesDialog } from '../components/StudentCodesDialog';
-import type { ClassRoom, QuizSummary } from '../lib/types';
+import type { Catalog, ClassRoom, QuizSummary } from '../lib/types';
 import { api } from '../lib/api';
+import { QuizPicker } from '../components/QuizPicker';
+import { emptyCatalog, ensurePath, pathOf } from '../lib/catalog';
+import { BUILTIN_QUIZZES, builtinQuiz, isBuiltinId } from '../lib/factory';
+import { uid } from '../lib/util';
 import { CARD_CODES, CARD_COUNT, cardBit, cardsBackPdf, cardsPdf, type NameImage } from '../lib/paperCard';
 import { isPaperQuestion, parseStudents } from '../lib/paper';
 import { downloadBlob } from '../lib/xlsx';
@@ -70,7 +74,10 @@ export default function Paper() {
   const [error, setError] = useState('');
   const [edit, setEdit] = useState<null | { id?: string; name: string; text: string }>(null);
   const [classId, setClassId] = useState('');
-  const [quizId, setQuizId] = useState('');
+  const [quizId, setQuizId] = useState(() => { try { return localStorage.getItem('quickplay.paperQuiz') ?? ''; } catch { return ''; } });
+  const [pub, setPub] = useState<QuizSummary[]>([]);
+  const [catalog, setCatalog] = useState<Catalog>(emptyCatalog);
+  useEffect(() => { try { if (quizId) localStorage.setItem('quickplay.paperQuiz', quizId); } catch { /* bỏ qua */ } }, [quizId]);
   const [usable, setUsable] = useState<{ ok: number; all: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [perPage, setPerPage] = useState<1 | 2>(2);
@@ -79,11 +86,13 @@ export default function Paper() {
 
   const load = useCallback(async () => {
     try {
-      const [c, q] = await Promise.all([api.listClasses(), api.listQuizzes()]);
+      const [c, q, cat] = await Promise.all([api.listClasses(), api.listQuizzes(), api.getCatalog().catch(() => emptyCatalog())]);
       setClasses(c);
       setQuizzes(q);
+      setCatalog(cat);
+      api.listPublicQuizzes().then(setPub).catch(() => {});
       setClassId((v) => (c.some((x) => x.id === v) ? v : c[0]?.id ?? ''));
-      setQuizId((v) => (q.some((x) => x.id === v) ? v : q[0]?.id ?? ''));
+      setQuizId((v) => v); // thầy cô tự chọn đề trong bộ chọn (kho lớn thì không tự chọn bừa đề đầu tiên)
     } catch (e) {
       setError((e as Error).message);
       setClasses([]);
@@ -98,7 +107,8 @@ export default function Paper() {
     setUsable(null);
     if (!quizId) return;
     let live = true;
-    api.getQuiz(quizId).then((q) => live && setUsable({ ok: q.questions.filter(isPaperQuestion).length, all: q.questions.length })).catch(() => {});
+    const b = isBuiltinId(quizId) ? builtinQuiz(quizId) : null; // bộ mẫu của Quickplay: đọc sẵn trong phần mềm
+    (b ? Promise.resolve(b) : api.getQuiz(quizId)).then((q) => live && setUsable({ ok: q.questions.filter(isPaperQuestion).length, all: q.questions.length })).catch(() => {});
     return () => {
       live = false;
     };
@@ -153,7 +163,22 @@ export default function Paper() {
     if (!cls || !quizId) return;
     setBusy(true);
     try {
-      const { pin } = await api.createPaperSession(quizId, cls.name, cls.students);
+      let id = quizId;
+      // Bộ mẫu của Quickplay chưa nằm trong kho của thầy cô: máy chủ chỉ tổ chức được bộ đề đã lưu → chép vào "Của tôi" (đúng bài mẫu) rồi dùng
+      const b = BUILTIN_QUIZZES.find((x) => x.id === quizId);
+      if (b) {
+        const where = [b.grade, ...b.path].join(' › ');
+        const had = quizzes.find((q) => q.title === b.title && pathOf(catalog, q) === where);
+        if (had) id = had.id;
+        else {
+          const r = ensurePath(catalog, ...b.path, b.grade);
+          if (r.catalog !== catalog) setCatalog(await api.saveCatalog(r.catalog));
+          const now = new Date().toISOString();
+          id = (await api.saveQuiz({ ...b.make(), ...r.placement, id: uid('quiz_'), visibility: 'private', created_at: now, updated_at: now })).id;
+          toast(`Đã chép "${b.title}" vào kho đề của thầy cô (${where}).`, 'ok');
+        }
+      }
+      const { pin } = await api.createPaperSession(id, cls.name, cls.students);
       nav(`/teacher/paper/${pin}`);
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -265,12 +290,11 @@ export default function Paper() {
               {classes.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.students.length} em)</option>)}
             </select>
           </Field>
-          <Field label="Lấy câu từ đề có sẵn" help={usable ? (usable.ok ? `Máy đã chọn ${usable.ok}/${usable.all} câu dùng được với thẻ (câu một đáp án, 2 đến 4 phương án).` : 'Đề này chưa có câu nào dùng được với thẻ. Hãy chọn đề có câu một đáp án, 2 đến 4 phương án.') : undefined}>
-            <select className="input" value={quizId} onChange={(e) => setQuizId(e.target.value)} disabled={!quizzes.length}>
-              {!quizzes.length && <option value="">Chưa có bộ câu hỏi</option>}
-              {quizzes.map((q) => <option key={q.id} value={q.id}>{q.title} ({q.question_count} câu)</option>)}
-            </select>
-          </Field>
+        </div>
+        <div className="field">
+          <span>Lấy câu từ đề có sẵn</span>
+          <QuizPicker mine={quizzes} pub={pub} catalog={catalog} value={quizId} onChange={(id) => setQuizId(id)} />
+          {usable && <small className="help" style={usable.ok ? undefined : { color: 'var(--danger)' }}>{usable.ok ? `Máy đã chọn ${usable.ok}/${usable.all} câu dùng được với thẻ (câu một đáp án, 2 đến 4 phương án).` : 'Đề này chưa có câu nào dùng được với thẻ. Hãy chọn đề có câu một đáp án, 2 đến 4 phương án.'}</small>}
         </div>
         <div className="row">
           <button className="btn success lg" onClick={start} disabled={busy || !cls || !quizId || !usable?.ok}><ScanLine size={20} /> {busy ? 'Đang tạo…' : 'Tạo buổi học'}</button>
