@@ -6,6 +6,7 @@ import { LightboxProvider, Spinner, ToastProvider, askConfirm, useToast } from '
 import { loadSettings } from './lib/settings';
 import { DriveFullBanner } from './components/BackupTools';
 import { ScriptUpdateNotice, ServerVersionInfo } from './components/ScriptUpdate';
+import { TopbarClock } from './components/TopbarClock';
 import { MusicButton } from './components/MusicButton';
 import { accountRequired, checkSession, currentAccount, logout } from './lib/account';
 import { Wordmark } from './components/Logo';
@@ -82,8 +83,8 @@ function AccountChip() {
   return (
     <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
       <span className="badge blue" title={`Tài khoản: ${acc.username}`}><UserRound size={14} /> {acc.name}</span>
-      <button className="btn sm ghost" onClick={async () => { if (await askConfirm('Đăng xuất khỏi trình duyệt này? Lần sau cần nhập lại tài khoản và mật khẩu.')) { logout(); nav('/login?chon=1', { replace: true }); } }}>
-        <LogOut size={16} /> Đăng xuất
+      <button className="btn sm ghost" title="Đăng xuất" aria-label="Đăng xuất" onClick={async () => { if (await askConfirm('Đăng xuất khỏi trình duyệt này? Lần sau cần nhập lại tài khoản và mật khẩu.')) { logout(); nav('/login?chon=1', { replace: true }); } }}>
+        <LogOut size={16} /> <span className="acc-out">Đăng xuất</span>
       </button>
     </span>
   );
@@ -114,6 +115,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
           {s.backend === 'drive' ? <Cloud size={14} /> : <HardDrive size={14} />} {s.backend === 'drive' ? 'Google Drive' : 'Máy này'}
         </span>
         <ServerVersionInfo />
+        <TopbarClock />
         <nav className="topnav" aria-label="Điều hướng giáo viên">
           <NavLink to="/teacher" end><BookOpen size={18} /> Thư viện</NavLink>
           <NavLink to="/teacher/paper" aria-label="Dạy học trên lớp"><ScanLine size={18} /> <span className="nav-long">Dạy học trên lớp</span><span className="nav-short" aria-hidden>Trên lớp</span></NavLink>
