@@ -327,10 +327,16 @@ export default function Play() {
 
   const elapsed = () => {
     const now = Date.now();
-    const pausedNow = pauseAt.current !== null ? now - Math.max(pauseAt.current, qStart.current) : 0;
-    const heldNow = holdAt.current !== null ? now - Math.max(holdAt.current, qStart.current) : 0;
+    // Giáo viên điều khiển: tính từ lúc MÁY CHỦ mở câu (đổi sang giờ máy em), không dùng mốc riêng của máy em —
+    // mốc riêng có thể còn là lúc em vào phòng chờ (chờ lâu → tưởng hết giờ, tự nộp "chưa trả lời" ngay khi câu vừa mở)
+    const server = paced && !!poll?.question_opened_at;
+    const start = server ? poll!.question_opened_at! - clockOffset.current : qStart.current;
+    const pausedNow = pauseAt.current !== null ? now - Math.max(pauseAt.current, start) : 0;
+    const heldNow = holdAt.current !== null ? now - Math.max(holdAt.current, start) : 0;
+    // Máy chủ đã dời giờ mở câu khi giáo viên bấm Tiếp tục: không trừ thêm các lần tạm dừng đã qua (chỉ trừ lần đang dừng)
+    const pastPauses = server ? 0 : pausedMs.current;
     // dùng giờ thực (không dùng biến `now` vì bộ đếm hiển thị có thể bị trình duyệt làm chậm khi tab chạy nền)
-    return Math.max(0, now - qStart.current - pausedMs.current - pausedNow - heldNow);
+    return Math.max(0, now - start - pastPauses - pausedNow - heldNow);
   };
 
   const submit = useCallback(
@@ -455,7 +461,10 @@ export default function Play() {
 
   // Hết giờ -> tự nộp "không trả lời"
   const limitMs = (q?.time_limit_seconds ?? 30) * 1000;
-  const running = !!q && !untimed && poll?.state === 'IN_PROGRESS' && countdown === null && !feedback && !answered.has(curIndex) && !(paced && poll?.question_locked) && !held;
+  // Lần cập nhật đầu tiên sau khi giáo viên bấm Bắt đầu (vẫn còn ghi "phòng chờ"): chưa tính giờ — đếm ngược 3-2-1 sắp chạy
+  // và đặt lại mốc giờ của câu 1; nếu tính ngay, em chờ ở phòng chờ lâu sẽ bị coi là hết giờ câu 1.
+  const justStarted = prevState.current === 'LOBBY_WAITING';
+  const running = !!q && !untimed && poll?.state === 'IN_PROGRESS' && countdown === null && !justStarted && !feedback && !answered.has(curIndex) && !(paced && poll?.question_locked) && !held;
   const remain = Math.max(0, limitMs - elapsed());
   useEffect(() => {
     if (!(running && remain <= 0)) return;

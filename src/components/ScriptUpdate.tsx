@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2, Copy, ExternalLink, RefreshCw, ShieldCheck, TriangleAlert, Zap } from 'lucide-react';
 import { API_SETTINGS_URL, autoUpdateScript, needsScriptUpdate, checkSelfUpdateReady, googleDetail, googleLink, reasonText, scriptUpdateStatus, type UpdateStatus } from '../lib/scriptUpdate';
-import { SCRIPT_VERSION } from '../lib/installer';
+import { SCRIPT_VERSION, compareVersion, loadLink } from '../lib/installer';
 import { loadSettings } from '../lib/settings';
 import { askConfirm, useToast } from './ui';
 
@@ -70,6 +70,32 @@ export function ScriptUpdateNotice() {
       </span>
       <Link className="btn sm primary" to="/teacher/settings#cap-nhat"><RefreshCw size={16} /> Cập nhật ngay</Link>
     </div>
+  );
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+/** 19:23 16/11/2026 */
+export function fmtLinkTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/** Thanh trên cùng, cạnh nhãn Google Drive: phiên bản Apps Script đã liên kết và thời điểm liên kết. */
+export function ServerVersionInfo() {
+  const st = useUpdateStatus();
+  if (loadSettings().backend !== 'drive') return null;
+  const link = loadLink('teacher');
+  const version = st?.server || link?.server_version || '';
+  if (!version) return null;
+  const old = needsScriptUpdate(st) || (!st?.server && compareVersion(version, SCRIPT_VERSION) < 0);
+  const at = link?.linked_at ? fmtLinkTime(link.linked_at) : '';
+  return (
+    <Link to="/teacher/settings#cap-nhat" className={`server-info ${old ? 'old' : ''}`}
+      title={old ? `Apps Script đang chạy bản ${version}, bản mới nhất là ${SCRIPT_VERSION}. Bấm để cập nhật.` : 'Apps Script của thầy cô đang chạy bản mới nhất.'}>
+      <span><span className="si-long">Phiên bản máy chủ đã liên kết </span><span className="si-short">Máy chủ </span><b>{version}</b> ({old ? 'Cần cập nhật' : 'Mới nhất'})</span>
+      {at && <span><span className="si-long">Thời gian liên kết </span><span className="si-short">Liên kết </span><b>{at}</b></span>}
+    </Link>
   );
 }
 

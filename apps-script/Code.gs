@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.6.1';
+var APP_VERSION = '1.6.2';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -1058,6 +1058,8 @@ function actHostAction_(req) {
       case 'resume':
         if (s.state !== 'PAUSED') deny('Phòng không ở trạng thái tạm dừng.');
         s.paused_total_ms = (s.paused_total_ms || 0) + Math.max(0, now - (s.paused_at || now));
+        // Giáo viên điều khiển (1.6.2): thời gian tạm dừng không tính vào giờ của câu đang mở (khớp bản "Máy này")
+        if (s.question_opened_at) s.question_opened_at += Math.max(0, now - (s.paused_at || now));
         // Bài kiểm tra: thời gian tạm dừng không tính vào giờ làm bài
         if (mode === 'exam' && parseTime_(s.settings.deadline)) {
           s.settings.deadline = new Date(parseTime_(s.settings.deadline) + Math.max(0, now - (s.paused_at || now))).toISOString();

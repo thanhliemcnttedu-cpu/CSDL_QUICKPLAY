@@ -27,6 +27,9 @@ Bấm **Kiểm tra** xong, phần mềm đánh tích xanh từng điều kiện,
 (một tệp `.json` duy nhất); sang máy khác hoặc đổi Google Drive thì **Khôi phục từ file .json**. Tệp gộp cũ (tên `<tên đăng nhập>_<ngày giờ>.json`)
 còn trong thư mục Drive có thể xóa đi.
 
+**Bản 1.6.2:** chế độ giáo viên điều khiển: khi giáo viên bấm Tiếp tục sau Tạm dừng, mốc mở câu hỏi được dời
+lùi đúng bằng thời gian tạm dừng, để đồng hồ của học sinh và của màn chiếu khớp nhau.
+
 **Bản 1.6.1:** tải ảnh/âm thanh lên khi Google từ chối bật chia sẻ "Bất kỳ ai có đường liên kết": thử lại, rồi bật chia sẻ cho
 thư mục `media` (tệp thừa hưởng quyền); vẫn bị chặn thì báo lỗi kèm **lỗi gốc của Google** (mã `SHARE_BLOCKED:`).
 Phần mềm (không cần cập nhật Apps Script) khi gặp lỗi này với **ảnh** sẽ nén nhỏ và lưu ảnh kèm trong bộ đề, nên vẫn dán / tải ảnh được.

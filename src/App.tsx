@@ -5,7 +5,7 @@ import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLi
 import { LightboxProvider, Spinner, ToastProvider, askConfirm, useToast } from './components/ui';
 import { loadSettings } from './lib/settings';
 import { DriveFullBanner } from './components/BackupTools';
-import { ScriptUpdateNotice } from './components/ScriptUpdate';
+import { ScriptUpdateNotice, ServerVersionInfo } from './components/ScriptUpdate';
 import { MusicButton } from './components/MusicButton';
 import { accountRequired, checkSession, currentAccount, logout } from './lib/account';
 import { Wordmark } from './components/Logo';
@@ -113,6 +113,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
         <span className={`badge ${s.backend === 'drive' ? 'green' : 'amber'}`} title={s.backend === 'drive' ? 'Dữ liệu lưu trên Google Drive' : 'Dữ liệu chỉ lưu trong trình duyệt này'}>
           {s.backend === 'drive' ? <Cloud size={14} /> : <HardDrive size={14} />} {s.backend === 'drive' ? 'Google Drive' : 'Máy này'}
         </span>
+        <ServerVersionInfo />
         <nav className="topnav" aria-label="Điều hướng giáo viên">
           <NavLink to="/teacher" end><BookOpen size={18} /> Thư viện</NavLink>
           <NavLink to="/teacher/paper" aria-label="Dạy học trên lớp"><ScanLine size={18} /> <span className="nav-long">Dạy học trên lớp</span><span className="nav-short" aria-hidden>Trên lớp</span></NavLink>

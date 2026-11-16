@@ -16,6 +16,7 @@ import { loadSettings, scriptRef } from '../lib/settings';
 import { OPTION_LABELS, htmlToText, sanitizeHtml } from '../lib/util';
 import { Check, X, MessageSquareText } from 'lucide-react';
 import { MusicButton } from '../components/MusicButton';
+import { ZoomHover } from '../components/ZoomHover';
 import { download, questionStats, rankedPlayers, sessionCsv, totalOf } from '../lib/report';
 import { isInfoKind, visiblePlayers } from '../lib/sessionLogic';
 import { Spinner, useToast, askConfirm } from '../components/ui';
@@ -159,6 +160,10 @@ export default function HostLive() {
   const players = shownSession.players.filter((p) => !p.kicked && !p.superseded);
   const ranked = rankedPlayers(shownSession);
   const curQ = quiz?.questions[s.current_index];
+  // Câu có các phương án để chiếu (một / nhiều đáp án, Đúng / Sai)
+  const optionQ = !!curQ && ['single_choice', 'multiple_select', 'true_false'].includes(curQ.type) && curQ.options.length > 0;
+  // Xáo trộn đáp án: mỗi máy học sinh một thứ tự A, B, C, D khác nhau → màn chiếu không ghi chữ cái, dùng một màu chung
+  const mixed = !!s.settings.shuffle_options && curQ?.type !== 'true_false';
   // Hết giờ mà không chọn gì (kind 'none') là CHƯA trả lời, không tính vào số đã trả lời
   const answeredCur = new Set(
     s.answers.filter((a) => a.q_index === s.current_index && (a.answer as { kind?: string } | null)?.kind !== 'none').map((a) => a.player_id),
@@ -168,10 +173,13 @@ export default function HostLive() {
   const nowMs = s.state === 'PAUSED' && s.paused_at ? s.paused_at : tick;
   const remainMs = paced && s.question_opened_at ? Math.max(0, limitMs - (nowMs - s.question_opened_at)) : 0;
 
-  // Học sinh còn trả lời được (không bị mời ra, không bị khóa vì vi phạm)
-  const canAnswer = players.filter((p) => !p.locked);
-  const allAnswered = canAnswer.length > 0 && canAnswer.every((p) =>
-    s.answers.some((a) => a.player_id === p.player_id && a.q_index === s.current_index && (a.answer as { kind?: string } | null)?.kind !== 'none'));
+  // Học sinh còn trả lời được: không bị mời ra, không bị khóa vì vi phạm, và máy em còn mở phòng
+  // (máy em báo "còn ở đây" khoảng 15 giây một lần; quá 60 giây không thấy là em đã đóng tab / rời phòng — không chờ em đó)
+  const answeredNow = (pid: string) => s.answers.some((a) => a.player_id === pid && a.q_index === s.current_index && (a.answer as { kind?: string } | null)?.kind !== 'none');
+  // So với mốc mới nhất do CHÍNH MÁY CHỦ ghi (lần thấy em gần nhất, lúc mở câu), không dùng đồng hồ máy giáo viên (có thể lệch giờ)
+  const serverNow = Math.max(s.question_opened_at ?? 0, ...players.map((p) => p.last_seen ?? 0));
+  const canAnswer = players.filter((p) => !p.locked && (answeredNow(p.player_id) || !p.last_seen || serverNow - p.last_seen < 60_000));
+  const allAnswered = canAnswer.length > 0 && canAnswer.every((p) => answeredNow(p.player_id));
   // Máy giáo viên tự khóa câu (một lần cho mỗi câu) khi HẾT GIỜ, hoặc sớm hơn khi CẢ LỚP ĐÃ TRẢ LỜI XONG
   // (không phải chờ đếm hết thời gian suy nghĩ): đáp án, số em đúng / sai, điểm và top hiện ra ngay.
   if (paced && s.state === 'IN_PROGRESS' && !s.question_locked && s.question_opened_at && (remainMs <= 0 || allAnswered) && autoLocked.current !== s.current_index && !busy) {
@@ -179,6 +187,20 @@ export default function HostLive() {
     if (remainMs > 0) earlyLocked.current = s.current_index;
     window.setTimeout(() => act('lock'), 0);
   }
+
+  // Mã tham gia phóng to (rê chuột vào mã PIN / mã QR) và dải mã khi đang chơi (học sinh vào muộn vẫn vào được)
+  const joinHost = link ? `${new URL(link).host}/join` : 'trang Quickplay';
+  const pinBig = <><div className="zoom-cap">Vào <b>{joinHost}</b> và nhập mã</div><div className="zoom-pin">{pin.slice(0, 3)} {pin.slice(3)}</div></>;
+  const qrBig = qr ? <><div className="zoom-cap">Quét mã để vào phòng · Mã {pin}</div><img src={qr} alt="" /></> : null;
+  const copyLink = () => link && navigator.clipboard.writeText(link).then(() => toast('Đã chép đường dẫn tham gia.', 'ok'));
+  const joinStrip = (s.settings.mode === 'classic_live' || paced) && (s.state === 'IN_PROGRESS' || s.state === 'PAUSED') && (
+    <div className="join-strip" aria-label="Mã tham gia cho học sinh vào muộn">
+      <span className="grow small">Học sinh vào muộn: vào <b>{joinHost}</b> và nhập mã</span>
+      <ZoomHover label={`Mã PIN ${pin.split('').join(' ')}`} big={pinBig}><span className="js-pin">{pin.slice(0, 3)} {pin.slice(3)}</span></ZoomHover>
+      {qr && <ZoomHover label="Mã QR để vào phòng" big={qrBig}><img src={qr} alt="Mã QR để vào phòng" /></ZoomHover>}
+      {link && <button className="btn sm" onClick={copyLink}><Copy size={16} /> Chép link</button>}
+    </div>
+  );
 
   const header = (
     <div className="row between" style={{ padding: '12px 0' }}>
@@ -214,7 +236,9 @@ export default function HostLive() {
             <div className="lobby-head">
               <div className="stack">
                 <span style={{ fontSize: '1.2rem' }}>Vào <b>{link ? `${new URL(link).host}/join` : 'trang Quickplay'}</b> và nhập mã{s.settings.mode === 'exam' ? ' PIN, sau đó nhập mã số học sinh' : ''}:</span>
-                <div className="pin-display" aria-label={`Mã PIN ${pin.split('').join(' ')}`}>{pin.slice(0, 3)} {pin.slice(3)}</div>
+                <ZoomHover label={`Mã PIN ${pin.split('').join(' ')}`} big={pinBig}>
+                  <div className="pin-display" aria-hidden>{pin.slice(0, 3)} {pin.slice(3)}</div>
+                </ZoomHover>
                 {link && (
                   <div className="row">
                     <button className="btn sm" onClick={() => navigator.clipboard.writeText(link).then(() => toast('Đã chép đường dẫn tham gia.', 'ok'))}><Copy size={16} /> Chép link tham gia</button>
@@ -222,7 +246,7 @@ export default function HostLive() {
                   </div>
                 )}
               </div>
-              {qr && <img className="qr" src={qr} alt="Mã QR để vào phòng" width={200} height={200} />}
+              {qr && <ZoomHover label="Mã QR để vào phòng" big={qrBig}><img className="qr" src={qr} alt="Mã QR để vào phòng" width={200} height={200} /></ZoomHover>}
             </div>
             <div className="row between">
               <h2 style={{ margin: 0 }}><Users size={24} /> {players.length} học sinh</h2>
@@ -242,6 +266,7 @@ export default function HostLive() {
 
         {(s.state === 'IN_PROGRESS' || s.state === 'PAUSED') && (
           <div className="stack" style={{ gap: 18 }}>
+            {joinStrip}
             {s.settings.mode === 'homework' && (
               <div className="lobby-head">
                 <div>
@@ -276,6 +301,24 @@ export default function HostLive() {
                 </div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 700 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(curQ.stem.text) }} />
                 <StemMedia stem={curQ.stem} />
+                {/* Màn chiếu: các phương án như trên máy học sinh; chốt câu thì đáp án đúng nổi màu xanh, kèm số em chọn */}
+                {optionQ && (
+                  <div className={`host-opts ${s.question_locked ? 'revealed' : ''}`} aria-label="Các phương án">
+                    {curQ.options.map((o, i) => {
+                      const n = s.answers.filter((a) => a.q_index === s.current_index && ((a.answer as { option_ids?: string[] } | null)?.option_ids ?? []).includes(o.option_id)).length;
+                      const right = s.question_locked && o.is_correct;
+                      return (
+                        <div key={o.option_id} className={`host-opt ${mixed ? 'cn' : `c${i % 6}`} ${right ? 'right' : ''}`} aria-label={`${mixed ? '' : OPTION_LABELS[i] + ': '}${htmlToText(o.text)}${right ? ' – đáp án đúng' : ''}`}>
+                          {curQ.type !== 'true_false' && !mixed && <span className="lt">{OPTION_LABELS[i]}</span>}
+                          <span className="tx" dangerouslySetInnerHTML={{ __html: sanitizeHtml(o.text) }} />
+                          {o.image_url && <img src={o.image_url} alt="" />}
+                          {s.question_locked && <span className="ct">{n} em</span>}
+                          {right && <span className="ok"><Check size={22} strokeWidth={3} /></span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 {s.question_locked && (() => {
                   const cur = new Map(s.answers.filter((a) => a.q_index === s.current_index).map((a) => [a.player_id, a]));
                   const kind = (pid: string) => {
@@ -337,7 +380,7 @@ export default function HostLive() {
                     </div>
                   );
                 })()}
-                {s.question_locked && (
+                {s.question_locked && !optionQ && (
                   <Stats q={curQ} stats={Object.fromEntries(
                     Object.entries(
                       s.answers.filter((a) => a.q_index === s.current_index).reduce<Record<string, number>>((m, a) => {
