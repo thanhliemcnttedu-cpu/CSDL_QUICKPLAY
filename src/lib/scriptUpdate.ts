@@ -163,7 +163,7 @@ export const API_SETTINGS_URL = 'https://script.google.com/home/usersettings';
 export function reasonText(r: UpdateReason | undefined): string {
   switch (r) {
     case 'api_off': return 'Gmail chạy Apps Script chưa bật Google Apps Script API (bật một lần, khoảng 10 giây).';
-    case 'scopes': return 'Dự án Apps Script chưa có quyền tự cập nhật. Cập nhật tay một lần cuối (dán cả mã và tệp cấu hình), từ đó các bản sau tự cập nhật.';
+    case 'scopes': return 'Apps Script chưa được cấp quyền tự cập nhật. Đã dán tệp cấu hình appsscript.json rồi thì chỉ còn cấp quyền: trong trình biên tập Apps Script, mở Mã.gs, ô chọn hàm để doGet, bấm ▷ Chạy → Xem xét quyền → chọn Gmail → Nâng cao → Cho phép. Chưa dán thì làm 5 bước cập nhật tay (dán cả mã và tệp cấu hình).';
     case 'manual': return 'Bản mới cần thêm quyền Google, Google bắt chủ tài khoản tự cấp quyền. Cập nhật tay lần này.';
     case 'busy': return 'Đang có buổi học trực tiếp. Apps Script sẽ tự cập nhật khi buổi học kết thúc.';
     case 'no_self': return 'Apps Script đang chạy bản cũ, chưa có chức năng tự cập nhật. Cập nhật tay một lần cuối, từ đó các bản sau tự cập nhật.';

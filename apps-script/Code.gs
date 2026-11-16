@@ -2727,7 +2727,7 @@ function scriptApi_(method, path, body) {
     throw userError_('API_OFF: Chưa bật Google Apps Script API. Mở https://script.google.com/home/usersettings bằng Gmail đang chạy Apps Script này và bật "Google Apps Script API", rồi bấm Kiểm tra lại.');
   }
   if (code === 403 || /insufficient.*scope|ACCESS_TOKEN_SCOPE_INSUFFICIENT|PERMISSION_DENIED/i.test(text)) {
-    throw userError_('SCOPES: Apps Script chưa có quyền tự cập nhật. Hãy cập nhật tay một lần bằng Trình cài đặt (dán cả mã và tệp cấu hình appsscript.json), sau đó các bản mới sẽ tự cập nhật.');
+    throw userError_('SCOPES: Apps Script chưa được cấp quyền tự cập nhật. Đã dán tệp cấu hình appsscript.json thì trong trình biên tập chọn hàm doGet, bấm Chạy và cho phép quyền; chưa dán thì cập nhật tay một lần bằng Trình cài đặt (dán cả mã và tệp cấu hình).');
   }
   throw userError_('Apps Script API báo lỗi ' + code + ': ' + text.slice(0, 200));
 }
