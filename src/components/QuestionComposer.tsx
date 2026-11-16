@@ -315,7 +315,8 @@ export function QuestionComposer({ initial, defaultType = 'single_choice', lesso
             {/* ---- Lời giải ---- */}
             <div className="expl">
               <span className="cmp-label row" style={{ gap: 6, color: '#92400e' }}><Lightbulb size={16} /> Đáp án / lời giải của giáo viên (không bắt buộc)</span>
-              <textarea className="input" data-paste="expl" rows={2} value={d.explanation} onChange={(e) => set({ explanation: e.target.value })} placeholder="Giải thích ngắn để đọc cho cả lớp sau khi học sinh trả lời…" />
+              <MicInput rows={2} paste="expl" value={d.explanation} onChange={(v) => set({ explanation: v })} label="đáp án / lời giải của giáo viên"
+                placeholder="Giải thích ngắn để đọc cho cả lớp sau khi học sinh trả lời… (bấm micro để nói)" />
               <ImageZone small target="expl" url={d.explanation_image} title="Ảnh lời giải" busy={img.busy} onPaste={pasteFromClipboard} onChoose={chooseFile}
                 onDropFile={(f) => uploadTo('expl', f)} onRemove={() => set({ explanation_image: undefined })} />
             </div>
@@ -428,13 +429,15 @@ function ImageZone(props: {
   );
 }
 
-/** Ô chữ một dòng có nút micro bên trong (nhập đáp án bằng giọng nói). */
-function MicInput({ value, onChange, placeholder, paste, label }: { value: string; onChange: (v: string) => void; placeholder: string; paste: string; label: string }) {
+/** Ô chữ có nút micro bên trong (nhập bằng giọng nói). rows > 1: ô nhiều dòng (lời giải của giáo viên). */
+function MicInput({ value, onChange, placeholder, paste, label, rows = 1 }: { value: string; onChange: (v: string) => void; placeholder: string; paste: string; label: string; rows?: number }) {
   const sp = useSpeech((t) => onChange((value ? value.trimEnd() + ' ' : '') + t));
   const on = sp.status === 'RECORDING';
   return (
-    <div className="mic-in grow">
-      <input className="input" data-paste={paste} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={label} />
+    <div className={`mic-in grow ${rows > 1 ? 'multi' : ''}`}>
+      {rows > 1
+        ? <textarea className="input" data-paste={paste} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={label} />
+        : <input className="input" data-paste={paste} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={label} />}
       <button type="button" className={`mic ${on ? 'on' : ''}`} onClick={sp.toggle} title={on ? 'Dừng' : 'Nói để nhập'} aria-label={`Nói để nhập ${label}`}>
         {on ? <MicOff size={15} /> : <Mic size={15} />}
       </button>
