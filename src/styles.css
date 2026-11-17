@@ -43,7 +43,9 @@
   --shadow-press: 0 4px 0 rgba(15, 23, 42, 0.25);
   --font-head: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-body: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Nội dung chữ thường, bảng, ô nhập, nhãn nhỏ: dùng font của hệ điều hành cho rõ và nhẹ.
+     Tiêu đề, logo, số lớn, nút chính vẫn dùng Be Vietnam Pro (--font-head, --font-display). */
+  --font-body: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
   color-scheme: light;
 }
 
