@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { namesOf, parseShare, placeShare, shareFileName, SHARE_KIND, withPlace, type ShareFile } from './share';
+import { autoTargets, namesOf, parseShare, placeShare, placeTargets, shareFileName, SHARE_KIND, withPlace, type ShareFile } from './share';
 import { addChapter, addLesson, addSubject, findNode } from './catalog';
 import type { Catalog, Question, Quiz } from './types';
 
@@ -52,6 +52,33 @@ describe('đặt bộ đề vào lớp và môn khi nhập', () => {
   it('bắt buộc chọn lớp và môn', () => {
     expect(() => placeShare({ subjects: [] }, [{ chapter: '', lesson: '' }], '', 'Tin học')).toThrow(/chọn lớp/);
     expect(() => placeShare({ subjects: [] }, [{ chapter: '', lesson: '' }], 'Lớp 3', '  ')).toThrow(/môn học/);
+  });
+});
+
+describe('đặt từng bộ đề vào vị trí riêng', () => {
+  it('chế độ tự động: mỗi bộ đề vào lớp, môn, chương, bài ghi trong tệp', () => {
+    const file: ShareFile = { app: 'Quickplay', kind: SHARE_KIND, version: 1, exported_at: '', title: 'T', quizzes: [
+      { title: 'A', grade: 'Lớp 1', subject: 'Tiếng Việt', chapter: 'Chủ đề 1', lesson: 'Bài 1', questions: [q('a')] },
+      { title: 'B', grade: 'Lớp 3', subject: 'Tin học', chapter: '', lesson: '', questions: [q('b')] },
+    ] };
+    const { catalog, placements } = placeTargets({ subjects: [] }, autoTargets(file));
+    expect(catalog.subjects.map((s) => `${s.grade}|${s.name}`).sort()).toEqual(['Lớp 1|Tiếng Việt', 'Lớp 3|Tin học']);
+    expect(findNode(catalog, placements[0].lesson_id!)?.lesson?.name).toBe('Bài 1');
+    expect(placements[1]).toEqual({ subject_id: catalog.subjects.find((s) => s.name === 'Tin học')!.id });
+  });
+
+  it('chế độ chọn vị trí: mọi bộ đề vào cùng môn đã chọn', () => {
+    const { catalog, placements } = placeTargets({ subjects: [] }, [
+      { grade: 'Lớp 2', subject: 'Toán', chapter: 'Phép cộng', lesson: '' },
+      { grade: 'Lớp 2', subject: 'Toán', chapter: 'Phép cộng', lesson: '' },
+    ]);
+    expect(catalog.subjects).toHaveLength(1);
+    expect(placements[0].subject_id).toBe(placements[1].subject_id);
+    expect(placements[0].chapter_id).toBe(placements[1].chapter_id);
+  });
+
+  it('bộ đề không có môn thì không đặt được', () => {
+    expect(() => placeTargets({ subjects: [] }, [{ grade: 'Lớp 1', subject: ' ', chapter: '', lesson: '' }])).toThrow(/tên môn/);
   });
 });
 

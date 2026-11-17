@@ -121,21 +121,24 @@ export function parseShare(text: string): ShareFile {
  * Đặt các bộ đề vào một lớp và một môn do người nhập chọn. Môn, chương, bài còn thiếu được tạo mới.
  * Tên chương hoặc bài trống trong tệp thì bộ đề chỉ được xếp tới cấp trên của nó.
  */
-export function placeShare(cat: Catalog, quizzes: Pick<ShareQuiz, 'chapter' | 'lesson'>[], grade: string, subjectName: string): { catalog: Catalog; placements: Placement[] } {
-  const g = grade.trim().replace(/\s+/g, ' ');
-  const sname = subjectName.trim().replace(/\s+/g, ' ');
-  if (!g) throw new Error('Hãy chọn lớp để nhập bộ đề.');
-  if (!sname) throw new Error('Hãy nhập môn học để nhập bộ đề.');
+/** Vị trí đích của MỘT bộ đề: lớp, môn, chương, bài (tên). Chương hoặc bài trống thì xếp tới cấp trên; lớp trống = chưa xếp lớp. */
+export interface PlaceTarget { grade: string; subject: string; chapter: string; lesson: string }
+
+/** Đặt từng bộ đề vào vị trí riêng. Môn, chương, bài còn thiếu được tạo mới. */
+export function placeTargets(cat: Catalog, targets: PlaceTarget[]): { catalog: Catalog; placements: Placement[] } {
   let c = cat;
-  let sid = subjectsOfGrade(c, g).find((s) => same(s.name, sname))?.id;
-  if (!sid) {
-    const r = addSubject(c, sname, g);
-    c = r.catalog;
-    sid = r.id;
-  }
-  const placements: Placement[] = quizzes.map((q) => {
+  const placements: Placement[] = targets.map((t) => {
+    const g = t.grade.trim().replace(/\s+/g, ' ');
+    const sname = t.subject.trim().replace(/\s+/g, ' ');
+    if (!sname) throw new Error('Bộ đề chưa có tên môn để nhập vào.');
+    let sid = subjectsOfGrade(c, g).find((s) => same(s.name, sname))?.id;
+    if (!sid) {
+      const r = addSubject(c, sname, g);
+      c = r.catalog;
+      sid = r.id;
+    }
     const pl: Placement = { subject_id: sid };
-    const chapterName = q.chapter.trim().replace(/\s+/g, ' ');
+    const chapterName = t.chapter.trim().replace(/\s+/g, ' ');
     if (!chapterName) return pl;
     let chapter = c.subjects.find((s) => s.id === sid)!.chapters.find((ch) => same(ch.name, chapterName));
     if (!chapter) {
@@ -144,7 +147,7 @@ export function placeShare(cat: Catalog, quizzes: Pick<ShareQuiz, 'chapter' | 'l
       chapter = findNode(c, r.id)!.chapter!;
     }
     pl.chapter_id = chapter.id;
-    const lessonName = q.lesson.trim().replace(/\s+/g, ' ');
+    const lessonName = t.lesson.trim().replace(/\s+/g, ' ');
     if (!lessonName) return pl;
     let lesson = chapter.lessons.find((l) => same(l.name, lessonName));
     if (!lesson) {
@@ -158,6 +161,18 @@ export function placeShare(cat: Catalog, quizzes: Pick<ShareQuiz, 'chapter' | 'l
   return { catalog: c, placements };
 }
 
+/** Chế độ "chọn vị trí": mọi bộ đề vào cùng một lớp và môn, chương và bài do người nhập chọn (nếu có). */
+export function placeShare(cat: Catalog, quizzes: Pick<ShareQuiz, 'chapter' | 'lesson'>[], grade: string, subjectName: string): { catalog: Catalog; placements: Placement[] } {
+  if (!grade.trim()) throw new Error('Hãy chọn lớp để nhập bộ đề.');
+  if (!subjectName.trim()) throw new Error('Hãy nhập môn học để nhập bộ đề.');
+  return placeTargets(cat, quizzes.map((q) => ({ grade, subject: subjectName, chapter: q.chapter, lesson: q.lesson })));
+}
+
+/** Chế độ "tự động theo tệp": mỗi bộ đề giữ lớp, môn, chương, bài ghi trong tệp (tạo mới nếu người nhận chưa có). */
+export function autoTargets(file: ShareFile): PlaceTarget[] {
+  return file.quizzes.map((q) => ({ grade: q.grade || '', subject: q.subject, chapter: q.chapter, lesson: q.lesson }));
+}
+
 /** Gắn nhãn môn và bài mới cho một câu hỏi (dùng khi nhập hoặc chuyển câu sang vị trí khác). */
 export function withPlace(q: Question, subject: string, lesson: string): Question {
   const l = lesson.trim().replace(/\s+/g, ' ');
@@ -168,12 +183,11 @@ export function withPlace(q: Question, subject: string, lesson: string): Questio
 }
 
 /** Nhập tệp chia sẻ vào tài khoản hiện tại: tải ảnh/âm thanh lên, tạo bộ đề mới và cập nhật danh mục. */
-export async function importShare(file: ShareFile, grade: string, subjectName: string, o: { onProgress?: (text: string, pct?: number) => void } = {}): Promise<string[]> {
+export async function importShare(file: ShareFile, targets: PlaceTarget[], o: { onProgress?: (text: string, pct?: number) => void } = {}): Promise<string[]> {
   const say = o.onProgress ?? (() => {});
+  if (targets.length !== file.quizzes.length) throw new Error('Thiếu vị trí cho một số bộ đề.');
   const cur = (await api.getCatalog().catch(() => null)) ?? { subjects: [] };
-  const { catalog, placements } = placeShare(cur, file.quizzes, grade, subjectName);
-  const g = grade.trim().replace(/\s+/g, ' ');
-  const sname = subjectName.trim().replace(/\s+/g, ' ');
+  const { catalog, placements } = placeTargets(cur, targets);
 
   // ảnh và âm thanh: tải lên tài khoản này, rồi đổi link trong câu hỏi
   const urlOf: Record<string, string> = {};
@@ -191,6 +205,9 @@ export async function importShare(file: ShareFile, grade: string, subjectName: s
   for (let i = 0; i < file.quizzes.length; i++) {
     const sq = file.quizzes[i];
     const pl = placements[i];
+    const g = targets[i].grade.trim().replace(/\s+/g, ' ');
+    const sname = targets[i].subject.trim().replace(/\s+/g, ' ');
+    const lessonName = targets[i].lesson.trim().replace(/\s+/g, ' ');
     const body = replaceMediaLinks(JSON.stringify({ description: sq.description, cover_url: sq.cover_url, questions: sq.questions }), urlOf);
     const parsed = JSON.parse(body) as { description?: string; cover_url?: string; questions: Question[] };
     const quiz: Quiz = {
@@ -204,7 +221,7 @@ export async function importShare(file: ShareFile, grade: string, subjectName: s
       description: parsed.description,
       cover_url: parsed.cover_url,
       // nhãn môn, bài trên từng câu theo vị trí mới (câu không còn mang nhãn của máy gốc)
-      questions: parsed.questions.map((x) => withPlace(x, sname, sq.lesson)),
+      questions: parsed.questions.map((x) => withPlace(x, sname, lessonName)),
       visibility: 'private',
       created_at: now,
       updated_at: now,
