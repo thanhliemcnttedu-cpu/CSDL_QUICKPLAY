@@ -38,7 +38,7 @@
 }
 /* Máy tính bảng: hai thẻ tài khoản một hàng cho đỡ dài trang */
 @media (min-width: 600px) and (max-width: 900px) {
-  .adm-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .adm-table tr { margin-bottom: 0; }
-  .adm-table td { grid-template-columns: 104px minmax(0, 1fr); }
+  /* Máy tính bảng: mỗi tài khoản một thẻ rộng, nhãn cột đủ chỗ (trước đây 2 cột làm thẻ quá hẹp) */
+  .adm-table tr { margin-bottom: 10px; }
+  .adm-table td { grid-template-columns: 140px minmax(0, 1fr); }
 }

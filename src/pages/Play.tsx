@@ -1235,7 +1235,7 @@ export default function Play() {
         <div className={`feedback ${feedback.answer.kind === 'oral' ? '' : timedOutHere ? 'timeout' : feedback.ratio === 1 ? 'ok' : 'bad'}`} role="status">
           <div className="fb-row">
             {/* Bé Chớp phản ứng theo kết quả: đúng → reo mừng, đúng một phần → suy nghĩ, sai/hết giờ → ối */}
-            <Mascot size={92} pose={feedback.answer.kind === 'oral' ? 'think' : feedback.ratio === 1 ? 'cheer' : feedback.ratio > 0 ? 'think' : 'oops'} />
+            <Mascot size={92} className="fb-mascot" pose={feedback.answer.kind === 'oral' ? 'think' : feedback.ratio === 1 ? 'cheer' : feedback.ratio > 0 ? 'think' : 'oops'} />
             <span>
           {feedback.answer.kind === 'oral' ? <>Đã gửi – chờ giáo viên chấm</> : feedback.ratio === 1 ? <><Check size={30} /> Chính xác! +{feedback.score.toLocaleString('vi-VN')} điểm{feedback.coins ? ` · +${feedback.coins.toLocaleString('vi-VN')} điểm thưởng` : ''}</> : feedback.ratio > 0 ? <>Đúng một phần +{feedback.score.toLocaleString('vi-VN')} điểm</> : feedback.answer.kind === 'none' ? <><Clock size={30} /> {paced ? 'Hết giờ! Em chưa trả lời câu này.' : 'Hết giờ!'}</> : <><X size={30} /> Chưa đúng</>}
             </span>

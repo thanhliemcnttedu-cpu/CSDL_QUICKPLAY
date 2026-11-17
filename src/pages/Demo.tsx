@@ -18,6 +18,12 @@ const label = (q: Question) => {
   const mode = q.fill_mode ?? ((q.distractors ?? []).length ? 'bank' : 'type');
   return mode === 'menu' ? 'Điền chỗ trống (chọn từ menu)' : mode === 'bank' ? 'Điền chỗ trống (chọn từ kho từ)' : 'Điền chỗ trống (gõ chữ)';
 };
+/** Tên ngắn cho thanh các bước (màn hình hẹp không đủ chỗ cho tên đầy đủ). */
+const shortLabel = (q: Question) => {
+  if (q.type !== 'fill_blank') return TYPE_LABELS[q.type];
+  const mode = q.fill_mode ?? ((q.distractors ?? []).length ? 'bank' : 'type');
+  return mode === 'menu' ? 'Điền: menu' : mode === 'bank' ? 'Điền: kho từ' : 'Điền: gõ chữ';
+};
 
 export default function Demo() {
   const quiz = useMemo(demoQuiz, []);
@@ -99,7 +105,7 @@ export function Tryout({ quiz, previewId, readOnly }: { quiz: Quiz; previewId?: 
             const state = r?.ratio === 1 ? 'ok' : r && r.ratio !== null ? 'bad' : '';
             return (
               <button key={x.id} type="button" className={`demo-chip ${i === idx ? 'on' : ''} ${state}`} onClick={() => go(i)} aria-current={i === idx ? 'step' : undefined}>
-                <b>{i + 1}</b> {label(x)}
+                <b>{i + 1}</b> {shortLabel(x)}
                 {state === 'ok' && <Check size={14} aria-label="đã trả lời đúng" />}
                 {state === 'bad' && <X size={14} aria-label="đã trả lời chưa đúng" />}
               </button>

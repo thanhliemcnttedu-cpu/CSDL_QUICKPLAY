@@ -4,6 +4,7 @@
 .gd-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.1rem; color: var(--fg); }
 .gd-title svg { color: var(--primary); }
 .gd-count { padding: 4px 12px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink); font-weight: 600; font-size: 0.9rem; }
+.gd-toggle { margin-left: auto; }
 
 /* Hàng mốc: 6 mốc nối nhau bằng một đường; đoạn đã đi qua có màu xanh lá */
 .gd-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }

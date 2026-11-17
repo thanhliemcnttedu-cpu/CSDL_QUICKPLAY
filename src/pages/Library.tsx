@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOpenCheck, Eye, FolderInput, FolderTree, ChevronDown, ChevronUp, DatabaseZap, Star, CopyPlus, Layers } from 'lucide-react';
+import { Plus, Play, Pencil, Trash2, Upload, Sparkles, Copy, Globe, Lock, BookOpenCheck, Eye, FolderInput, FolderTree, ChevronDown, ChevronUp, DatabaseZap, Star, CopyPlus, Layers, Download, Share2 } from 'lucide-react';
 import type { Catalog, Quiz, QuizSummary } from '../lib/types';
 import { api } from '../lib/api';
 import { buildPublicCatalog } from '../lib/publicCatalog';
@@ -8,10 +8,12 @@ import { Pager } from '../components/Pager';
 
 const LIB_PAGE = 12; // số thẻ bộ đề mỗi trang (chia hết cho 2, 3, 4 cột)
 import { BUILTIN_QUIZZES, newQuiz, sampleQuiz, type BuiltinQuiz } from '../lib/factory';
-import { ALL, NONE, UNGRADED, countByNode, emptyCatalog, ensurePath, gradeOfId, inNode, isGradeId, nodeExists, pathOf, placementOf, resolve, type Placement } from '../lib/catalog';
+import { ALL, NONE, UNGRADED, countByNode, emptyCatalog, ensurePath, findNode, gradeOfId, inNode, isGradeId, nodeExists, pathOf, placementOf, resolve, type Placement } from '../lib/catalog';
+import { withPlace } from '../lib/share';
 import { formatDate, uid } from '../lib/util';
 import { Modal, Spinner, useToast, askConfirm } from '../components/ui';
 import { ImportDialog } from '../components/ImportDialog';
+import { ShareExportDialog, ShareImportDialog } from '../components/ShareDialog';
 import { QuestionBankDialog } from '../components/QuestionBankDialog';
 import { ExamPapers } from '../components/ExamPapers';
 import type { ExamPeriod } from '../lib/types';
@@ -40,7 +42,7 @@ export default function Library() {
   const [pubNode, setPubNode] = useState<string>(ALL); // mục đang chọn ở cây thư viện công cộng
   const [tab, setTab] = useState<'mine' | 'public' | 'papers'>('mine');
   const [error, setError] = useState('');
-  const [dlg, setDlg] = useState<null | { kind: 'import' | 'ai' | 'bank' } | { kind: 'paper'; preset: { grade?: string; subject?: string; period?: ExamPeriod } } | { kind: 'hostPapers'; papers: QuizSummary[] } | { kind: 'host'; quiz: QuizSummary } | { kind: 'move'; quiz: QuizSummary; to: Placement & { subject?: string } }>(null);
+  const [dlg, setDlg] = useState<null | { kind: 'import' | 'ai' | 'bank' | 'share-out' | 'share-in' } | { kind: 'paper'; preset: { grade?: string; subject?: string; period?: ExamPeriod } } | { kind: 'hostPapers'; papers: QuizSummary[] } | { kind: 'host'; quiz: QuizSummary } | { kind: 'move'; quiz: QuizSummary; to: Placement & { subject?: string } }>(null);
   const [filter, setFilter] = useState('');
   const [catalog, setCatalog] = useState<Catalog>(emptyCatalog);
   const [node, setNodeState] = useState<string>(readNode);
@@ -145,7 +147,15 @@ export default function Library() {
     setDlg(null);
     try {
       const full = await api.getQuiz(quiz.id);
-      await api.saveQuiz({ ...full, subject_id: to.subject_id, chapter_id: to.chapter_id, lesson_id: to.lesson_id, subject: to.subject ?? full.subject, updated_at: new Date().toISOString() });
+      // nhãn môn, bài trên từng câu theo vị trí mới để không còn nhãn của vị trí cũ
+      const lessonName = to.lesson_id ? findNode(catalog, to.lesson_id)?.lesson?.name ?? '' : '';
+      const subject = to.subject ?? full.subject ?? '';
+      await api.saveQuiz({
+        ...full,
+        subject_id: to.subject_id, chapter_id: to.chapter_id, lesson_id: to.lesson_id, subject,
+        questions: full.questions.map((x) => withPlace(x, subject, lessonName)),
+        updated_at: new Date().toISOString(),
+      });
       toast(`Đã chuyển "${quiz.title}" tới: ${pathOf(catalog, to) || 'Chưa phân loại'}.`, 'ok');
       load();
     } catch (e) {
@@ -254,6 +264,8 @@ export default function Library() {
         <h1 style={{ margin: 0 }}>Thư viện đề</h1>
         <div className="row lib-actions">
           <button className="btn" onClick={() => setDlg({ kind: 'import' })}><Upload size={18} /> Nhập từ tệp</button>
+          <button className="btn" onClick={() => setDlg({ kind: 'share-in' })} title="Nhập tệp chia sẻ (.json) do giáo viên khác gửi"><Download size={18} /> Nhập bộ đề chia sẻ</button>
+          <button className="btn" onClick={() => setDlg({ kind: 'share-out' })} title="Chọn bộ đề hoặc câu hỏi để xuất tệp chia sẻ"><Share2 size={18} /> Chia sẻ</button>
           <button className="btn" onClick={() => setDlg({ kind: 'bank' })} title="Chọn từng câu, nhiều câu hoặc nhiều bộ đề có sẵn để ghép thành bộ đề mới"><Layers size={18} /> Tạo từ kho câu hỏi</button>
           <button className="btn accent" onClick={() => setDlg({ kind: 'ai' })}><Sparkles size={18} /> AI sinh đề</button>
           <button className="btn primary" onClick={create} title={inNodeView && current !== NONE ? `Tạo bộ đề trong: ${currentLabel}` : undefined}><Plus size={18} /> Tạo bộ đề</button>
@@ -419,6 +431,8 @@ export default function Library() {
         const here = current === ALL || current === NONE ? null : placementOf(catalog, current);
         return <ImportDialog mode={dlg.kind === 'ai' ? 'ai' : 'file'} place={here ?? undefined} defaults={{ subject: here?.subject }} onClose={() => setDlg(null)} onDone={(id) => nav(`/teacher/edit/${id}`)} />;
       })()}
+      {dlg?.kind === 'share-out' && <ShareExportDialog items={items ?? []} onClose={() => setDlg(null)} />}
+      {dlg?.kind === 'share-in' && <ShareImportDialog onClose={() => setDlg(null)} onDone={() => { setDlg(null); load(); }} />}
       {dlg?.kind === 'bank' && (() => {
         const here = current === ALL || current === NONE ? null : placementOf(catalog, current);
         return <QuestionBankDialog mine={items ?? []} pub={pub} catalog={catalog} place={here} defaultTitle={here ? resolve(catalog, here)?.lesson?.name : undefined} onClose={() => setDlg(null)} onDone={(id) => nav(`/teacher/edit/${id}`)} />;

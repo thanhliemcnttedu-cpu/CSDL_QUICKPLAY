@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye, Upload, Layers, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Plus, Copy, Trash2, ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Pencil, Play, Loader2, Sparkles, Coins, Image as ImageIcon, Music, Youtube, Clock, Eye, Upload, Layers, ClipboardList, FolderInput } from 'lucide-react';
+import { MoveQuestionDialog } from '../components/MoveQuestionDialog';
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { api } from '../lib/api';
 import { COMPOSER_TYPES, TYPE_LABELS, DEFAULT_QUIZ_TITLE } from '../lib/factory';
@@ -34,6 +35,7 @@ export default function Editor() {
   const [hosting, setHosting] = useState(false);
   const [importing, setImporting] = useState<null | 'file' | 'ai'>(null);
   const [banking, setBanking] = useState(false); // lấy câu hỏi từ các bộ đề khác trong thư viện
+  const [moving, setMoving] = useState<Question | null>(null); // câu đang chọn để chuyển sang bộ đề khác
   const [paperCodes, setPaperCodes] = useState<string[]>([]); // mã đề đã có (để gợi ý mã không trùng)
   useEffect(() => {
     api.listQuizzes().then((l) => setPaperCodes(l.filter((x) => x.id !== id && x.paper_code).map((x) => x.paper_code!))).catch(() => {});
@@ -345,6 +347,7 @@ export default function Editor() {
                   <button className="btn icon sm ghost" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Chuyển câu ${i + 1} lên`}><ArrowUp size={16} /></button>
                   <button className="btn icon sm ghost" disabled={i === qs.length - 1} onClick={() => move(i, 1)} aria-label={`Chuyển câu ${i + 1} xuống`}><ArrowDown size={16} /></button>
                   <button className="btn icon sm ghost" onClick={() => dup(i)} aria-label={`Nhân bản câu ${i + 1}`}><Copy size={16} /></button>
+                  <button className="btn icon sm ghost" onClick={() => setMoving(q)} aria-label={`Chuyển câu ${i + 1} sang bộ đề khác`} title="Chuyển sang bộ đề khác (có thể khác môn, chủ đề)"><FolderInput size={16} /></button>
                   <button className="btn icon sm danger" onClick={() => del(i)} aria-label={`Xóa câu ${i + 1}`}><Trash2 size={16} /></button>
                 </div>
               </li>
@@ -369,6 +372,18 @@ export default function Editor() {
       )}
       {hosting && (
         <HostSetupDialog quiz={{ id: quiz.id, title: quiz.title, visibility: quiz.visibility, updated_at: quiz.updated_at, question_count: qs.length }} onClose={() => setHosting(false)} />
+      )}
+      {moving && (
+        <MoveQuestionDialog
+          question={moving}
+          currentId={quiz.id}
+          onClose={() => setMoving(null)}
+          onMoved={(title) => {
+            setQs(latest.current!.questions.filter((x) => x.id !== moving.id));
+            setMoving(null);
+            toast(`Đã chuyển câu sang "${title}".`, 'ok');
+          }}
+        />
       )}
       {banking && (
         <QuestionBankDialog

@@ -21,6 +21,8 @@ const Line = ({ children }: { children: ReactNode }) => <li><span className="gd-
 export function AdminGuide({ at, site, linked, serverUrl, copy }: Props) {
   const [sel, setSel] = useState(at);
   useEffect(() => setSel(at), [at]); // hệ thống sang bước mới thì thẻ nội dung chuyển theo
+  // Màn hình điện thoại: mặc định thu gọn để danh sách tài khoản hiện ngay, bấm để mở lại
+  const [open, setOpen] = useState(() => typeof window === 'undefined' || !window.matchMedia || !window.matchMedia('(max-width: 640px)').matches);
 
   const steps: { icon: typeof Mail; label: string; title: string; time?: string; body: ReactNode; actions?: ReactNode; raw?: boolean }[] = [
     {
@@ -128,9 +130,10 @@ export function AdminGuide({ at, site, linked, serverUrl, copy }: Props) {
       <header className="gd-head">
         <span className="gd-title"><BookOpenCheck size={20} aria-hidden /> Hướng dẫn cho quản trị</span>
         <span className="gd-count">Đã xong <b>{doneCount}</b>/6</span>
+        <button type="button" className="btn sm ghost gd-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? 'Thu gọn' : 'Mở hướng dẫn'}</button>
       </header>
 
-      <ol className="gd-track" role="tablist" aria-label="Các bước">
+      {open && <ol className="gd-track" role="tablist" aria-label="Các bước">
         {steps.map((s, i) => {
           const n = i + 1;
           const Ic = s.icon;
@@ -144,9 +147,9 @@ export function AdminGuide({ at, site, linked, serverUrl, copy }: Props) {
             </li>
           );
         })}
-      </ol>
+      </ol>}
 
-      <div className={`gd-panel ${state(sel)}`} role="tabpanel">
+      {open && <div className={`gd-panel ${state(sel)}`} role="tabpanel">
         <div className="gd-panel-head">
           <span className="gd-step">Bước {sel}</span>
           <h3>{cur.title}</h3>
@@ -160,7 +163,7 @@ export function AdminGuide({ at, site, linked, serverUrl, copy }: Props) {
           <button type="button" className="btn sm ghost" onClick={() => setSel(sel - 1)} disabled={sel === 1}><ChevronLeft size={16} /> Bước trước</button>
           <button type="button" className="btn sm ghost" onClick={() => setSel(sel + 1)} disabled={sel === 6}>Bước sau <ChevronRight size={16} /></button>
         </div>
-      </div>
+      </div>}
     </section>
   );
 }
