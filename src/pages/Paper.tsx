@@ -176,25 +176,34 @@ export default function Paper() {
   };
   const launch = async (questionIds: string[]) => {
     if (!cls || !quizId) return;
+    // Câu được chọn theo VỊ TRÍ trong bộ đề: mã câu hỏi của bộ mẫu được tạo lại mỗi lần, nên không dùng mã để đối chiếu
+    const chosenAt = (pick?.questions ?? []).flatMap((q, i) => (questionIds.includes(q.id) ? [i] : []));
     setPick(null);
     setBusy(true);
     try {
       let id = quizId;
+      let ids = questionIds;
       // Bộ mẫu của Quickplay chưa nằm trong kho của thầy cô: máy chủ chỉ tổ chức được bộ đề đã lưu → chép vào "Của tôi" (đúng bài mẫu) rồi dùng
       const b = BUILTIN_QUIZZES.find((x) => x.id === quizId);
       if (b) {
         const where = [b.grade, ...b.path].join(' › ');
         const had = quizzes.find((q) => q.title === b.title && pathOf(catalog, q) === where);
-        if (had) id = had.id;
-        else {
+        if (had) {
+          id = had.id;
+          const full = await api.getQuiz(had.id);
+          ids = full.questions.filter((_, i) => chosenAt.includes(i)).map((q) => q.id);
+        } else {
           const r = ensurePath(catalog, ...b.path, b.grade);
           if (r.catalog !== catalog) setCatalog(await api.saveCatalog(r.catalog));
           const now = new Date().toISOString();
-          id = (await api.saveQuiz({ ...b.make(), ...r.placement, id: uid('quiz_'), visibility: 'private', created_at: now, updated_at: now })).id;
+          const made = b.make();
+          const saved = await api.saveQuiz({ ...made, ...r.placement, id: uid('quiz_'), visibility: 'private', created_at: now, updated_at: now });
+          id = saved.id;
+          ids = made.questions.filter((_, i) => chosenAt.includes(i)).map((q) => q.id); // bản sao giữ nguyên mã câu hỏi
           toast(`Đã chép "${b.title}" vào kho đề của thầy cô (${where}).`, 'ok');
         }
       }
-      const { pin } = await api.createPaperSession(id, cls.name, cls.students, questionIds);
+      const { pin } = await api.createPaperSession(id, cls.name, cls.students, ids);
       nav(`/teacher/paper/${pin}`);
     } catch (e) {
       toast((e as Error).message, 'error');
