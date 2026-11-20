@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { ArrowRight, BellRing, ChartColumn, Check, Download, Home, PartyPopper, QrCode, Square } from 'lucide-react';
 import { MusicButton } from '../components/MusicButton';
-import { celebrate, launchFireworks } from '../components/Fireworks';
+import { launchFireworks } from '../components/Fireworks';
 import type { Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperOp } from '../lib/paper';
@@ -76,9 +76,14 @@ export default function PaperHost() {
   useEffect(() => () => clearTimeout(partyTimer.current), []);
 
   // Lần đầu vào bục vinh danh (sau khi bấm Kết thúc): pháo hoa 5 giây, một lần cho mỗi buổi
+  // Mỗi lần vào màn vinh danh (sau khi kết thúc) là một lần pháo hoa 5 giây
+  const enteredPodium = useRef(false);
   useEffect(() => {
-    if (s?.state === 'COMPLETED') celebrate(`podium-${pin}`);
-  }, [s?.state, pin]);
+    if (s?.state === 'COMPLETED' && !enteredPodium.current) {
+      enteredPodium.current = true;
+      launchFireworks(5000);
+    }
+  }, [s?.state]);
 
   const refresh = useCallback(async () => {
     try {
@@ -180,6 +185,7 @@ export default function PaperHost() {
             .sort((a, b) => b.score - a.score || b.correct - a.correct || a.name.localeCompare(b.name, 'vi'))
             .map((p) => ({ name: p.name, detail: `Thẻ ${cardOf(p.player_id)} · ${p.correct}/${qs.length} câu đúng`, score: p.score }))}
         />
+        <LiveReport s={s} quiz={quiz} />
         {hard.length > 0 && (
           <section className="card stack">
             <h2 style={{ margin: 0 }}>Câu nhiều em sai, nên giảng lại</h2>
@@ -192,7 +198,6 @@ export default function PaperHost() {
             ))}
           </section>
         )}
-        <LiveReport s={s} quiz={quiz} />
         <h2 style={{ margin: 0 }}>Đáp án từng em theo thẻ</h2>
         <section className="card" style={{ overflowX: 'auto' }}>
           <table className="table">

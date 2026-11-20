@@ -1,5 +1,5 @@
 // Trước khi tổ chức bằng thẻ giấy: cho giáo viên biết câu nào dùng được (thẻ chỉ có A–D), câu nào bị bỏ qua, rồi chọn câu sẽ dùng.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, Play } from 'lucide-react';
 import { paperReason } from '../lib/paper';
 import { TYPE_LABELS } from '../lib/factory';
@@ -23,6 +23,12 @@ export function PaperPickDialog({ quiz, onConfirm, onClose }: Props) {
     return n;
   });
   const ids = suitable.filter(({ q }) => picked.has(q.id)).map(({ q }) => q.id);
+  // Đang mở hộp thoại thì trang phía sau không cuộn theo chuột
+  useEffect(() => {
+    const old = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = old; };
+  }, []);
   const allOn = ids.length === suitable.length;
   const text = (q: Quiz['questions'][number]) => htmlToText(q.stem.text) || 'Câu có hình ảnh hoặc âm thanh';
 
@@ -35,7 +41,7 @@ export function PaperPickDialog({ quiz, onConfirm, onClose }: Props) {
     }>
       <div className="pp-pick">
         <div className="pp-pick-top">
-          <p className="pp-pick-title">“{quiz.title}” có {quiz.questions.length} câu</p>
+          <p className="pp-pick-title">Bộ đề: <span className="pp-pick-name">“{quiz.title}”</span> · {quiz.questions.length} câu</p>
           <div className="pp-pick-chips">
             <span className="pp-chip ok">{suitable.length} câu dùng được</span>
             <span className="pp-chip bad">{unsuitable.length} câu bỏ qua</span>
@@ -45,7 +51,7 @@ export function PaperPickDialog({ quiz, onConfirm, onClose }: Props) {
             <button type="button" className="btn ghost sm" disabled={!ids.length} onClick={() => setPicked(new Set())}>Bỏ chọn tất cả</button>
           </div>
         </div>
-        <p className="muted small pp-pick-rule">Thẻ giấy chỉ có chữ A–D và một đáp án. Câu dùng được: một đáp án đúng, 2 đến 4 phương án.</p>
+        <p className="pp-pick-rule">Thẻ giấy chỉ có chữ A–D và một đáp án. Câu dùng được: một đáp án đúng, 2 đến 4 phương án.</p>
 
         <div className="pp-pick-scroll">
           {suitable.length === 0 && <p className="muted" style={{ margin: 0 }}>Không có câu nào dùng được. Hãy sửa câu trong bộ đề rồi thử lại.</p>}

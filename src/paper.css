@@ -374,3 +374,22 @@
   .pp-dash .qpk-filters .field > span { font-size: 0.78rem; }
   .pp-dash .qpk-list { max-height: 210px; }
 }
+
+/* Hộp chọn câu: chữ to, rõ; tên bộ đề nổi bật; cuộn trong hộp không kéo trang phía sau */
+.pp-pick-scroll, .pp-pick-skip ul { overscroll-behavior: contain; }
+.pp-pick-title { font-size: 1.2rem; color: #0f172a; }
+.pp-pick-name { color: #1d4ed8; background: #e0ecff; border-radius: 10px; padding: 2px 10px; font-weight: 900; overflow-wrap: anywhere; }
+.pp-pick-chips .pp-chip { font-size: 1rem; padding: 6px 14px; }
+.pp-chip.ok { background: #16a34a; color: #fff; }
+.pp-chip.bad { background: #dc2626; color: #fff; }
+.pp-pick-rule { margin: 0; font-size: 1rem; color: #334155; font-weight: 600; }
+.pp-pick-row { padding: 12px 14px; }
+.pp-pick-stem { font-size: 1.05rem; color: #0f172a; }
+.pp-pick-meta { font-size: 0.92rem; color: #475569; font-weight: 600; }
+.pp-pick-no { font-size: 1.05rem; padding: 3px 10px; }
+.pp-pick-skip { border: 2px dashed #f59e0b; background: #fffbeb; }
+.pp-pick-skip summary { font-size: 1.05rem; color: #92400e; }
+.pp-pick-skip ul { font-size: 1rem; color: #0f172a; }
+.pp-pick-skip li b { color: #92400e; }
+.pp-pick-skip .bad-text { color: #b91c1c; font-size: 1rem; font-weight: 800; display: block; }
+.pp-pick-sum { font-size: 1rem; color: #0f172a; }
