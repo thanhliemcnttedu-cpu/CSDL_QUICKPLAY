@@ -212,7 +212,7 @@ export default function Login({ role: fixed }: { role?: Role }) {
                     : 'Lần đầu thiết lập hệ thống: đăng nhập bằng tài khoản quản trị mặc định, phần mềm sẽ mở Trình cài đặt để nối máy chủ tài khoản.'}
                 </p>
               )}
-              {role === 'admin' && !adminUrl() && (
+              {!adminUrl() && (
                 <button type="button" className="btn ghost" onClick={loadLinkFile} disabled={busy}><Upload size={18} /> Đã cài ở máy khác? Nạp tệp kết nối (.json)</button>
               )}
             </>

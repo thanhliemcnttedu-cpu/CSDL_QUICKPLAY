@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Check, Copy, MessageCircle, Phone, QrCode } from 'lucide-react';
 import { Modal } from './ui';
+import qrTacGia from '../assets/qr-tac-gia.png'; // nhập từ src: Vite đóng gói ảnh, chạy được cả khi mở từ file:// (bản cài Windows)
 import './AuthorContact.css';
 
 const AUTHOR = {
@@ -47,7 +48,7 @@ export function AuthorContact({ onClose }: { onClose: () => void }) {
           <p className="ac-note">Ủng hộ tác giả <b>Quick Play</b> để duy trì trang web và cấp tài khoản cho thầy cô. Xin trân trọng cảm ơn.</p>
         </div>
         <div className="ac-qr">
-          <img src="/qr-tac-gia.png" alt="Mã QR nhận tiền của tác giả" />
+          <img src={qrTacGia} alt="Mã QR nhận tiền của tác giả" />
           <b>Chuyển khoản 100.000 đ</b>
           <span className="ac-sub">Quét bằng ứng dụng ngân hàng hoặc app VietQR</span>
         </div>

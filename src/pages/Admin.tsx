@@ -7,7 +7,7 @@ import { Wordmark } from '../components/Logo';
 import { AppFooter } from '../components/AppFooter';
 import { Field, Modal, useToast, askConfirm } from '../components/ui';
 import { ScriptInstaller } from '../components/ScriptInstaller';
-import { ADMIN_SCRIPT_VERSION, buildLinkFile, compareVersion, linkFileName, loadLink, pingScript, saveLink } from '../lib/installer';
+import { ADMIN_SCRIPT_VERSION, buildLinkFile, compareVersion, loadLink, pingScript, saveLink } from '../lib/installer';
 import { downloadBlob } from '../lib/xlsx';
 import { pickFile } from '../components/MediaTools';
 import { AdminGuide } from '../components/AdminGuide';
@@ -104,21 +104,16 @@ export default function Admin() {
       setFg((f) => f && { ...f, busy: false, err: (e as Error).message });
     }
   };
-  // Tệp kết nối của quản trị: link máy chủ + thư mục (không có khóa, không có mật khẩu) để nạp ở máy khác
-  const downloadLink = async () => {
-    try {
-      const old = loadLink('admin');
-      const pong = await pingScript(adminUrl());
-      const info = {
-        role: 'admin' as const, script_url: adminUrl(), folder_url: store?.folder_url ?? old?.folder_url ?? '', folder_id: store?.folder_id ?? old?.folder_id ?? '',
-        folder_name: store?.folder_name ?? old?.folder_name ?? '', key: '', server_version: pong.version, linked_at: old?.script_url === adminUrl() && old.linked_at ? old.linked_at : new Date().toISOString(),
-      };
-      saveLink(info, 'admin');
-      downloadBlob(linkFileName('admin'), new Blob([buildLinkFile(info)], { type: 'application/json' }));
-      toast('Đã tải tệp kết nối. Ở máy khác: chọn vai trò Quản trị rồi bấm Nạp tệp kết nối.', 'ok');
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    }
+  // Phần kết nối của quản trị: link máy chủ + thư mục (không có khóa, không có mật khẩu). Gộp vào tệp quản trị để nạp ở máy khác.
+  const connectionInfo = async () => {
+    const old = loadLink('admin');
+    const pong = await pingScript(adminUrl());
+    const info = {
+      role: 'admin' as const, script_url: adminUrl(), folder_url: store?.folder_url ?? old?.folder_url ?? '', folder_id: store?.folder_id ?? old?.folder_id ?? '',
+      folder_name: store?.folder_name ?? old?.folder_name ?? '', key: '', server_version: pong.version, linked_at: old?.script_url === adminUrl() && old.linked_at ? old.linked_at : new Date().toISOString(),
+    };
+    saveLink(info, 'admin');
+    return info;
   };
   // Xuất danh sách tài khoản, mật khẩu ra Excel
   const exportXlsx = async () => {
@@ -284,11 +279,14 @@ export default function Admin() {
     setAccBusy(true);
     try {
       const d = await adminApi.exportAccounts();
+      const info = await connectionInfo();
+      // Một tệp duy nhất: tài khoản giáo viên (để khôi phục) + kết nối máy chủ (để nạp ở máy khác)
+      const bundle = { ...d, connection: JSON.parse(buildLinkFile(info)) };
       const t = new Date();
       const p = (n: number) => String(n).padStart(2, '0');
-      const name = `quickplay-taikhoan_${p(t.getDate())}_${p(t.getMonth() + 1)}_${t.getFullYear()}_${p(t.getHours())}h${p(t.getMinutes())}.json`;
-      downloadBlob(name, new Blob([JSON.stringify(d, null, 1)], { type: 'application/json' }));
-      toast(`Đã tải về ${name}: ${d.accounts.length} tài khoản giáo viên. Tệp có mật khẩu của giáo viên, hãy cất ở nơi an toàn.`, 'ok');
+      const name = `quickplay-quan-tri_${p(t.getDate())}_${p(t.getMonth() + 1)}_${t.getFullYear()}_${p(t.getHours())}h${p(t.getMinutes())}.json`;
+      downloadBlob(name, new Blob([JSON.stringify(bundle, null, 1)], { type: 'application/json' }));
+      toast(`Đã tải về ${name}: ${d.accounts.length} tài khoản giáo viên và kết nối máy chủ. Tệp có mật khẩu, hãy cất ở nơi an toàn.`, 'ok');
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
@@ -409,7 +407,6 @@ export default function Admin() {
           <div className="conn-ok" role="status" style={{ flexWrap: 'wrap' }}>
             <FolderOpen size={20} /> Thư mục lưu trữ: {store.folder_name || store.folder_id}
             <a className="btn sm ghost" href={store.folder_url} target="_blank" rel="noopener noreferrer">Mở thư mục</a>
-            <button className="btn sm ghost" onClick={downloadLink} title={`Máy chủ tài khoản · phần mềm cần phiên bản ${ADMIN_SCRIPT_VERSION}`}><Download size={16} /> Tải tệp kết nối (.json)</button>
             {(() => { const l = loadLink('admin'); return l?.script_url === adminUrl() && l.server_version ? <small style={{ fontWeight: 600 }}>Máy chủ phiên bản {l.server_version} · liên kết lúc {new Date(l.linked_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</small> : null; })()}
             {store.saved_at && <small style={{ fontWeight: 600 }}>Tệp sao lưu tài khoản cập nhật lúc {new Date(store.saved_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</small>}
           </div>
@@ -440,13 +437,14 @@ export default function Admin() {
             Dữ liệu dạy học (lớp, học sinh, bộ câu hỏi, kết quả) nằm trong Google Drive riêng của từng giáo viên, mỗi giáo viên tự sao lưu ở trang Cài đặt của mình.
           </p>
           <div className="row">
-            <button className="btn primary" onClick={exportAccounts} disabled={accBusy}><Download size={18} /> Tải file sao lưu tài khoản</button>
+            <button className="btn primary" onClick={exportAccounts} disabled={accBusy}><Download size={18} /> Tải tệp quản trị (.json)</button>
             <button className="btn" onClick={importAccounts} disabled={accBusy}><Upload size={18} /> Khôi phục từ file</button>
           </div>
+          <small className="muted"><b>Tệp quản trị (.json)</b> · dùng cho: quản trị · gồm tài khoản giáo viên và kết nối máy chủ, để khôi phục khi chuyển máy chủ hoặc nạp ở máy khác (nút <b>Đã cài ở máy khác? Nạp tệp kết nối</b> ở trang đăng nhập). Có mật khẩu, hãy giữ kín.</small>
           <details>
             <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Chuyển máy chủ tài khoản sang Google Drive mới</summary>
             <ol className="move-steps" style={{ marginTop: 10 }}>
-              <li>Bấm <b>Tải file sao lưu tài khoản</b> và cất tệp ở nơi an toàn (tệp có mật khẩu của giáo viên).</li>
+              <li>Bấm <b>Tải tệp quản trị (.json)</b> và cất tệp ở nơi an toàn (tệp có mật khẩu của giáo viên).</li>
               <li>Ở Google Drive mới, tạo thư mục lưu trữ, rồi làm lại Trình cài đặt máy chủ (bên dưới) bằng Gmail mới.</li>
               <li>Đăng nhập trang quản trị trên máy chủ mới, bấm <b>Khôi phục từ file</b> và chọn tệp vừa tải: mọi giáo viên đăng nhập lại được bằng mật khẩu cũ.</li>
               <li>Đổi biến <code>VITE_ADMIN_URL</code> trên Vercel sang link máy chủ mới (Hướng dẫn cho quản trị, bước 4).</li>

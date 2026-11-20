@@ -124,6 +124,9 @@ export function parseLinkFile(text: string, role: InstallKind): LinkInfo {
   } catch {
     throw new Error('Tệp này không phải tệp .json hợp lệ.');
   }
+  // Tệp sao lưu quản trị gộp sẵn phần kết nối (trường "connection"): đọc phần kết nối
+  const nested = (d as { connection?: Partial<LinkFile> } | null)?.connection;
+  if (nested && d?.kind !== 'connection') d = nested;
   if (!d || d.kind !== 'connection' || d.app !== 'Quickplay') throw new Error('Tệp này không phải tệp kết nối của Quickplay.');
   if (d.role !== role) throw new Error(role === 'admin' ? 'Đây là tệp kết nối của giáo viên, không dùng được cho quản trị.' : 'Đây là tệp kết nối của quản trị, không dùng được cho giáo viên.');
   const url = String(d.script_url ?? '').trim();
