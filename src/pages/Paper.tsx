@@ -225,8 +225,8 @@ export default function Paper() {
       {error && <div className="alert error"><div>{error}</div></div>}
 
       <div className="pp-dash">
-      <section className="card stack pp-panel">
-        <div className="step-pill"><b>1</b> In thẻ</div>
+      <details className="card pp-panel pp-print" open={classes.length === 0}>
+        <summary className="pp-print-sum"><span className="step-pill"><b>1</b> In thẻ</span><span className="muted small">In một lần cho cả năm học · bấm để mở</span></summary>
         <div className="stack" style={{ gap: 10 }}>
           <div className="stack" style={{ gap: 10 }}>
             <div className="field">
@@ -275,7 +275,7 @@ export default function Paper() {
             </ul>
           </details>
         </div>
-      </section>
+      </details>
 
       <section className="card stack pp-panel">
         <div className="row between">
@@ -293,9 +293,9 @@ export default function Paper() {
                   <div className="muted small"><Users size={14} /> {c.students.length} em · thẻ số 1 đến {c.students.length}</div>
                   <div className="muted small"><KeyRound size={14} /> {(() => { const n = (c.codes ?? []).filter(Boolean).length; return n >= c.students.length ? 'Đã có đủ mã số học sinh' : n ? `Mã số học sinh: ${n}/${c.students.length} em` : 'Chưa đặt mã số học sinh'; })()}</div>
                 </div>
-                <button className="btn sm" onClick={() => setCodesFor(c)} aria-label={`Mã số học sinh lớp ${c.name}`}><KeyRound size={16} /> Mã học sinh</button>
-                <button className="btn icon ghost" onClick={() => setEdit({ id: c.id, name: c.name, text: c.students.join('\n') })} aria-label={`Sửa lớp ${c.name}`}><Pencil size={18} /></button>
-                <button className="btn icon danger" onClick={() => removeClass(c)} aria-label={`Xóa lớp ${c.name}`}><Trash2 size={18} /></button>
+                <button className="btn sm" title="Mã số học sinh" onClick={() => setCodesFor(c)} aria-label={`Mã số học sinh lớp ${c.name}`}><KeyRound size={16} /> Mã học sinh</button>
+                <button className="btn icon ghost" title="Sửa lớp" onClick={() => setEdit({ id: c.id, name: c.name, text: c.students.join('\n') })} aria-label={`Sửa lớp ${c.name}`}><Pencil size={18} /></button>
+                <button className="btn icon danger" title="Xóa lớp" onClick={() => removeClass(c)} aria-label={`Xóa lớp ${c.name}`}><Trash2 size={18} /></button>
               </div>
             ))}
           </div>
@@ -312,12 +312,12 @@ export default function Paper() {
             </select>
           </Field>
         </div>
-        <div className="field">
+        <div className="field pp-quiz">
           <span>Lấy câu từ đề có sẵn</span>
           <QuizPicker mine={quizzes} pub={pub} catalog={catalog} value={quizId} onChange={(id) => setQuizId(id)} />
           {usable && <small className="help" style={usable.ok ? undefined : { color: 'var(--danger)' }}>{usable.ok ? `Máy đã chọn ${usable.ok}/${usable.all} câu dùng được với thẻ (câu một đáp án, 2 đến 4 phương án).` : 'Đề này chưa có câu nào dùng được với thẻ. Hãy chọn đề có câu một đáp án, 2 đến 4 phương án.'}</small>}
         </div>
-        <div className="row">
+        <div className="row pp-foot">
           <button className="btn success lg" onClick={start} disabled={busy || !cls || !quizId || !usable?.ok}><ScanLine size={20} /> {busy ? 'Đang tạo…' : 'Tạo buổi học'}</button>
           <span className="muted small">Máy chiếu hiện mã QR để quét bằng điện thoại.</span>
         </div>

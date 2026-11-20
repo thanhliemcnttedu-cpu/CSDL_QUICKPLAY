@@ -292,3 +292,85 @@
 .pp-party-names { gap: 10px 12px; max-height: 46vh; overflow: auto; padding: 4px 2px; }
 .pp-party-names i { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #bbf7d0; color: #14532d; box-shadow: 0 2px 0 #bbf7d0; border-radius: 16px; padding: 8px 16px; font-size: clamp(1.1rem, 2.2vw, 1.7rem); }
 .pp-party-names i::before { content: '✓'; display: grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; background: #16a34a; color: #fff; font-size: 0.8em; font-weight: 900; }
+
+/* Nhiều lớp, nhiều bài (20 lớp, 50 bài): cột lớp gọn một dòng, cột đề có danh sách cuộn, nút tạo buổi luôn ở cuối khung */
+.pp-list .pp-class { flex-wrap: nowrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 14px; }
+.pp-list .pp-class .grow { min-width: 0; flex: 1 1 auto; }
+.pp-list .pp-class .grow b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-list .pp-class .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-list .pp-class .btn.sm { padding: 6px 10px; }
+@media (min-width: 1100px) {
+  .pp-dash .pp-quiz { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+  .pp-dash .pp-quiz > .qpk { flex: 1 1 auto; min-height: 0; }
+  .pp-dash .qpk-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pp-dash .qpk-filters .qpk-search { grid-column: 1 / -1; }
+  .pp-dash .qpk-list { max-height: none; }
+  .pp-dash .pp-foot { margin-top: auto; padding-top: 6px; }
+}
+/* Khung lớp: nút thao tác chỉ còn biểu tượng (đầy đủ chữ ở nhãn tooltip); cột lớp rộng hơn một chút */
+.pp-list .pp-class .btn.sm { font-size: 0; gap: 0; padding: 7px; }
+.pp-list .pp-class .btn.sm svg { flex: none; }
+.pp-list .pp-class .btn.sm, .pp-list .pp-class .btn.icon { flex: none; }
+@media (min-width: 1100px) {
+  .pp-dash { grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr) minmax(0, 1.25fr); }
+  .pp-dash .pp-quiz > *:not(.qpk) { flex-shrink: 0; }
+  .pp-dash .qpk > *:not(.qpk-list) { flex-shrink: 0; }
+}
+@media (min-width: 1100px) {
+  .pp-head { padding: 8px 16px; }
+  .pp-head p { display: none; }
+  .pp-head h1 { font-size: 1.3rem !important; }
+  .pp-head .preview-slot, .pp-head > svg { display: none; }
+  .pp-dash { height: calc(100dvh - 250px); min-height: 380px; }
+  .pp-dash .qpk-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .pp-dash .qpk-filters .qpk-search { grid-column: 1 / -1; }
+  .pp-dash .qpk-filters .input { min-height: 34px; padding: 5px 8px; font-size: 0.82rem; }
+  .pp-dash .qpk-tabs .tab { min-height: 32px; padding: 4px 10px; font-size: 0.82rem; }
+}
+
+/* Màn 1366×768 (và rộng hơn): hàng trên In thẻ + Lớp học, hàng dưới Chọn đề rộng cả dòng. Không ép chiều cao, không cắt chữ. */
+@media (min-width: 1100px) {
+  .pp-dash { height: auto; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: none; align-items: start; gap: 12px; }
+  .pp-dash > .pp-panel { overflow: visible; min-height: 0; display: flex; flex-direction: column; }
+  .pp-dash > .pp-panel:nth-child(3) { grid-column: 1 / -1; }
+  .pp-dash .pp-list { max-height: 250px; overflow: auto; }
+  .pp-dash .pp-quiz { flex: none; }
+  .pp-dash .pp-quiz > .qpk { flex: none; display: flex; flex-direction: column; gap: 8px; }
+  .pp-dash .qpk-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; flex: none; max-height: 230px; overflow: auto; align-content: start; min-height: 0; }
+  .pp-dash .qpk-list .qpk-item { min-width: 0; }
+  .pp-dash .qpk-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .pp-dash .qpk > *:not(.qpk-list) { flex-shrink: 0; }
+  .pp-dash .pp-quiz > *:not(.qpk) { flex-shrink: 0; }
+  .pp-dash .pp-foot { margin-top: 0; justify-content: flex-end; padding-top: 0; }
+  .pp-dash .pp-panel .field > span { white-space: nowrap; }
+  .pp-dash .pp-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pp-dash .pp-choice button { min-height: 0; }
+}
+@media (max-width: 1099px) {
+  .pp-dash .qpk-list { display: flex; flex-direction: column; }
+}
+
+/* In thẻ là việc làm một lần cho cả năm: thu gọn thành một dải; mở ra mới thấy các tùy chọn */
+.pp-print { padding: 0; }
+.pp-print-sum { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; list-style: none; }
+.pp-print-sum::-webkit-details-marker { display: none; }
+.pp-print-sum .step-pill { margin: 0; }
+.pp-print > .stack { padding: 0 16px 14px; }
+@media (min-width: 1100px) {
+  .pp-dash { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
+  .pp-dash > .pp-print { grid-column: 1 / -1; }
+  .pp-print[open] > .stack { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  .pp-dash .qpk-list { max-height: 200px; }
+}
+@media (min-width: 1100px) {
+  .pp-dash > .pp-panel:nth-child(3) { grid-column: auto; }
+  .pp-dash > .pp-print { display: block; }
+}
+@media (min-width: 1100px) {
+  .pp-dash .qpk-main b, .pp-dash .qpk-main small { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .pp-dash .qpk-item { grid-template-columns: 22px minmax(0, 1fr); align-items: start; }
+  .pp-dash .qpk-meta { font-size: 0.78rem; }
+  .pp-dash .qpk-filters .field { gap: 2px; }
+  .pp-dash .qpk-filters .field > span { font-size: 0.78rem; }
+  .pp-dash .qpk-list { max-height: 210px; }
+}
