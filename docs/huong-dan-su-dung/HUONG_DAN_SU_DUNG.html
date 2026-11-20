@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Quickplay – Hướng dẫn sử dụng đầy đủ</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
+  :root { --blue:#1f6feb; --blue-d:#0b4fd0; --ink:#0a1730; --muted:#55627a; --soft:#eef5ff; --line:#d7e3f5; --ok:#15994f; --warn:#f59e0b; --bad:#e2284f; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: var(--ink); font-size: 10.6pt; line-height: 1.55; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 22pt; margin: 0 0 8pt; color: var(--blue-d); }
+  h2 { font-size: 16pt; margin: 0 0 8pt; color: var(--blue-d); border-bottom: 2.5px solid var(--blue); padding-bottom: 4pt; }
+  h3 { font-size: 12.4pt; margin: 14pt 0 5pt; color: var(--ink); }
+  h4 { font-size: 10.8pt; margin: 9pt 0 3pt; color: var(--blue-d); }
+  p { margin: 0 0 6pt; }
+  ul, ol { margin: 0 0 6pt 16pt; padding: 0; }
+  li { margin-bottom: 2.5pt; }
+  .page { page-break-before: always; }
+  .nobreak { page-break-inside: avoid; }
+  code, .kbd { font-family: Consolas, 'Courier New', monospace; background: #eef2f8; border: 1px solid var(--line); border-radius: 4px; padding: 0 3px; font-size: 9.6pt; }
+  .tip { background: var(--soft); border-left: 4px solid var(--blue); border-radius: 6px; padding: 7pt 10pt; margin: 8pt 0; }
+  .warn { background: #fff7e6; border-left: 4px solid var(--warn); border-radius: 6px; padding: 7pt 10pt; margin: 8pt 0; }
+  .danger { background: #fdeef2; border-left: 4px solid var(--bad); border-radius: 6px; padding: 7pt 10pt; margin: 8pt 0; }
+  .ok { background: #e9f8ef; border-left: 4px solid var(--ok); border-radius: 6px; padding: 7pt 10pt; margin: 8pt 0; }
+  .demo { background: #f3f0ff; border: 1.5px dashed #7c5cff; border-radius: 8px; padding: 7pt 10pt; margin: 8pt 0; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 9.8pt; }
+  th { background: var(--blue); color: #fff; text-align: left; padding: 5pt 7pt; }
+  td { border-bottom: 1px solid var(--line); padding: 5pt 7pt; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7faff; }
+  figure { margin: 8pt 0 10pt; page-break-inside: avoid; text-align: center; counter-increment: fig; }
+  figcaption::before { content: 'Hình ' counter(fig) '. '; font-weight: 700; font-style: normal; }
+  body { counter-reset: fig; }
+  figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(10,23,48,.12); }
+  figcaption { font-size: 9pt; color: var(--muted); margin-top: 3pt; font-style: italic; }
+  .step { display: flex; gap: 8pt; align-items: flex-start; margin: 5pt 0; }
+  .num { flex: none; width: 20pt; height: 20pt; border-radius: 50%; background: var(--blue); color: #fff; font-weight: 700; text-align: center; line-height: 20pt; font-size: 10pt; }
+  .tag { display: inline-block; background: var(--soft); color: var(--blue-d); border: 1px solid var(--line); border-radius: 999px; padding: 0 8pt; font-size: 9pt; margin-right: 3pt; }
+
+  /* Bìa */
+  .cover { height: 262mm; margin: -16mm -15mm -18mm; padding: 34mm 22mm 18mm; background: linear-gradient(160deg, #2f80ff 0%, #0b4fd0 55%, #0a2a6b 100%); color: #fff; position: relative; overflow: hidden; }
+  .cover:before { content: ''; position: absolute; width: 380px; height: 380px; right: -120px; top: -120px; border-radius: 50%; background: rgba(255,255,255,.08); }
+  .cover:after { content: ''; position: absolute; width: 260px; height: 260px; left: -90px; bottom: 60px; border-radius: 50%; background: rgba(255,255,255,.06); }
+  .cover .brand { font-size: 30pt; font-weight: 800; letter-spacing: -.5px; }
+  .cover .brand span { color: #ffd166; }
+  .cover h1 { color: #fff; font-size: 34pt; line-height: 1.15; margin-top: 46mm; }
+  .cover .sub { font-size: 14pt; opacity: .92; margin-top: 6mm; }
+  .cover .meta { position: absolute; left: 22mm; bottom: 26mm; font-size: 10.5pt; line-height: 1.8; }
+  .cover .pill { display: inline-block; background: rgba(255,255,255,.18); border-radius: 999px; padding: 3pt 12pt; margin-right: 6pt; font-size: 10pt; }
+
+  /* Mục lục */
+  .toc { font-size: 10.6pt; }
+  .toc div { display: flex; justify-content: space-between; border-bottom: 1px dotted #b8c7e0; padding: 3pt 0; }
+  .toc .lv2 { padding-left: 14pt; font-size: 10pt; color: #33415c; }
+  .toc .part { font-weight: 700; color: var(--blue-d); margin-top: 6pt; }
+
+  /* Ảnh chụp các chương */
+  .ledger { font-size: 9.8pt; }
+  .small { font-size: 9pt; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ===================== BÌA ===================== -->
+<section class="cover">
+  <div class="brand">Quick<span>play</span></div>
+  <h1>Hướng dẫn sử dụng đầy đủ</h1>
+  <div class="sub">Trắc nghiệm tương tác cho giáo viên và học sinh: tài khoản quản trị, tài khoản giáo viên, phòng chơi trên máy tính, máy tính bảng và điện thoại, chế độ thẻ trả lời giấy.</div>
+  <div style="margin-top:14mm">
+    <span class="pill">Phiên bản máy chủ 1.6.2</span>
+    <span class="pill">Cập nhật 17/11/2026</span>
+    <span class="pill">Bản dành cho người dùng</span>
+  </div>
+  <div class="meta">
+    Tác giả: Nguyễn Thanh Liêm<br>
+    Zalo: 0888358363<br>
+    Tài khoản và mật khẩu trong tài liệu là <b>tài khoản demo</b>, chỉ dùng để tham khảo và thử trên máy thử.
+  </div>
+</section>
+
+<!-- ===================== MỤC LỤC ===================== -->
+<section class="page toc">
+  <h2>Mục lục</h2>
+  <div class="part">Phần 1 · Làm quen với phần mềm</div>
+  <div><span>1. Quickplay là gì, dùng để làm gì</span></div>
+  <div><span>2. Các vai trò: quản trị, giáo viên, học sinh</span></div>
+  <div><span>3. Thiết bị và trình duyệt được hỗ trợ</span></div>
+  <div><span>4. Tài khoản demo dùng trong tài liệu này</span></div>
+  <div class="part">Phần 2 · Quản trị hệ thống</div>
+  <div><span>5. Đăng nhập tài khoản quản trị</span></div>
+  <div><span>6. Cài máy chủ tài khoản (làm một lần)</span></div>
+  <div><span>7. Cấp, khóa, đặt lại mật khẩu, xóa tài khoản giáo viên</span></div>
+  <div><span>8. Sao lưu và chuyển máy chủ tài khoản</span></div>
+  <div class="part">Phần 3 · Giáo viên</div>
+  <div><span>9. Đăng nhập lần đầu và kết nối Google Drive</span></div>
+  <div><span>10. Thư mục Google Drive riêng của giáo viên</span></div>
+  <div><span>11. Email khôi phục và quên mật khẩu</span></div>
+  <div><span>12. Cập nhật phiên bản mới</span></div>
+  <div><span>13. Giao diện trên máy tính, máy tính bảng, điện thoại</span></div>
+  <div><span>14. Thư viện đề: tạo, nhập, sắp xếp bộ đề</span></div>
+  <div><span>15. Trình soạn câu hỏi và các dạng câu hỏi</span></div>
+  <div><span>16. Chia sẻ bộ đề và câu hỏi cho giáo viên khác</span></div>
+  <div><span>17. Lớp học, mã số học sinh và kho đề thi</span></div>
+  <div><span>18. Tổ chức buổi học: năm cách làm</span></div>
+  <div><span>19. Phòng điều khiển của giáo viên</span></div>
+  <div><span>20. Báo cáo, cài đặt, sao lưu</span></div>
+  <div><span>21. Thẻ trả lời giấy</span></div>
+  <div class="part">Phần 4 · Học sinh</div>
+  <div><span>22. Vào phòng bằng mã PIN, link hoặc mã QR</span></div>
+  <div><span>23. Chơi trên điện thoại, máy tính bảng, máy tính</span></div>
+  <div><span>24. Làm bài kiểm tra bằng mã số học sinh</span></div>
+  <div><span>25. Điểm, điểm thưởng và mức đánh giá</span></div>
+  <div class="part">Phần 5 · Phụ lục</div>
+  <div><span>26. Xử lý sự cố thường gặp</span></div>
+  <div><span>27. Giới hạn cần biết</span></div>
+</section>
+
+<!-- ===================== PHẦN 1 ===================== -->
+<section class="page">
+  <h2>Phần 1 · Làm quen với phần mềm</h2>
+  <h3>1. Quickplay là gì, dùng để làm gì</h3>
+  <p>Quickplay là phần mềm trắc nghiệm tương tác chạy trên trình duyệt. Giáo viên soạn bộ câu hỏi, tổ chức cho cả lớp làm bài trực tiếp hoặc giao bài về nhà, và xem báo cáo từng lớp. Học sinh <b>không cần tài khoản</b>: vào phòng bằng mã PIN, link hoặc mã QR. Toàn bộ dữ liệu bài học (bộ câu hỏi, lớp, kết quả) được lưu trong <b>Google Drive riêng của từng giáo viên</b>; phần mềm không giữ dữ liệu này trên máy chủ chung.</p>
+  <div class="tip"><b>Ý chính:</b> mỗi giáo viên có kho dữ liệu riêng trên Google Drive của mình. Quản trị chỉ cấp và quản lý tài khoản đăng nhập; quản trị không đọc được bộ câu hỏi và kết quả của giáo viên.</div>
+
+  <h3>2. Các vai trò: quản trị, giáo viên, học sinh</h3>
+  <table>
+    <tr><th style="width:18%">Vai trò</th><th style="width:42%">Làm được gì</th><th>Đăng nhập thế nào</th></tr>
+    <tr><td><b>Quản trị (admin)</b></td><td>Cài máy chủ tài khoản; cấp, khóa, mở khóa, đặt lại mật khẩu và xóa tài khoản giáo viên; sao lưu danh sách tài khoản.</td><td>Trang chủ → <i>Dành cho giáo viên</i> → chọn <b>Quản trị (admin)</b> → tên đăng nhập và mật khẩu quản trị.</td></tr>
+    <tr><td><b>Giáo viên</b></td><td>Soạn đề, nhập và chia sẻ bộ đề, tổ chức buổi học, điều khiển phòng, xem báo cáo, cấu hình thư mục Google Drive của mình.</td><td>Trang chủ → <i>Dành cho giáo viên</i> → chọn <b>Giáo viên</b> → tên đăng nhập và mật khẩu do quản trị cấp.</td></tr>
+    <tr><td><b>Học sinh</b></td><td>Vào phòng chơi hoặc làm bài kiểm tra, trả lời câu hỏi, xem điểm và phiếu kết quả của mình.</td><td>Trang chủ → <i>phòng chơi</i> hoặc mở link/QR thầy cô gửi. Nhập mã PIN, tên và lớp. Không cần tài khoản.</td></tr>
+  </table>
+
+  <h3>3. Thiết bị và trình duyệt được hỗ trợ</h3>
+  <table>
+    <tr><th style="width:22%">Thiết bị</th><th>Dùng để</th></tr>
+    <tr><td><b>Máy tính</b> (khoảng 1366 px trở lên)</td><td>Soạn đề, quản lý thư viện, điều khiển phòng, xem báo cáo. Đây là khổ đầy đủ nhất.</td></tr>
+    <tr><td><b>Máy tính bảng</b> (khoảng 820 px)</td><td>Soạn đề, điều khiển phòng, học sinh làm bài. Bố cục tự thu gọn.</td></tr>
+    <tr><td><b>Điện thoại</b> (khoảng 390 px)</td><td>Học sinh làm bài là chính. Giáo viên có thể mở phòng, bắt đầu, chuyển câu và xem thống kê. Với thao tác soạn đề dài, nên dùng máy tính hoặc máy tính bảng.</td></tr>
+  </table>
+  <p>Trình duyệt khuyến nghị: Chrome, Edge hoặc Safari bản mới. Cần có Internet để vào phòng và đồng bộ với Google Drive.</p>
+
+  <h3>4. Tài khoản demo dùng trong tài liệu này</h3>
+  <div class="demo">
+    <b>Tài khoản demo (chỉ để tham khảo):</b><br>
+    • Giáo viên: <code>gvdemo</code> · mật khẩu demo: <code>Demo@2026</code><br>
+    • Quản trị: tên đăng nhập <code>adminquantri</code> · mật khẩu demo do người hướng dẫn đặt khi thiết lập máy thử.<br>
+    Đây là dữ liệu thử nghiệm, không phải tài khoản thật. Tài liệu <b>không ghi</b> tài khoản quản trị thật hay mật khẩu thật. Khi triển khai thật, quản trị đặt mật khẩu riêng và chỉ giao cho người được phép.
+  </div>
+</section>
+
+<!-- ===================== PHẦN 2 ===================== -->
+<section class="page">
+  <h2>Phần 2 · Quản trị hệ thống</h2>
+  <p class="small">Quản trị chỉ làm một lần khi cài máy chủ, sau đó thường xuyên làm việc với danh sách tài khoản giáo viên.</p>
+
+  <h3>5. Đăng nhập tài khoản quản trị</h3>
+  <div class="step"><div class="num">1</div><div>Mở trang chủ Quickplay, bấm <b>Dành cho giáo viên</b>.</div></div>
+  <div class="step"><div class="num">2</div><div>Chọn vai trò <b>Quản trị (admin)</b>. Dòng mô tả bên dưới nói rõ vai trò này cấp, khóa và đặt lại mật khẩu tài khoản giáo viên.</div></div>
+  <div class="step"><div class="num">3</div><div>Nhập tên đăng nhập và mật khẩu quản trị, bấm <b>Đăng nhập quản trị</b>.</div></div>
+  <figure><img src="anh/10-dang-nhap-quan-tri.png" style="width:88%"><figcaption>Màn đăng nhập quản trị (chọn vai trò Quản trị ở bước 2).</figcaption></figure>
+  <div class="tip">Trình duyệt giữ phiên đăng nhập cho tới khi bấm <b>Đăng xuất</b>. Máy chủ tài khoản bản 1.5.0 trở lên giữ phiên tối đa 30 ngày.</div>
+
+  <h3>6. Cài máy chủ tài khoản (làm một lần)</h3>
+  <p>Máy chủ tài khoản là một dự án Apps Script thuộc tài khoản Google của quản trị. Nó chỉ làm một việc: cấp, khóa và kiểm tra tài khoản giáo viên. Nó không lưu bộ câu hỏi hay kết quả học sinh.</p>
+  <ol>
+    <li>Mở trang <code>/adminquantri</code> của trang web. Trang có bảng hướng dẫn 6 bước tự đánh dấu bước đã xong.</li>
+    <li>Làm theo <b>Trình cài đặt Apps Script</b> 5 bước: dán link thư mục Google Drive lưu trữ, sao chép mã đã điền sẵn khóa quản trị, dán mã vào dự án Apps Script mới, triển khai thành <b>Ứng dụng web</b> (Thực thi với tư cách: Tôi; Ai có quyền truy cập: Bất kỳ ai), rồi dán link kết thúc bằng <code>/exec</code>.</li>
+    <li>Bấm <b>Kiểm tra</b>. Trình cài đặt kiểm bốn điều kiện: đúng dạng link, máy chủ trả lời, phiên bản mã, quyền quản trị và thư mục Google Drive. Điều kiện nào lỗi thì dừng và ghi rõ lý do.</li>
+    <li>Khi liên kết xong, trang hiện phiên bản máy chủ, thời gian liên kết và nút <b>Tải tệp kết nối (.json)</b>. Tệp này chỉ có link máy chủ và thư mục, <b>không có khóa hay mật khẩu</b>.</li>
+    <li>Đặt mật khẩu quản trị riêng (8–72 ký tự). Mật khẩu này không nằm trong mã nguồn.</li>
+  </ol>
+  <div class="warn"><b>Lưu ý:</b> nên dùng tài khoản Gmail cá nhân. Tài khoản Google Workspace của trường thường bị chặn tùy chọn "Bất kỳ ai", khiến học sinh không vào được phòng.</div>
+  <h4>Đăng nhập quản trị ở máy tính khác</h4>
+  <p>Trang chủ → <i>Dành cho giáo viên</i> → vai trò <b>Quản trị</b> → <b>Đã cài ở máy khác? Nạp tệp kết nối (.json)</b> → chọn tệp → nhập tên đăng nhập và mật khẩu quản trị. Không cần dán lại link thư mục và link Apps Script.</p>
+
+  <figure><img src="anh/11-quan-tri-sau-dang-nhap.png"><figcaption>Trang quản trị sau khi đăng nhập: thư mục lưu trữ, sao lưu tài khoản, email khôi phục, đổi mật khẩu, đăng xuất.</figcaption></figure>
+</section>
+
+<section class="page">
+  <h3>7. Cấp, khóa, đặt lại mật khẩu, xóa tài khoản giáo viên</h3>
+  <h4>7.1 Cấp tài khoản mới</h4>
+  <div class="step"><div class="num">1</div><div>Ở trang quản trị, bấm <b>Cấp tài khoản</b>.</div></div>
+  <div class="step"><div class="num">2</div><div>Nhập <b>tên tài khoản</b> (3–32 ký tự, không dấu cách, không phân biệt hoa thường; dùng được số, chữ không dấu và các ký tự <code>. _ - @ + ! # $ % & * = ? ~ ^</code>), <b>họ tên</b> và <b>mật khẩu ban đầu</b> (từ 6 ký tự). Có thể bấm <b>Tạo ngẫu nhiên</b>.</div></div>
+  <div class="step"><div class="num">3</div><div>Bấm <b>Tạo tài khoản</b>, rồi bấm <b>Chép để gửi</b> và gửi cho giáo viên qua Zalo. Mật khẩu ban đầu nên đổi ngay sau lần đăng nhập đầu.</div></div>
+  <figure><img src="anh/13-quan-tri-cap-tai-khoan.png" style="width:90%"><figcaption>Hộp Cấp tài khoản giáo viên.</figcaption></figure>
+
+  <h4>7.2 Bảng tài khoản và các nút thao tác</h4>
+  <table>
+    <tr><th style="width:24%">Nút / cột</th><th>Ý nghĩa</th></tr>
+    <tr><td><b>Ẩn mật khẩu / Hiện mật khẩu</b></td><td>Ẩn hoặc hiện cột mật khẩu. Bấm <b>Ẩn mật khẩu</b> trước khi chiếu màn hình cho người khác xem.</td></tr>
+    <tr><td><b>Tải lại · Xuất Excel</b></td><td>Làm mới danh sách và xuất danh sách tài khoản ra Excel.</td></tr>
+    <tr><td><b>Khóa</b> (biểu tượng ổ khóa)</td><td>Khóa tài khoản: giáo viên bị đăng xuất ở mọi thiết bị. Bấm lại để mở khóa.</td></tr>
+    <tr><td><b>Đặt lại mật khẩu</b> (biểu tượng chìa khóa)</td><td>Tạo mật khẩu mới cho giáo viên. Xem mục 11.</td></tr>
+    <tr><td><b>Xóa</b> (thùng rác)</td><td>Xóa tài khoản khỏi máy chủ tài khoản. Dữ liệu trên Drive của giáo viên không bị xóa.</td></tr>
+    <tr><td>Cột <b>Kho riêng</b></td><td>Cho biết giáo viên đã kết nối Google Drive của riêng mình hay chưa.</td></tr>
+    <tr><td>Cột <b>Đăng nhập gần nhất</b></td><td>Thời điểm giáo viên đăng nhập lần cuối.</td></tr>
+  </table>
+  <figure><img src="anh/12-quan-tri-tai-khoan.png"><figcaption>Danh sách tài khoản giáo viên với các nút khóa, đặt lại mật khẩu và xóa.</figcaption></figure>
+  <div class="danger"><b>Hệ quả cần biết:</b> quản trị xem được mật khẩu giáo viên ở cột Mật khẩu, nên về kỹ thuật có thể đăng nhập thay giáo viên. Hãy giữ kín tài khoản quản trị và nhắc giáo viên không dùng lại mật khẩu Gmail hay ngân hàng.</div>
+
+  <h4>7.3 Hướng dẫn 6 bước trên trang quản trị</h4>
+  <p>Khối <b>Hướng dẫn cho quản trị</b> ở cuối trang hiện mốc tiến độ: máy chủ, mật khẩu, email, bật đăng nhập, cấp tài khoản, và giáo viên bắt đầu dùng. Bước đang làm được đánh dấu, và các nút <b>Bước trước / Bước sau</b> xem từng bước. Trên điện thoại khối này được thu gọn; bấm <b>Mở hướng dẫn</b> để xem.</p>
+  <figure><img src="anh/14-quan-tri-huong-dan.png"><figcaption>Hướng dẫn 6 bước cho quản trị.</figcaption></figure>
+</section>
+
+<section class="page">
+  <h3>8. Sao lưu và chuyển máy chủ tài khoản</h3>
+  <ul>
+    <li><b>Tải file sao lưu tài khoản:</b> gồm tất cả tài khoản giáo viên, email, mật khẩu đang cấp và cấu hình kết nối đã mã hóa. Tệp có mật khẩu giáo viên nên cất ở nơi an toàn.</li>
+    <li><b>Khôi phục từ file:</b> trên máy chủ mới, thêm các tài khoản chưa có. Tài khoản đã có chỉ được thay khi quản trị đồng ý.</li>
+    <li><b>Chuyển máy chủ tài khoản sang Google Drive mới:</b> mở khối cùng tên, chọn thư mục mới và làm theo hướng dẫn trên màn hình.</li>
+    <li>Trang báo dung lượng Google Drive của máy chủ và cảnh báo khi thư mục lưu trữ đã đầy.</li>
+  </ul>
+  <div class="tip">Máy chủ tài khoản lưu tên tài khoản, họ tên, email, trạng thái khóa, lần đăng nhập gần nhất, mật khẩu của giáo viên (quản trị xem được) và két cấu hình đã mã hóa bằng mật khẩu giáo viên. Máy chủ <b>không lưu</b> bộ câu hỏi hay kết quả học sinh.</div>
+</section>
+
+<!-- ===================== PHẦN 3 ===================== -->
+<section class="page">
+  <h2>Phần 3 · Giáo viên</h2>
+  <h3>9. Đăng nhập lần đầu và kết nối Google Drive</h3>
+  <p>Đây là việc làm <b>một lần duy nhất</b>, khoảng 10–15 phút. Sau đó, đăng nhập ở máy nào phần mềm cũng tự kết nối lại Google Drive của thầy cô.</p>
+  <div class="step"><div class="num">1</div><div>Mở trang chủ, bấm <b>Dành cho giáo viên</b>, chọn vai trò <b>Giáo viên</b>, nhập tên đăng nhập và mật khẩu do quản trị cấp. Bấm <b>Đăng nhập</b>.</div></div>
+  <div class="step"><div class="num">2</div><div>Trang <b>Cài đặt</b> tự mở. Tạo một thư mục riêng trên Google Drive (ví dụ <code>Quickplay_DuLieu</code>), mở thư mục rồi sao chép link trên thanh địa chỉ.</div></div>
+  <div class="step"><div class="num">3</div><div>Làm lần lượt <b>5 bước của Trình cài đặt Apps Script</b> (xem bảng dưới). Bước cuối phần mềm tự kiểm tra.</div></div>
+  <div class="step"><div class="num">4</div><div>Đổi mật khẩu được cấp nếu muốn (mục 11), và khai báo <b>email khôi phục</b>.</div></div>
+  <figure><img src="anh/15-dang-nhap-giao-vien.png" style="width:88%"><figcaption>Màn đăng nhập giáo viên: chọn vai trò Giáo viên, nhập tên đăng nhập và mật khẩu do quản trị cấp.</figcaption></figure>
+<figure><img src="anh/16-cai-dat-lan-dau.png"><figcaption>Lần đầu đăng nhập: trang Cài đặt tự mở, báo chưa kết nối Google Drive và hướng dẫn làm 5 bước.</figcaption></figure>
+<figure><img src="anh/17-cai-dat-5-buoc.png"><figcaption>Trình cài đặt Apps Script: mở mục 5 bước để làm lần lượt (dán link thư mục, sao chép mã, dán mã, triển khai, kiểm tra).</figcaption></figure>
+<figure><img src="anh/30-cai-dat.png"><figcaption>Trang Cài đặt → Nơi lưu dữ liệu: khối trạng thái, cập nhật Apps Script, nâng cao và sao lưu.</figcaption></figure>
+
+  <table>
+    <tr><th style="width:12%">Bước</th><th style="width:30%">Việc cần làm</th><th>Chi tiết</th></tr>
+    <tr><td>1</td><td>Dán link thư mục Drive</td><td>Dán link thư mục đã sao chép, bấm lưu.</td></tr>
+    <tr><td>2</td><td>Sao chép mã</td><td>Bấm <b>Sao chép mã</b>. Mã đã điền sẵn thư mục và khóa giáo viên, không cần chạy hàm <code>setup()</code>.</td></tr>
+    <tr><td>3</td><td>Mở Apps Script mới</td><td>Bấm <b>Mở Apps Script mới</b>, xóa mã mẫu, dán mã vừa sao chép, lưu.</td></tr>
+    <tr><td>4</td><td>Triển khai</td><td>Triển khai → Tùy chọn triển khai mới → <b>Ứng dụng web</b>. Thực thi với tư cách <b>Tôi</b>; quyền truy cập <b>Bất kỳ ai</b>. Cấp quyền khi Google hỏi.</td></tr>
+    <tr><td>5</td><td>Dán link và kiểm tra</td><td>Dán link kết thúc bằng <code>/exec</code>, bấm <b>Kiểm tra</b>. Các điều kiện được đánh tích xanh từng dòng.</td></tr>
+  </table>
+  <div class="tip">Ở máy tính khác, bấm <b>Nạp tệp kết nối (.json)</b> ở đầu Trình cài đặt để nối lại ngay. Tệp này có khóa giáo viên, hãy giữ kín. Nếu đã đăng nhập bằng tài khoản được cấp thì phần mềm tự nhớ kết nối, tệp này chỉ là cách dự phòng.</div>
+  <div class="warn">Nên dùng Gmail cá nhân. Nếu học sinh báo bị đòi đăng nhập Google khi mở link, nguyên nhân thường là bản triển khai chưa đặt quyền <b>Bất kỳ ai</b>.</div>
+</section>
+
+<section class="page">
+  <h3>10. Thư mục Google Drive riêng của giáo viên</h3>
+  <ul>
+    <li>Thư mục được tạo ở Google Drive của chính giáo viên. Phần mềm tự tạo bên trong thư mục <code>QUICKPLAY_DATA</code> gồm các khu <code>quizzes</code> (bộ đề), <code>sessions</code> (kết quả buổi học) và <code>media</code> (ảnh, âm thanh).</li>
+    <li>Muốn đổi thư mục: vào <b>Cài đặt → Nơi lưu dữ liệu → Cập nhật hoặc cài đặt lại Apps Script (5 bước)</b>, dán link thư mục mới. Dữ liệu cũ vẫn nằm trong thư mục cũ.</li>
+    <li>Không sửa tay các tệp trong <code>QUICKPLAY_DATA</code> khi đang có buổi học. Tên tệp bộ đề có dạng <code>Khối lớp - Môn - Tên bộ đề (mã).json</code>; đừng xóa phần mã ở cuối tên.</li>
+    <li>Xóa nhầm bộ đề: tệp chuyển vào <b>Thùng rác Google Drive</b> và khôi phục được trong 30 ngày.</li>
+  </ul>
+<figure><img src="anh/19b-cai-dat-sua-tay.png"><figcaption>Mục Sửa tay link và khóa: dùng khi cần đổi thư mục hoặc khóa giáo viên thủ công.</figcaption></figure>
+
+</section>
+
+<section class="page">
+  <h3>11. Email khôi phục và quên mật khẩu</h3>
+  <h4>11.1 Khai báo email khôi phục (nên làm ngay)</h4>
+  <div class="step"><div class="num">1</div><div>Vào <b>Cài đặt → Tài khoản</b> (tên tài khoản của bạn). Mở mục <b>Email khôi phục</b>.</div></div>
+  <div class="step"><div class="num">2</div><div>Điền email cá nhân, lưu lại. Nút <b>Email khôi phục</b> cũng xuất hiện ở đầu khu tài khoản của trang quản trị.</div></div>
+  <h4>11.2 Khi quên mật khẩu</h4>
+  <ul>
+    <li><b>Đã khai báo email:</b> ở màn đăng nhập, bấm <b>Quên mật khẩu?</b>. Phần mềm gửi mã 6 số tới email (hiệu lực 15 phút). Nhập mã và đặt mật khẩu mới. Sai quá 5 lần phải xin mã mới.</li>
+    <li><b>Chưa khai báo email:</b> nhờ quản trị bấm <b>Đặt lại mật khẩu</b> ở trang quản trị rồi gửi mật khẩu mới.</li>
+    <li>Sau khi đặt lại, két cấu hình cũ không mở được. Đăng nhập lại và kết nối lại Google Drive một lần; dữ liệu trên Drive không mất.</li>
+  </ul>
+  <h4>11.3 Đổi mật khẩu khi đang đăng nhập</h4>
+  <p>Vào <b>Cài đặt → Tài khoản → Đổi mật khẩu</b>. Có thể giữ nguyên mật khẩu được cấp. Khi đổi mật khẩu <b>bắt buộc phải có email</b>; mật khẩu mới được gửi về email và được lưu ở máy chủ tài khoản để quản trị xem lại khi cần.</p>
+  <figure><img src="anh/19-cai-dat-tai-khoan-email.png"><figcaption>Cài đặt → Tài khoản: mục Đổi mật khẩu và Email khôi phục (mở bằng cách bấm tiêu đề mục).</figcaption></figure>
+<div class="tip">Tên tài khoản và mật khẩu của giáo viên: tên đăng nhập 3–32 ký tự; mật khẩu từ 6 ký tự, đặt thế nào cũng được (số, chữ, ký tự đặc biệt).</div>
+</section>
+
+<section class="page">
+  <h3>12. Cập nhật phiên bản mới</h3>
+  <p>Có hai phần cần cập nhật, và chúng khác nhau.</p>
+  <h4>12.1 Giao diện Quickplay trên trình duyệt</h4>
+  <p>Tự động. Khi đưa phiên bản mới lên, trình duyệt tải bản mới khi thầy cô mở lại trang. Nếu thấy giao diện cũ, tải lại trang bằng <span class="kbd">Ctrl + F5</span>.</p>
+  <h4>12.2 Apps Script của từng giáo viên (máy chủ lưu dữ liệu)</h4>
+  <p>Khi có bản Apps Script mới, đầu trang giáo viên hiện lời nhắc màu vàng. Cách thông thường là <b>5 bước cập nhật tay</b> (mất khoảng 3 phút, link, khóa và dữ liệu giữ nguyên):</p>
+  <ol>
+    <li>Vào <b>Cài đặt → Nơi lưu dữ liệu → Cập nhật hoặc cài đặt lại Apps Script (5 bước)</b>. Sao chép mã mới.</li>
+    <li>Mở dự án Apps Script đang dùng, dán đè vào tệp <code>Mã.gs</code>, lưu. Không phải sửa tệp nào khác.</li>
+    <li>Bấm <b>Triển khai → Quản lý các bản triển khai</b>, chọn bản đang dùng, bấm biểu tượng bút chì, chọn <b>Phiên bản mới</b>, rồi <b>Triển khai</b>.</li>
+    <li>Quay lại Cài đặt, dán lại link (nếu được hỏi) và bấm <b>Kiểm tra</b>.</li>
+  </ol>
+  <div class="danger">Không dùng <b>Tùy chọn triển khai mới</b> khi cập nhật: cách đó tạo ra link khác và thầy cô phải dán lại link vào phần mềm. Nếu chỉ lưu mã mà không tạo "Phiên bản mới", phần mềm vẫn chạy mã cũ.</div>
+  <h4>12.3 Tự cập nhật (tùy chọn nâng cao)</h4>
+  <p>Trong Cài đặt có mục gập <b>Nâng cao: tự cập nhật (cần Google Cloud)</b>, ghi là không bắt buộc. Khi đã thiết lập xong, Apps Script tự cập nhật lúc thầy cô mở trang giáo viên. Việc thiết lập gồm: bật xác thực hai bước cho Gmail, bật <b>Google Apps Script API</b>, dán tệp <code>appsscript.json</code> của dự án, chạy hàm <code>kiemTraTuCapNhat</code> và cấp quyền. Nút <b>Kiểm tra điều kiện</b> hiện lý do nếu chưa đạt. Phần mềm không tự cập nhật khi đang có buổi học trực tiếp.</p>
+<figure><img src="anh/18-cai-dat-nang-cao-cap-nhat.png"><figcaption>Mục Nâng cao: tự cập nhật (cần Google Cloud), mở ra để xem các bước và nút Kiểm tra điều kiện.</figcaption></figure>
+
+</section>
+
+<section class="page">
+  <h3>13. Giao diện trên máy tính, máy tính bảng, điện thoại</h3>
+  <p>Giáo viên <b>truy cập và điều khiển được trên cả ba thiết bị</b>. Bố cục tự đổi theo khổ màn hình:</p>
+  <table>
+    <tr><th style="width:20%">Khu vực</th><th style="width:30%">Máy tính</th><th>Máy tính bảng và điện thoại</th></tr>
+    <tr><td>Thanh trên cùng</td><td>Logo, trạng thái Google Drive, phiên bản máy chủ, đồng hồ, các mục Thư viện · Trên lớp · Báo cáo · Cài đặt, nút Đăng xuất</td><td>Các mục thu gọn; đồng hồ và trạng thái vẫn hiện</td></tr>
+    <tr><td>Thư viện đề</td><td>Cột bên trái là cây Khối lớp → Môn → Chương → Bài; lưới bộ đề bên phải</td><td>Cây thu gọn, bộ đề xếp thành danh sách một cột</td></tr>
+    <tr><td>Trình soạn câu hỏi</td><td>Đầy đủ các thanh công cụ và xem trước câu hỏi</td><td>Xếp một cột, cuộn dọc; nên soạn đề trên máy tính hoặc máy tính bảng</td></tr>
+    <tr><td>Phòng điều khiển</td><td>Đủ bốn thẻ: Bảng điều khiển, Thống kê, Giám sát gian lận, Bảng xếp hạng</td><td>Xếp dọc; giáo viên vẫn bấm Bắt đầu, Câu tiếp theo, Tạm dừng, Kết thúc</td></tr>
+    <tr><td>Học sinh</td><td>Chơi được đầy đủ</td><td>Chơi là chính: câu hỏi và đáp án lớn, dễ bấm</td></tr>
+  </table>
+  <figure><img src="anh/70-trang-chu-may-tinh-bang.png" style="width:72%"><figcaption>Trang chủ trên máy tính bảng (khoảng 820 px).</figcaption></figure>
+  <figure><img src="anh/71-trang-chu-dien-thoai.png" style="width:44%"><figcaption>Trang chủ trên điện thoại (khoảng 390 px).</figcaption></figure>
+<figure><img src="anh/24-thu-vien-may-tinh-bang.png" style="width:72%"><figcaption>Thư viện trên máy tính bảng: cây Khối lớp bên trái thu gọn, lưới bộ đề một đến hai cột.</figcaption></figure>
+<figure><img src="anh/25-thu-vien-dien-thoai.png" style="width:44%"><figcaption>Thư viện trên điện thoại: bộ đề xếp thành danh sách, các nút chức năng ở dưới từng thẻ.</figcaption></figure>
+
+  <div class="tip">Để xem thử giao diện trên các khổ màn hình, dùng nút biểu tượng máy tính / máy tính bảng / điện thoại ở góc dưới bên trái của trang.</div>
+</section>
+
+<section class="page">
+  <h3>14. Thư viện đề: tạo, nhập, sắp xếp bộ đề</h3>
+  <figure><img src="anh/20-thu-vien.png"><figcaption>Thư viện đề: các nút đầu trang, tab Của tôi / Đề thi / Thư viện công cộng, cây Khối lớp, lưới bộ đề.</figcaption></figure>
+  <h4>14.1 Các nút đầu trang</h4>
+  <table>
+    <tr><th style="width:26%">Nút</th><th>Chức năng</th></tr>
+    <tr><td>Nhập từ tệp</td><td>Nhập bộ đề từ Word, PDF, PowerPoint, Excel, CSV hoặc Google Form. Có thể tải <b>mẫu Word</b> chuẩn ngay trong hộp này.</td></tr>
+    <tr><td>Nhập bộ đề chia sẻ</td><td>Nhập tệp .json do giáo viên khác chia sẻ. Xem mục 16.</td></tr>
+    <tr><td>Chia sẻ</td><td>Chọn bộ đề và câu hỏi để xuất tệp chia sẻ. Xem mục 16.</td></tr>
+    <tr><td>Tạo từ kho câu hỏi</td><td>Ghép câu hỏi từ nhiều bộ đề có sẵn thành một bộ đề mới.</td></tr>
+    <tr><td>AI sinh đề</td><td>Tạo câu hỏi từ giáo án Word/PDF bằng AI (cần khóa Gemini trong Cài đặt).</td></tr>
+    <tr><td>Tạo bộ đề</td><td>Tạo bộ đề trống và mở trình soạn.</td></tr>
+  </table>
+  <h4>14.2 Tab và cây bên trái</h4>
+  <ul>
+    <li><b>Của tôi:</b> các bộ đề bạn soạn. <b>Đề thi:</b> các đề có thời điểm kiểm tra và mã đề (riêng tư). <b>Thư viện công cộng:</b> bộ đề công khai, gồm hai bộ mẫu <i>Tiếng Việt 1</i> và <i>Tiếng Anh 1</i>.</li>
+    <li>Cây <b>Khối lớp → Môn → Chương/Chủ đề → Bài</b> dùng để xếp và tìm bộ đề. Bấm <b>Thêm khối lớp</b> để thêm lớp; mỗi môn ghi tên lớp của mình.</li>
+    <li>Ô <b>Tìm bộ đề</b>, ô sắp xếp (Mới cập nhật / Theo tên / Nhiều câu nhất) và các nút trên từng thẻ: <b>Tổ chức</b>, <b>Chơi thử</b>, <b>Sửa</b>, <b>Chuyển tới môn, chương, bài khác</b>, <b>Nhân bản</b>, <b>Xóa</b>.</li>
+    <li>Nút <b>Thêm dữ liệu mẫu (Tiếng Việt, Tiếng Anh)</b> tạo hai môn mẫu kèm bộ đề đủ mọi dạng câu hỏi, dùng để làm quen.</li>
+  </ul>
+</section>
+
+<section class="page">
+  <h3>15. Trình soạn câu hỏi và các dạng câu hỏi</h3>
+  <figure><img src="anh/21-trinh-soan.png"><figcaption>Trình soạn bộ đề: tiêu đề, môn, chương, bài, ảnh bìa, điểm, thời gian và danh sách câu hỏi.</figcaption></figure>
+  <figure><img src="anh/21b-soan-cau-hoi-moi.png" style="width:90%"><figcaption>Hộp Soạn câu hỏi mới: chọn dạng câu hỏi ở hàng trên cùng, rồi nhập nội dung, đáp án và đáp án đúng.</figcaption></figure>
+<h4>15.1 Các việc trong trình soạn</h4>
+  <ul>
+    <li>Đặt <b>tên bộ đề</b>, <b>môn, chương, bài</b> (chọn từ danh mục), <b>quyền chia sẻ</b> (riêng tư hoặc công khai), và tích <b>Đây là đề thi</b> nếu dùng cho kì kiểm tra.</li>
+    <li>Đặt <b>ảnh bìa</b>: dán ảnh, tải ảnh lên, dán link ảnh hoặc dùng lại ảnh đã có.</li>
+    <li>Đặt <b>điểm</b>: điểm mỗi câu, hoặc tổng điểm cả bài chia đều. Đặt <b>thời gian suy nghĩ</b> cho tất cả câu hoặc riêng từng câu.</li>
+    <li>Nút <b>Thêm câu hỏi</b> và các nút thêm nhanh (Một đáp án, Nhiều đáp án, Đúng/Sai, Điền chỗ trống, Sắp xếp, Nối cột, Trả lời miệng).</li>
+    <li>Trên từng câu: <b>Sửa</b>, chuyển <b>lên / xuống</b>, <b>Nhân bản</b>, <b>Chuyển sang bộ đề khác</b> (có thể khác môn hoặc chủ đề), <b>Xóa</b>. Tích nhiều câu để xóa cùng lúc.</li>
+    <li>Nút <b>Chơi thử như học sinh</b>: xem đúng những gì học sinh sẽ thấy, không tính giờ, không lưu kết quả.</li>
+  </ul>
+  <h4>15.2 Các dạng câu hỏi</h4>
+  <table>
+    <tr><th style="width:22%">Dạng</th><th style="width:40%">Cách học sinh trả lời</th><th>Chấm như thế nào</th></tr>
+    <tr><td>Một đáp án</td><td>Chọn một phương án</td><td>Đúng hoặc sai</td></tr>
+    <tr><td>Nhiều đáp án</td><td>Chọn tất cả phương án đúng, rồi bấm <b>Gửi đáp án</b></td><td>Đúng hết, hoặc theo điểm từng phần nếu đặt như vậy</td></tr>
+    <tr><td>Đúng / Sai</td><td>Chọn Đúng hoặc Sai</td><td>Đúng hoặc sai</td></tr>
+    <tr><td>Điền chỗ trống – gõ chữ</td><td>Gõ đáp án vào ô</td><td>So khớp đáp án</td></tr>
+    <tr><td>Điền chỗ trống – chọn từ kho từ (kéo thả)</td><td>Bấm từ trong kho để điền vào chỗ trống; bấm lại ô để bỏ</td><td>Từ đúng ở đúng chỗ</td></tr>
+    <tr><td>Điền chỗ trống – chọn từ menu</td><td>Chọn từ trong danh sách thả xuống tại chỗ trống</td><td>Từ đúng ở đúng chỗ</td></tr>
+    <tr><td>Sắp xếp</td><td>Bấm lần lượt các cụm từ theo thứ tự đúng, rồi <b>Xác nhận</b></td><td>Đúng thứ tự</td></tr>
+    <tr><td>Nối cột</td><td>Bấm một mục cột A, rồi mục cột B cần nối; bấm lại để bỏ</td><td>Đúng từng cặp</td></tr>
+    <tr><td>Trả lời miệng</td><td>Ghi âm câu trả lời (tối đa 90 giây) hoặc gõ chữ, rồi gửi</td><td>Giáo viên nghe hoặc đọc và chấm Đúng/Sai</td></tr>
+  </table>
+  <div class="tip">Phần <b>Đáp án / lời giải của giáo viên</b> hiện sau khi học sinh trả lời. Ô này nhập được bằng giọng nói (biểu tượng micro).</div>
+</section>
+
+<section class="page">
+  <h3>16. Chia sẻ bộ đề và câu hỏi cho giáo viên khác</h3>
+  <p>Phần mềm không cho giáo viên xem nội dung của nhau. Khi cần chia sẻ, giáo viên <b>xuất một tệp .json</b> chỉ chứa những nội dung mình chọn, gửi tệp cho giáo viên khác, và người nhận <b>nhập tệp</b> vào lớp và môn của mình.</p>
+  <h4>16.1 Xuất tệp chia sẻ</h4>
+  <div class="step"><div class="num">1</div><div>Ở thư viện, bấm <b>Chia sẻ</b>.</div></div>
+  <div class="step"><div class="num">2</div><div><b>Chọn nguồn:</b> <i>Bộ câu hỏi của tôi</i> hoặc <i>Đề thi</i>.</div></div>
+  <div class="step"><div class="num">3</div><div><b>Lọc theo lớp và môn</b> để danh sách gọn lại, rồi tích các bài muốn chia sẻ. Có thể bấm <i>Chọn tất cả … bài đang hiện</i>.</div></div>
+  <div class="step"><div class="num">4</div><div>Muốn chỉ gửi một số câu: bấm <b>Chọn câu</b> ở bài đó và tích riêng từng câu.</div></div>
+  <div class="step"><div class="num">5</div><div>Đặt <b>tên tệp chia sẻ</b> (ghi trong tệp), chọn có kèm ảnh và âm thanh hay không, rồi bấm <b>Xuất tệp chia sẻ</b>. Tệp tải về có tên <code>quickplay-chia-se_<ngày>.json</code>.</div></div>
+  <figure><img src="anh/22-chia-se-xuat.png" style="width:92%"><figcaption>Hộp Chia sẻ: chọn nguồn, lọc theo lớp và môn, tích bài, chọn câu.</figcaption></figure>
+  <div class="warn">Tệp chia sẻ không chứa mã id, người sở hữu, mật khẩu hay kết quả học sinh. Chỉ gửi tệp cho người được phép dùng.</div>
+
+  <h4>16.2 Nhập tệp chia sẻ</h4>
+  <div class="step"><div class="num">1</div><div>Ở thư viện, bấm <b>Nhập bộ đề chia sẻ</b>, chọn tệp .json. Hộp hiện tên bộ đề, số câu và đường dẫn đích của từng bài.</div></div>
+  <div class="step"><div class="num">2</div><div>Chọn <b>cách đặt vào tài khoản</b>:
+    <ul>
+      <li><b>Tự động theo tệp:</b> phần mềm tạo lớp, môn, chương, bài còn thiếu đúng như trong tệp (ví dụ môn Tiếng Anh, chủ đề 1, bài 1).</li>
+      <li><b>Chọn vị trí:</b> chọn lớp, môn, chương và bài cho tất cả bài trong tệp. Các ô có gợi ý từ danh mục của bạn; gõ tên mới thì tạo mới.</li>
+    </ul></div></div>
+  <div class="step"><div class="num">3</div><div>Bấm <b>Nhập N bài</b>. Ảnh và âm thanh trong tệp được tải lên tài khoản của bạn, và mọi link trong câu hỏi được đổi theo.</div></div>
+  <figure><img src="anh/23-chia-se-nhap-tu-dong.png" style="width:90%"><figcaption>Nhập bộ đề chia sẻ, chế độ Tự động theo tệp: danh sách hiện đường dẫn đích của từng bài.</figcaption></figure>
+<figure><img src="anh/23b-chia-se-chon-vi-tri.png" style="width:90%"><figcaption>Chế độ Chọn vị trí: chọn lớp, môn, chương và bài; áp dụng cho mọi bài trong tệp.</figcaption></figure>
+
+
+  <h4>16.3 Chuyển câu hỏi và bộ đề sau khi nhập</h4>
+  <ul>
+    <li><b>Chuyển một câu sang bộ đề khác:</b> trong trình soạn, bấm biểu tượng <i>Chuyển câu … sang bộ đề khác</i> ở câu đó, chọn bộ đề đích (nhóm theo môn). Câu được thêm vào cuối bộ đích, rồi bỏ khỏi bộ đang soạn. Nhãn môn và bài của câu được cập nhật theo bộ đích.</li>
+    <li><b>Chuyển cả bộ đề sang môn, chương, bài khác:</b> trên thẻ bộ đề, bấm <i>Chuyển … tới môn, chương, bài khác</i>, chọn lớp, môn, chương, bài rồi bấm <b>Chuyển tới đây</b>.</li>
+  </ul>
+  <div class="ok">Sau khi chuyển, mọi câu trong bộ đề mang nhãn đúng vị trí mới, nên không còn lẫn môn cũ khi xem và khi chia sẻ tiếp.</div>
+</section>
+
+<section class="page">
+  <h3>17. Lớp học, mã số học sinh và kho đề thi</h3>
+  <h4>17.1 Lớp học và mã số học sinh</h4>
+  <ol>
+    <li>Vào <b>Trên lớp → Lớp học</b>, bấm <b>Thêm lớp</b>, dán danh sách học sinh (mỗi dòng một tên).</li>
+    <li>Bấm <b>Mã học sinh</b> của lớp để đặt mã số: gõ từng mã, hoặc điền chữ đứng đầu (ví dụ <code>HS</code>) và số bắt đầu rồi bấm <b>Tạo mã tự động</b> (HS1, HS2…), hoặc <b>Dán mã có sẵn</b> từ Excel.</li>
+    <li>Mã dài tối đa 32 ký tự, không phân biệt hoa thường. Bấm <b>Lưu mã</b>, rồi <b>Xuất Excel</b> để in hoặc gửi danh sách.</li>
+  </ol>
+  <figure><img src="anh/26-lop-hoc.png" style="width:92%"><figcaption>Trên lớp → Lớp học: danh sách lớp, nút Thêm lớp và Mã học sinh của từng lớp.</figcaption></figure>
+<figure><img src="anh/26b-them-lop.png" style="width:70%"><figcaption>Hộp Thêm lớp: đặt tên lớp và dán danh sách học sinh, mỗi dòng một tên.</figcaption></figure>
+<h4>17.2 Đề thi và thi nhiều đề</h4>
+  <ol>
+    <li><b>Ra đề:</b> Thư viện → thẻ <b>Đề thi</b> → <b>Tạo đề thi từ ngân hàng câu hỏi</b>. Chọn khối lớp, môn, <b>thời điểm kiểm tra</b> (thường xuyên, giữa kì I, cuối kì I, giữa kì II, cuối kì II). Mã đề tự gợi ý (ví dụ <code>TIN3-CK1-01</code>) và sửa được. Đề thi luôn để riêng tư.</li>
+    <li><b>Nhiều đề cho một kì:</b> trong nhóm kì kiểm tra bấm <b>Thêm đề</b>; mã đề tự tăng. Các đề cùng kì nên có cùng số câu.</li>
+    <li><b>Tổ chức thi:</b> tích các đề → <b>Tổ chức thi</b> → chọn <b>Bốc ngẫu nhiên 1 đề</b>, <b>Bốc ngẫu nhiên 2 đề</b> hoặc <b>Dùng cả các đề</b>. Đề được bốc lúc bấm Mở phòng kiểm tra. Mỗi em được giao đề đang có ít bạn nhất.</li>
+    <li>Màn hình làm bài và màn kết quả của học sinh hiện <b>mã đề</b>; bảng điểm Excel có cột Mã đề.</li>
+  </ol>
+</section>
+
+<section class="page">
+  <h3>18. Tổ chức buổi học: năm cách làm</h3>
+  <p>Bấm <b>Tổ chức</b> trên thẻ bộ đề, rồi chọn một trong các cách sau.</p>
+  <figure><img src="anh/50-chon-che-do-to-chuc.png" style="width:90%"><figcaption>Hộp Tổ chức: chọn cách làm và các tùy chọn của buổi học.</figcaption></figure>
+  <table>
+    <tr><th style="width:24%">Cách</th><th style="width:38%">Dùng khi</th><th>Học sinh cần</th></tr>
+    <tr><td><b>Trực tiếp tự do</b></td><td>Mỗi em tự làm theo tốc độ của mình trong giờ học; bảng điểm cập nhật liên tục</td><td>Điện thoại hoặc máy tính</td></tr>
+    <tr><td><b>Giáo viên điều khiển nhịp</b></td><td>Cả lớp làm cùng một câu; thầy cô mở từng câu, xem thống kê rồi chuyển câu</td><td>Điện thoại hoặc máy tính</td></tr>
+    <tr><td><b>Giao bài về nhà</b></td><td>Đặt giờ mở và hạn nộp; học sinh tự lưu nháp và làm tiếp được</td><td>Điện thoại hoặc máy tính</td></tr>
+    <tr><td><b>Bài kiểm tra</b></td><td>Giao cho một lớp, vào bằng mã số học sinh, có giờ làm bài, nộp một lần, không hiện đáp án</td><td>Điện thoại hoặc máy tính, và mã số</td></tr>
+    <tr><td><b>Thẻ trả lời (giấy)</b></td><td>Lớp không có thiết bị: em giơ thẻ A–D, thầy cô quét bằng điện thoại</td><td>Chỉ cần thẻ giấy đã in</td></tr>
+  </table>
+  <figure><img src="anh/50b-to-chuc-bai-kiem-tra.png" style="width:90%"><figcaption>Tổ chức → Bài kiểm tra: chọn lớp, thời gian làm bài, kiểu làm bài và chế độ xem lại bài.</figcaption></figure>
+<h4>18.1 Các tùy chọn trong hộp Tổ chức</h4>
+  <ul>
+    <li><b>Trả lời lần lượt từng câu</b> hoặc <b>Tự do chọn câu</b> (học sinh bấm số câu trong bảng để nhảy tới câu).</li>
+    <li><b>Tự sang câu sau</b> hoặc <b>học sinh bấm "Câu tiếp theo"</b>.</li>
+    <li><b>Số lượt làm lại câu sai</b>: không làm lại, 1, 2 hoặc 3 lượt.</li>
+    <li><b>Xáo trộn câu hỏi, xáo trộn đáp án</b>; <b>Thưởng chuỗi trả lời đúng</b>; <b>Nhạc nền</b>; <b>Hiện bảng xếp hạng</b> (3, 5, 10, 15 hoặc tất cả bạn).</li>
+    <li><b>Chống gian lận:</b> yêu cầu toàn màn hình, số lần vi phạm cho phép trước khi khóa bài.</li>
+    <li>Với cách <b>Bài kiểm tra</b>: thời gian làm bài (phút), kiểu làm bài (từng câu một, cả bài trên một trang, hoặc đề giấy), và chế độ xem lại bài sau khi nộp (khi thầy cô thu bài, ngay khi nộp, hoặc không cho xem).</li>
+  </ul>
+  <h4>18.2 Trực tiếp tự do và bài về nhà: làm lại không giới hạn</h4>
+  <p>Em vào lại với cùng tên bao nhiêu lần cũng được. Mỗi lần vào là một lượt mới (lần 1, lần 2…) có giờ vào riêng, nên kết quả các lượt trước không bị ghi đè. Bảng xếp hạng hiện lượt mới nhất; báo cáo và tệp Excel có đủ mọi lượt.</p>
+</section>
+
+<section class="page">
+  <h3>19. Phòng điều khiển của giáo viên</h3>
+  <h4>19.1 Mở phòng và mời học sinh</h4>
+  <div class="step"><div class="num">1</div><div>Chọn cách làm và bấm <b>Mở phòng chờ</b>. Phòng có mã PIN 6 số hiện ở đầu màn hình.</div></div>
+  <div class="step"><div class="num">2</div><div>Học sinh vào bằng <b>link</b> (bấm <b>Chép link tham gia</b>), bằng <b>mã PIN</b> (vào trang học sinh rồi nhập mã), hoặc bằng <b>mã QR</b>.</div></div>
+  <div class="step"><div class="num">3</div><div>Danh sách học sinh đã vào hiện ở khung chờ, kèm lớp. Học sinh vào muộn dùng cùng link hoặc mã.</div></div>
+  <figure><img src="anh/51-phong-cho-giao-vien.png"><figcaption>Phòng chờ: mã PIN, link, số học sinh đã vào và nút Bắt đầu.</figcaption></figure>
+  <h4>19.2 Điều khiển buổi học</h4>
+  <table>
+    <tr><th style="width:24%">Nút</th><th>Chức năng</th></tr>
+    <tr><td><b>Bắt đầu</b></td><td>Mở câu đầu tiên (có đếm ngược ngắn).</td></tr>
+    <tr><td><b>Câu tiếp theo</b></td><td>Chuyển sang câu sau (chế độ giáo viên điều khiển). Khi cả lớp đã trả lời xong, phần mềm tự khóa câu, không chờ hết giờ.</td></tr>
+    <tr><td><b>Chốt đáp án ngay</b></td><td>Khóa câu ngay, không chờ hết giờ.</td></tr>
+    <tr><td><b>Tạm dừng / Tiếp tục</b></td><td>Dừng đồng hồ của cả lớp; khi tiếp tục, mốc thời gian được bù đúng số giây đã dừng.</td></tr>
+    <tr><td><b>Nhạc: bật / tắt</b></td><td>Bật hoặc tắt nhạc nền của phòng.</td></tr>
+    <tr><td><b>Kết thúc</b></td><td>Đóng phòng, xem bục vinh danh và báo cáo; xuất PDF (A4 ngang) hoặc Excel chi tiết.</td></tr>
+  </table>
+  <figure><img src="anh/54-giao-vien-dang-chieu-cau-hoi.png"><figcaption>Màn giáo viên khi đang chiếu câu hỏi: số câu, bộ đếm thời gian, số học sinh đã trả lời.</figcaption></figure>
+  <h4>19.3 Bốn thẻ theo dõi</h4>
+  <ul>
+    <li><b>Bảng điều khiển:</b> câu hiện tại, số học sinh đã trả lời, đáp án đúng và thống kê từng phương án khi câu đã khóa.</li>
+    <li><b>Thống kê:</b> tỉ lệ đúng từng câu và của cả lớp.</li>
+    <li><b>Giám sát gian lận:</b> từng lần vi phạm (chuyển tab, rời toàn màn hình) và nút <b>Mở khóa</b> cho bài bị khóa.</li>
+    <li><b>Bảng xếp hạng:</b> hạng, họ tên, lớp, điểm, số câu đúng, điểm thưởng và tổng điểm.</li>
+  </ul>
+  <figure><img src="anh/57-giao-vien-ket-qua-cau.png"><figcaption>Kết quả câu: đáp án đúng, số em chọn từng phương án và bảng xếp hạng.</figcaption></figure>
+  <figure><img src="anh/58-phong-thong-ke.png"><figcaption>Thẻ Thống kê: tỉ lệ đúng từng câu và của cả lớp.</figcaption></figure>
+<figure><img src="anh/59-phong-giam-sat.png"><figcaption>Thẻ Giám sát gian lận: từng lần vi phạm và nút Mở khóa cho bài bị khóa.</figcaption></figure>
+<figure><img src="anh/60-phong-bang-xep-hang.png"><figcaption>Thẻ Bảng xếp hạng: hạng, họ tên, lớp, điểm và tổng điểm.</figcaption></figure>
+<div class="tip">Câu <b>trả lời miệng</b>: chấm ở thẻ <i>Chấm trả lời miệng</i>, từng em hoặc <i>Tất cả đúng</i>. Thầy cô nghe bản ghi âm và đọc chữ của em trước khi chấm.</div>
+</section>
+
+<section class="page">
+  <h3>20. Báo cáo, cài đặt, sao lưu</h3>
+  <h4>20.1 Báo cáo</h4>
+  <p>Trang <b>Báo cáo</b> liệt kê các buổi đã tổ chức. Chọn một buổi để xem lại; xuất PDF hoặc Excel. Có thể chọn các buổi để xóa, hoặc xóa toàn bộ; tệp kết quả được chuyển vào thùng rác Google Drive và khôi phục được trong 30 ngày.</p>
+  <figure><img src="anh/40-bao-cao.png"><figcaption>Trang Báo cáo.</figcaption></figure>
+  <h4>20.2 Cài đặt</h4>
+  <table>
+    <tr><th style="width:26%">Mục</th><th>Nội dung</th></tr>
+    <tr><td><b>Nơi lưu dữ liệu</b></td><td>Trạng thái kết nối Google Drive, <i>Cập nhật hoặc cài đặt lại Apps Script (5 bước)</i>, <i>Nâng cao: tự cập nhật</i>, <i>Sửa tay link và khóa</i>.</td></tr>
+    <tr><td><b>Sao lưu và khôi phục</b></td><td><i>Tải file sao lưu toàn bộ</i> (một tệp .json gồm lớp, học sinh, bộ đề, kết quả, ảnh và âm thanh) và <i>Khôi phục từ file .json</i>. Thanh dung lượng Google Drive cảnh báo khi gần đầy.</td></tr>
+    <tr><td><b>Tài khoản</b></td><td>Đổi mật khẩu, email khôi phục (xem mục 11).</td></tr>
+    <tr><td><b>Trí tuệ nhân tạo</b></td><td>Dán khóa API Gemini miễn phí để dùng <i>AI sinh đề</i>. Khóa được lưu trong trình duyệt của thầy cô.</td></tr>
+  </table>
+  <figure><img src="anh/30-cai-dat.png" style="width:86%"><figcaption>Cài đặt: Nơi lưu dữ liệu và Sao lưu.</figcaption></figure>
+  <div class="warn">Khi Google Drive đầy, phần mềm hiện cảnh báo đỏ ở mọi trang kèm nút <b>Tải file sao lưu toàn bộ</b>, vẫn dùng được khi Drive đã đầy. Từ 90% dung lượng trở lên, phần mềm nhắc trước.</div>
+</section>
+
+<section class="page">
+  <h3>21. Thẻ trả lời giấy</h3>
+  <p>Chế độ này dùng khi lớp không có thiết bị: cả lớp trả lời bằng <b>thẻ giấy</b>, không em nào cần điện thoại. Giáo viên chỉ cần thẻ giấy đã in và một chiếc điện thoại để quét.</p>
+  <figure><img src="anh/41-the-tra-loi.png"><figcaption>Trang Thẻ trả lời: in thẻ, cỡ thẻ, hướng dẫn in mặt sau.</figcaption></figure>
+  <h4>21.1 In thẻ</h4>
+  <ul>
+    <li><b>In cho lớp đã có danh sách:</b> mỗi thẻ in sẵn tên và số thứ tự của từng em, phát thẻ đúng bạn rất nhanh. Cần thêm lớp ở bước 2 trước.</li>
+    <li><b>In bộ thẻ dùng chung:</b> đánh số 1 đến 100, không in tên. Dùng cho mọi lớp; em số mấy trong danh sách cầm thẻ số đó.</li>
+    <li>Chọn cỡ thẻ: <b>2 thẻ một tờ</b> (lớp học thường) hoặc <b>1 thẻ một tờ, mã to</b> (phòng rộng). Bấm <b>Tải PDF bộ thẻ</b>; tùy chọn <b>Tải PDF mặt sau</b>.</li>
+    <li>Giấy A4 trắng, in đen trắng, tỉ lệ 100% (không chọn "vừa trang giấy"). In mặt sau bằng chế độ <b>in hai mặt, lật theo cạnh dài</b> để chữ A, B, C, D khớp đúng.</li>
+  </ul>
+  <h4>21.2 Chơi bằng thẻ</h4>
+  <ol>
+    <li>Thầy cô đưa câu hỏi lên màn chiếu, học sinh đọc và chọn đáp án.</li>
+    <li>Học sinh giơ thẻ, xoay cạnh có chữ đáp án lên trên.</li>
+    <li>Thầy cô dùng điện thoại mở trang quét (<code>/scan</code>) và quét các thẻ; phần mềm đọc mã trên thẻ và ghi nhận đáp án cho từng em.</li>
+    <li>Kết quả hiện trên màn hình giáo viên và được lưu vào báo cáo như các buổi khác.</li>
+  </ol>
+  <div class="tip">Mỗi em một tấm thẻ, giữa thẻ là ô mã đen riêng của em. Một bộ thẻ in một lần dùng cho mọi lớp trong cả năm học.</div>
+</section>
+
+<!-- ===================== PHẦN 4 ===================== -->
+<section class="page">
+  <h2>Phần 4 · Học sinh</h2>
+  <h3>22. Vào phòng bằng mã PIN, link hoặc mã QR</h3>
+  <p>Học sinh <b>không cần tài khoản</b>. Có ba cách vào phòng: mở <b>link</b> thầy cô gửi, quét <b>mã QR</b>, hoặc vào trang <i>phòng chơi</i> rồi nhập <b>mã PIN 6 số</b>.</p>
+  <figure><img src="anh/52-hoc-sinh-may-tinh-bang.png" style="width:44%"><figcaption>Trang vào phòng trên điện thoại: mã PIN đã điền sẵn từ link, tên, lớp và nhân vật.</figcaption></figure>
+  <h4>22.1 Các ô trên trang vào phòng</h4>
+  <table>
+    <tr><th style="width:26%">Mục</th><th>Cách dùng</th></tr>
+    <tr><td><b>Vào phòng chơi / Làm bài kiểm tra</b></td><td>Chọn đúng loại phòng thầy cô tổ chức.</td></tr>
+    <tr><td><b>Mã PIN</b></td><td>6 chữ số thầy cô giao. Bấm <b>Đổi mã</b> để nhập mã khác.</td></tr>
+    <tr><td><b>Tên hiển thị</b></td><td>Tên của em (tối đa 24 ký tự). Nên dùng họ tên thật để thầy cô nhận ra.</td></tr>
+    <tr><td><b>Lớp</b></td><td>Lớp của em, ví dụ 5A.</td></tr>
+    <tr><td><b>Nhân vật của em</b></td><td>Bấm <b>Đổi nhân vật</b> để chọn hình đại diện, hoặc <b>Bất ngờ!</b> để chọn ngẫu nhiên.</td></tr>
+    <tr><td><b>Tham gia</b></td><td>Vào phòng chờ. Khi thầy cô bấm Bắt đầu, câu hỏi sẽ hiện ra.</td></tr>
+    <tr><td><b>Tiếp tục làm bài</b></td><td>Xuất hiện khi trình duyệt đã nhớ phiên của em. Bấm để làm tiếp đúng chỗ đang dở.</td></tr>
+    <tr><td><b>Vào với tên khác</b></td><td>Bỏ phiên cũ để vào bằng tên khác.</td></tr>
+  </table>
+  <div class="warn">Nếu tên đã được dùng ở lượt làm trước, phần mềm hỏi lại: <b>Đổi tên khác</b> hoặc <b>Vẫn dùng tên cũ</b>. Hãy chọn đúng để kết quả đúng là của em.</div>
+</section>
+
+<section class="page">
+  <h3>23. Chơi trên điện thoại, máy tính bảng, máy tính</h3>
+  <figure><img src="anh/52b-hoc-sinh-cho-tren-may-tinh-bang.png" style="width:44%"><figcaption>Học sinh trong phòng chờ, chờ thầy cô bấm Bắt đầu.</figcaption></figure>
+  <figure><img src="anh/55-hoc-sinh-lam-cau-hoi.png" style="width:44%"><figcaption>Câu hỏi trên điện thoại: đồng hồ, điểm, hạng và bốn đáp án màu.</figcaption></figure>
+  <figure><img src="anh/56-hoc-sinh-da-nop-dap-an.png" style="width:44%"><figcaption>Sau khi chọn đáp án: "Đã ghi nhận đáp án của em", có thể chọn lại nếu còn giờ.</figcaption></figure>
+  <h4>23.1 Trong câu hỏi</h4>
+  <ul>
+    <li>Chạm vào đáp án để chọn. Khi cần bấm <b>Gửi đáp án</b> (nhiều đáp án, sắp xếp, nối cột, điền chỗ trống). Với kéo thả, chạm từ rồi chạm chỗ trống.</li>
+    <li>Thanh trên cùng hiện tên, thời gian còn lại, điểm, điểm thưởng và hạng.</li>
+    <li>Sau khi trả lời, phần mềm báo <b>Chính xác!</b> hoặc <b>Chưa đúng</b> kèm giải thích của thầy cô, rồi chờ thầy cô chuyển câu (chế độ điều khiển) hoặc bấm <b>Câu tiếp theo</b>.</li>
+    <li>Khi hết giờ mà chưa chọn, phần mềm báo <b>Hết giờ</b> và không hiện đáp án đúng.</li>
+  </ul>
+  <h4>23.2 Ở chế độ làm bài theo kiểu tự do</h4>
+  <p>Em có thể tự chọn câu để làm: bấm số câu trong bảng số câu để chuyển, làm xong bấm <b>Nộp bài</b>. Nếu thầy cô đặt <i>Cả bài trên một trang</i>, em cuộn xuống làm lần lượt và có thanh đếm số câu đã trả lời.</p>
+  <figure><img src="anh/72-choi-thu.png" style="width:80%"><figcaption>Chơi thử công khai (trang #/demo): xem các dạng câu hỏi mà không cần vào phòng.</figcaption></figure>
+  <div class="tip"><b>Mất mạng:</b> em cứ để nguyên trang. Phần mềm tự gửi lại câu trả lời khi có mạng. Nếu câu hỏi hoặc hình không hiện, bấm <span class="kbd">F5</span> (máy tính) hoặc nút <b>Tải lại</b> cạnh mã đề. Bài đã làm vẫn giữ nguyên và không bị tính vi phạm.</div>
+</section>
+
+<section class="page">
+  <h3>24. Làm bài kiểm tra bằng mã số học sinh</h3>
+  <ol>
+    <li>Mở link hoặc quét mã QR thầy cô gửi, chọn <b>Làm bài kiểm tra</b>.</li>
+    <li>Gõ <b>mã số học sinh</b> của em. Họ tên và lớp tự điền theo danh sách lớp để em kiểm tra, rồi bấm <b>Tham gia</b>. Chỉ mã có trong lớp mới vào được; mỗi mã làm một lần.</li>
+    <li>Thầy cô bấm <b>Bắt đầu</b>: đồng hồ chạy, hết giờ phần mềm tự thu bài.</li>
+    <li>Trong lúc làm, học sinh không được báo đúng hay sai. Nếu còn giờ và chưa nộp, em có thể bấm <b>Chọn lại đáp án</b> ở câu đã làm.</li>
+    <li>Làm xong bấm <b>Nộp bài kiểm tra</b>. Màn kết quả hiện số câu đúng, số câu sai, điểm thang 10 và mức đánh giá. Đã nộp thì không làm lại được.</li>
+  </ol>
+  <figure><img src="anh/63-vao-bai-kiem-tra.png" style="width:44%"><figcaption>Trang vào phòng: chọn "Làm bài kiểm tra" để nhập mã số học sinh.</figcaption></figure>
+</section>
+
+<section class="page">
+  <h3>25. Điểm, điểm thưởng và mức đánh giá</h3>
+  <table>
+    <tr><th style="width:30%">Thành phần</th><th>Quy tắc</th></tr>
+    <tr><td><b>Điểm</b></td><td>Điểm của câu nhân với phần làm đúng. Trả lời chậm không bị trừ điểm.</td></tr>
+    <tr><td><b>Điểm thưởng</b> (cộng riêng)</td><td>+20% khi trả lời đúng trong nửa đầu thời gian; +50% mỗi 3 câu đúng liên tiếp.</td></tr>
+    <tr><td><b>Xếp hạng</b></td><td>Theo tổng điểm và điểm thưởng.</td></tr>
+    <tr><td><b>Mức đánh giá</b></td><td>Chỉ tính theo điểm: <b>Hoàn thành xuất sắc</b> từ 90%, <b>Hoàn thành tốt</b> từ 70%, <b>Hoàn thành</b> từ 50%, <b>Chưa đạt</b> dưới 50%.</td></tr>
+  </table>
+  <div class="tip">Bảng điểm Excel của bài kiểm tra có sĩ số, số em đã nộp, điểm trung bình và số em ở từng mức (Hoàn thành xuất sắc từ 9 điểm, Hoàn thành tốt từ 7, Hoàn thành từ 5, Chưa đạt dưới 5).</div>
+</section>
+
+<!-- ===================== PHẦN 5 ===================== -->
+<section class="page">
+  <h2>Phần 5 · Phụ lục</h2>
+  <h3>26. Xử lý sự cố thường gặp</h3>
+  <table>
+    <tr><th style="width:34%">Hiện tượng</th><th>Cách xử lý</th></tr>
+    <tr><td>Học sinh báo "Mất mạng"</td><td>Phần mềm tự gửi lại câu trả lời khi có mạng; để nguyên trang.</td></tr>
+    <tr><td>"Máy chủ đang bận"</td><td>Lớp đông gửi cùng lúc; phần mềm tự thử lại sau vài giây.</td></tr>
+    <tr><td>Học sinh bị đòi đăng nhập Google khi mở link</td><td>Bản triển khai Apps Script chưa đặt quyền <b>Bất kỳ ai</b>. Xem mục 9.</td></tr>
+    <tr><td>Sửa mã Apps Script nhưng phần mềm không đổi</td><td>Chưa tạo <b>Phiên bản mới</b> khi triển khai. Xem mục 12.</td></tr>
+    <tr><td>Giao diện cũ sau khi cập nhật</td><td>Tải lại bằng <span class="kbd">Ctrl + F5</span>; nếu vẫn cũ, xóa dữ liệu trang trong trình duyệt rồi tải lại.</td></tr>
+    <tr><td>Báo "Khóa giáo viên không đúng"</td><td>Kiểm tra lại khóa giáo viên trong Trình cài đặt (chữ hoa, chữ thường).</td></tr>
+    <tr><td>Báo "Vượt hạn mức của Gemini"</td><td>Chờ vài phút; gói miễn phí giới hạn số lượt mỗi phút.</td></tr>
+    <tr><td>Ảnh tải lên không hiển thị</td><td>Kiểm tra thư mục Drive có cho chia sẻ "Bất kỳ ai có đường liên kết" không. Nếu Drive chặn, phần mềm tự nén ảnh và lưu kèm bộ đề.</td></tr>
+    <tr><td>Lỡ xóa bộ đề</td><td>Khôi phục từ Thùng rác Google Drive trong 30 ngày.</td></tr>
+    <tr><td>Quên mật khẩu giáo viên</td><td>Xem mục 11.</td></tr>
+  </table>
+</section>
+
+<section class="page">
+  <h3>27. Giới hạn cần biết</h3>
+  <ul>
+    <li><b>Đăng nhập tài khoản</b> là để quản lý ai được dùng bản chính thức, không phải để bảo vệ dữ liệu. Dữ liệu của mỗi giáo viên được bảo vệ bằng khóa giáo viên của Apps Script riêng.</li>
+    <li>Mỗi tài khoản một phiên: đăng nhập ở máy mới thì máy cũ bị đăng xuất ở lần kiểm tra kế tiếp.</li>
+    <li>Hạn mức miễn phí của Google (có thể thay đổi): khoảng 30 yêu cầu chạy đồng thời; 6 phút mỗi yêu cầu; khoảng 50 MB mỗi lần tải tệp; 15 GB dung lượng Google Drive dùng chung với Gmail và Ảnh. Lớp khoảng 50 học sinh là phù hợp nhất.</li>
+    <li>Video nên nhúng link YouTube để không tốn dung lượng Drive.</li>
+    <li>Bộ đề đã tổ chức buổi học được lưu thành ảnh chụp; sửa bộ đề sau đó không ảnh hưởng buổi đã tổ chức.</li>
+  </ul>
+  <div class="ok">Tài liệu này được soạn dựa trên phiên bản phần mềm 1.6.2 và các tài liệu hướng dẫn kèm theo. Khi có phiên bản mới, một số màn hình có thể thay đổi nhỏ.</div>
+  <p class="small" style="margin-top:14pt">Tác giả: Nguyễn Thanh Liêm · Zalo: 0888358363</p>
+</section>
+
+</body>
+</html>

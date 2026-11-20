@@ -151,7 +151,7 @@
 .ps-roster-grid span.bad { background: #fde4e4; color: #9b1c1c; }
 .ps-scan { padding-bottom: 0; }
 .ps-cam { position: relative; flex: 1 1 auto; min-height: 58dvh; border-radius: 20px; overflow: hidden; background: #0a1730; }
-.ps-cam video, .ps-cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.ps-cam video, .ps-cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; } /* hình camera lấp đầy khung, không còn dải đen hai bên */
 /* iPhone vẽ video ở lớp riêng nằm trên các phần tử sau nó: đặt lớp nhãn lên trên hẳn */
 .ps-cam canvas { z-index: 2; pointer-events: none; } /* hình camera + nhãn tên vẽ chung trong khung này */
 .ps-start .alert { max-width: 340px; }
@@ -173,7 +173,7 @@
 .ps-corner.tr { top: 14%; right: 8%; border-left: 0; border-bottom: 0; }
 .ps-corner.bl { bottom: 14%; left: 8%; border-right: 0; border-top: 0; }
 .ps-corner.br { bottom: 14%; right: 8%; border-left: 0; border-top: 0; }
-.ps-zoom { position: absolute; right: 10px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.ps-zoom { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .ps-zoom span { padding: 4px 10px; border-radius: 999px; background: rgba(15, 23, 42, 0.75); color: #fff; font-weight: 800; }
 .ps-zoom button { width: 48px; height: 48px; border-radius: 14px; border: 0; background: rgba(15, 23, 42, 0.75); color: #fff; display: grid; place-items: center; cursor: pointer; }
 .ps-start { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; align-items: center; justify-content: center; padding: 20px; text-align: center; color: #fff; }
