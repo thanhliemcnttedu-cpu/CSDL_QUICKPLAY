@@ -234,7 +234,7 @@ export default function Play() {
   useEffect(() => {
     if (!poll) return;
     if (poll.kicked) {
-      localStorage.removeItem(playerKey(pin));
+      sessionStorage.removeItem(playerKey(pin));
       return;
     }
     if (prevState.current === 'LOBBY_WAITING' && poll.state === 'IN_PROGRESS') {
@@ -542,7 +542,7 @@ export default function Play() {
   }, [showingQuestion, doneNow, fs]);
   /** Bỏ lượt làm hiện tại và vào lại phòng để làm lại từ đầu (lần làm mới được ghi riêng trong báo cáo). */
   const restart = () => {
-    localStorage.removeItem(playerKey(pin));
+    sessionStorage.removeItem(playerKey(pin));
     nav(`/join?pin=${pin}&again=1${location.hash.includes('s=') ? '&' + location.hash.split('?')[1] : ''}`);
   };
   const [soundEnabled, setSoundEnabled] = useState(soundOn());

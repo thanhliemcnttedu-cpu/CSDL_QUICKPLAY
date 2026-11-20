@@ -23,16 +23,16 @@ export function loadPlayer(pin: string): SavedPlayer | null {
   // Mở từ Zalo sang trình duyệt của máy: đường dẫn mang theo "me=" (chỉ gắn khi em đã làm xong bài)
   // để trình duyệt mới nhận ra em và hiện đúng phiếu kết quả, không bắt vào phòng lại.
   try {
-    if (!localStorage.getItem(playerKey(pin))) {
+    if (!sessionStorage.getItem(playerKey(pin))) {
       const m = location.hash.match(/[?&]me=([^&]+)/);
       const sp = m ? fromB64Url<SavedPlayer>(decodeURIComponent(m[1])) : null;
       if (sp && sp.pin === pin && typeof sp.player_id === 'string' && sp.player_id) {
-        localStorage.setItem(playerKey(pin), JSON.stringify({ pin, player_id: sp.player_id, name: String(sp.name || ''), avatar: String(sp.avatar || ''), class_name: sp.class_name }));
+        sessionStorage.setItem(playerKey(pin), JSON.stringify({ pin, player_id: sp.player_id, name: String(sp.name || ''), avatar: String(sp.avatar || ''), class_name: sp.class_name }));
       }
     }
   } catch { /* bỏ qua */ }
   try {
-    return JSON.parse(localStorage.getItem(playerKey(pin)) || 'null');
+    return JSON.parse(sessionStorage.getItem(playerKey(pin)) || 'null');
   } catch {
     return null;
   }
@@ -178,7 +178,7 @@ export function Join() {
       setWaitMsg('');
       if (r.boot) putBoot(pin, r.player_id, r.boot); // đề + tiến độ đi kèm: màn làm bài hiện ngay
       const sp: SavedPlayer = { pin, player_id: r.player_id, name: r.player.name, avatar: r.player.avatar, class_name: r.player.class_name };
-      localStorage.setItem(playerKey(pin), JSON.stringify(sp));
+      sessionStorage.setItem(playerKey(pin), JSON.stringify(sp));
       localStorage.setItem('quizzi.lastName', sp.name);
       if (sp.class_name) localStorage.setItem('quizzi.lastClass', sp.class_name);
       localStorage.setItem('quizzi.lastAvatar', sp.avatar);
@@ -199,7 +199,7 @@ export function Join() {
         setErr(BAD_PIN);
       } else setErr(msg);
       // lỗi tạm thời (mất mạng, máy chủ bận): giữ lại lượt chơi đã lưu để em bấm "Vào tiếp" lần nữa
-      if (resume && !(e as { retryable?: boolean }).retryable) localStorage.removeItem(playerKey(pin));
+      if (resume && !(e as { retryable?: boolean }).retryable) sessionStorage.removeItem(playerKey(pin));
       setBusy(false);
     }
   };
@@ -254,7 +254,7 @@ export function Join() {
               <div style={{ alignSelf: 'center' }}><Avatar value={saved.avatar} size={96} /></div>
               <p style={{ margin: 0 }}>Em đã vào phòng này với tên <b>{saved.name}</b>{saved.class_name ? <> – lớp <b>{saved.class_name}</b></> : null}.</p>
               <button type="button" className="btn primary lg" disabled={busy} onClick={() => join(saved)}><LogIn size={20} /> Tiếp tục làm bài</button>
-              <button type="button" className="btn ghost" onClick={() => { localStorage.removeItem(playerKey(pin)); setPin(pin + ''); setErr(''); nav(0); }}>Vào với tên khác</button>
+              <button type="button" className="btn ghost" onClick={() => { sessionStorage.removeItem(playerKey(pin)); setPin(pin + ''); setErr(''); nav(0); }}>Vào với tên khác</button>
             </div>
           ) : (
             <>
@@ -317,13 +317,13 @@ export function Join() {
             <div className="alert warn" role="alert">
               <div className="stack" style={{ gap: 10 }}>
                 <div>
-                  <b>Tên này đã được dùng ở lượt làm trước.</b> Em đang chơi ở lượt sau và điền tên giống một bạn trong lớp đã dùng tên <b>{name.trim()}</b> (lớp {cls.trim()}).
-                  Em có thể điền một tên mới, hoặc thêm một ký tự sau tên của mình để phân biệt với bạn (ví dụ: {name.trim()} 2).
-                  Nếu đây chính là em làm lại bài, em vẫn dùng tên cũ được: mỗi lần làm được ghi riêng theo ngày giờ, không ghi đè kết quả lần trước.
+                  <b>Đã có bạn trong lớp {cls.trim()} dùng tên {name.trim()} trong bài này.</b> Có phải em đang thi lại không?
+                  Nếu bấm <b>Có</b>, bài mới của em sẽ <b>ghi đè</b> bài cũ và kết quả chỉ tính theo lần mới.
+                  Nếu bấm <b>Không</b>, em phải điền một tên khác (ví dụ thêm họ hoặc một ký tự sau tên) thì mới vào thi được.
                 </div>
                 <div className="row">
-                  <button type="button" className="btn primary" onClick={() => { setNameUsed(false); nameRef.current?.focus(); nameRef.current?.select(); }}>Đổi tên khác</button>
-                  <button type="button" className="btn ghost" disabled={busy} onClick={() => join(undefined, true)}>Vẫn dùng tên cũ</button>
+                  <button type="button" className="btn ghost" disabled={busy} onClick={() => { setNameUsed(false); nameRef.current?.focus(); nameRef.current?.select(); }}>Không, đổi tên khác</button>
+                  <button type="button" className="btn primary" disabled={busy} onClick={() => join(undefined, true)}>Có, thi lại với tên này</button>
                 </div>
               </div>
             </div>

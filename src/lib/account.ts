@@ -116,8 +116,10 @@ export async function checkSession(): Promise<boolean> {
     await call('check', { username: a.username, token: a.token });
     return true;
   } catch (e) {
-    if (e instanceof AccountError && /kết nối|hợp lệ/.test(e.message)) return true; // mất mạng: không đăng xuất oan
-    return false;
+    // Chỉ đăng xuất khi máy chủ nói rõ: phiên đã hết hạn hoặc tài khoản bị khóa.
+    // Mọi lỗi khác (mất mạng, máy chủ bận, máy chủ bản cũ chưa có chức năng kiểm tra…) vẫn giữ đăng nhập, không bắt đăng nhập lại oan.
+    if (e instanceof AccountError && /hết hạn|đang bị khóa/.test(e.message)) return false;
+    return true;
   }
 }
 

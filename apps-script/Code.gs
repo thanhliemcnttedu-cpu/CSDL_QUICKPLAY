@@ -1341,16 +1341,16 @@ function actJoinSession_(req) {
     var lower = name.toLowerCase();
     var lowerClass = className.toLowerCase();
     // Hai bạn trùng tên ở hai lớp khác nhau vẫn vào được
-    // Cùng tên + cùng lớp: lần trước đã nộp bài hoặc bị khóa → đây là LẦN LÀM MỚI của em đó
-    // (trực tiếp tự do, bài về nhà: làm lại không giới hạn). Lần trước còn đang làm dở → từ chối.
+    // Cùng tên + cùng lớp đã có trong phòng (lượt trước của em, hoặc một bạn khác trùng tên):
+    // máy chủ hỏi lại qua mã [TEN_DA_DUNG]. Em bấm "Có" (reuse_name) thì lượt mới GHI ĐÈ lượt cũ
+    // (bảng xếp hạng và kết quả chỉ tính lượt mới); bấm "Không" thì em phải đổi tên khác.
+    // Trực tiếp tự do, bài về nhà (1.5.8): không giới hạn số lần, mỗi lần vào là một lượt mới, không hỏi lại.
     var mine = s.players.filter(function (p) {
       return !p.kicked && String(p.name).toLowerCase() === lower && String(p.class_name || '').toLowerCase() === lowerClass;
     });
     var redo = s.settings.mode === 'classic_live' || s.settings.mode === 'homework';
-    // Trực tiếp tự do, bài về nhà (1.5.8): KHÔNG giới hạn số lần, cùng một tên vào bao nhiêu lần cũng được, không hỏi lại.
-    // Mỗi lần vào là một LƯỢT MỚI (attempt_no 2, 3…) có giờ vào riêng (joined_at); lượt cũ giữ nguyên, không bị ghi đè.
-    // Bảng xếp hạng chỉ hiện lượt mới nhất (superseded). Các chế độ khác: trùng tên + lớp thì từ chối như cũ.
-    if (!redo && mine.length) deny('Tên "' + name + '" đang có bạn cùng lớp dùng. Hãy thêm họ hoặc chọn tên khác.');
+    var reuseName = !!req.reuse_name;
+    if (!redo && mine.length && !reuseName) deny('[TEN_DA_DUNG] Tên "' + name + '" đã có bạn cùng lớp dùng trong bài này.');
     mine.forEach(function (p) { p.superseded = true; });
     if (s.players.length >= MAX_PLAYERS) deny('Phòng đã đủ ' + MAX_PLAYERS + ' người tham gia.');
 

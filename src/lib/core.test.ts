@@ -486,7 +486,9 @@ describe('làm lại bài nhiều lần', () => {
     const p = logic.createSession('666666', 'q', 'T', 1, { mode: 'instructor_paced', music: false, shuffle_questions: false, shuffle_options: false, show_leaderboard: true, power_ups: false });
     const x = logic.joinPlayer(p, 'An', 'cat', undefined, '5A');
     x.finished = true;
-    expect(() => logic.joinPlayer(p, 'An', 'cat', undefined, '5A', true)).toThrow();
+    expect(() => logic.joinPlayer(p, 'An', 'cat', undefined, '5A')).toThrow('[TEN_DA_DUNG]'); // trùng tên: máy chủ hỏi lại
+    const y = logic.joinPlayer(p, 'An', 'cat', undefined, '5A', true); // em bấm "Có, thi lại": ghi đè lượt cũ
+    expect([y.superseded, x.superseded]).toEqual([undefined, true]);
   });
 });
 

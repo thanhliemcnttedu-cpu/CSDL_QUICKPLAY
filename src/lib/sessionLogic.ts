@@ -252,11 +252,9 @@ export function joinPlayer(s: Session, name: string, avatar: string, playerId?: 
   // Hai bạn trùng tên ở hai lớp khác nhau vẫn vào được
   const mine = s.players.filter((p) => !p.kicked && same(p.name, clean) && same(p.class_name ?? '', cls));
   const redo = s.settings.mode === 'classic_live' || s.settings.mode === 'homework';
-  // Trực tiếp tự do, bài về nhà (1.5.8): KHÔNG giới hạn số lần, cùng một tên vào bao nhiêu lần cũng được, không hỏi lại.
-  // Mỗi lần vào là một LƯỢT MỚI (lần 2, 3…) có giờ vào riêng; lượt cũ vẫn giữ nguyên trong báo cáo, không bị ghi đè.
-  // Bảng xếp hạng chỉ hiện lượt mới nhất. Các chế độ khác: cùng tên + cùng lớp thì từ chối như cũ.
-  if (!redo && mine.length) throw new Error('Tên này đang có bạn cùng lớp dùng, hãy thêm họ hoặc chọn tên khác.');
-  void reuseName; // máy khách cũ còn gửi; không cần nữa
+  // Cùng tên + cùng lớp đã có trong phòng: máy chủ hỏi lại (mã NAME_USED). Em bấm "Có" (reuseName) thì lượt mới
+  // GHI ĐÈ lượt cũ: bảng xếp hạng và kết quả chỉ tính lượt mới. Bài về nhà / trực tiếp tự do (redo) không hỏi.
+  if (!redo && mine.length && !reuseName) throw new Error(`${NAME_USED} Tên này đã có bạn cùng lớp dùng trong bài này.`);
   mine.forEach((p) => (p.superseded = true));
   const p: Player = {
     player_id: uid('p_'),

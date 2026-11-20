@@ -141,7 +141,8 @@ describe('Apps Script: vào phòng kiểm tra nhanh (1.5.8)', () => {
     // giáo viên điều khiển: vẫn không cho trùng tên + lớp
     const { pin } = r.post('createSession', { quiz_id: q.id, settings: { mode: 'instructor_paced' } });
     r.post('joinSession', { pin, name: 'An', class_name: '3A', avatar: 'x' });
-    expect(() => r.post('joinSession', { pin, name: 'An', class_name: '3A', avatar: 'x' })).toThrow(/đang có bạn/);
+    expect(() => r.post('joinSession', { pin, name: 'An', class_name: '3A', avatar: 'x' })).toThrow(/TEN_DA_DUNG/); // trùng tên: máy chủ hỏi lại, không tự chặn
+    expect(() => r.post('joinSession', { pin, name: 'An', class_name: '3A', avatar: 'x', reuse_name: true })).not.toThrow();
   });
 
   it('máy khách cũ (không xin boot) vẫn nhận kết quả như trước', () => {

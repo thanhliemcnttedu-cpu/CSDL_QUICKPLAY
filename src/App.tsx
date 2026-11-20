@@ -56,8 +56,11 @@ function DeviceLauncher() {
 
 function RequireTeacher({ children }: { children: ReactNode }) {
   const nav = useNavigate();
+  const loc = useLocation();
   const need = accountRequired();
   const acc = currentAccount();
+  // Đăng nhập xong quay lại đúng trang đang làm (tải lại trang không bị đẩy về trang chủ)
+  const back = `/teacher/login?next=${encodeURIComponent(loc.pathname + loc.search)}`;
   useEffect(() => {
     if (!need || !acc) return;
     let live = true;
@@ -65,14 +68,14 @@ function RequireTeacher({ children }: { children: ReactNode }) {
     checkSession().then((ok) => {
       if (live && !ok) {
         logout();
-        nav('/teacher/login', { replace: true });
+        nav(back, { replace: true });
       }
     });
     return () => {
       live = false;
     };
   }, [need, acc?.token]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (need && !acc) return <Navigate to="/teacher/login" replace />;
+  if (need && !acc) return <Navigate to={back} replace />;
   return <>{children}</>;
 }
 
