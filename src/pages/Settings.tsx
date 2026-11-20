@@ -104,7 +104,8 @@ export default function Settings() {
       const { api } = await import('../lib/api');
       if (next.folderUrl) folderName = (await api.setRootFolder(next.folderUrl)).name;
       else await testConnection(next.scriptUrl);
-      if (acc) await saveVault({ scriptUrl: next.scriptUrl, teacherKey: next.teacherKey, folderUrl: next.folderUrl });
+      // Lần đầu cài đặt thì cất vào tài khoản để máy khác tự nhớ; đổi thư mục khi đã có cấu hình thì chỉ đổi trên máy này
+      if (acc && !prev.scriptUrl) await saveVault({ scriptUrl: next.scriptUrl, teacherKey: next.teacherKey, folderUrl: next.folderUrl });
     } catch (e) {
       saveSettings(prev);
       throw e;
@@ -161,7 +162,7 @@ export default function Settings() {
         toast(`Apps Script sẽ lưu dữ liệu vào thư mục “${r.name}”.`, 'ok');
       }
       // Cất cấu hình (đã mã hóa bằng mật khẩu của thầy cô) vào tài khoản để lần sau đăng nhập ở máy nào cũng nhớ
-      if (acc && next.backend === 'drive') await saveVault({ scriptUrl: next.scriptUrl, teacherKey: next.teacherKey, folderUrl: next.folderUrl });
+      if (acc && next.backend === 'drive' && !prev.scriptUrl) await saveVault({ scriptUrl: next.scriptUrl, teacherKey: next.teacherKey, folderUrl: next.folderUrl });
     } catch (e) {
       saveSettings(prev);
       setBusy(false);
@@ -237,7 +238,11 @@ export default function Settings() {
             {connected ? (
               <div className="conn-ok" role="status">
                 <CheckCircle2 size={22} />
-                <span className="grow">Đã kết nối Google Drive{server && 'version' in server ? ` · Apps Script phiên bản ${server.version}${outdated ? '' : ' (mới nhất)'}` : ''}</span>
+                <span className="grow">
+                  <b>{acc ? 'Dữ liệu đang lưu: thư mục Google Drive cá nhân' : 'Đã kết nối Google Drive'}</b>
+                  {acc && <small style={{ display: 'block' }}>Đăng nhập qua máy chủ quản trị. Thay đổi thư mục ở đây chỉ áp dụng cho máy này.</small>}
+                  {server && 'version' in server ? <small style={{ display: 'block' }}>Apps Script phiên bản {server.version}{outdated ? '' : ' (mới nhất)'}</small> : null}
+                </span>
                 {saved.folderUrl && <a className="btn sm" href={saved.folderUrl} target="_blank" rel="noopener noreferrer"><FolderOpen size={16} /> Mở thư mục</a>}
               </div>
             ) : (
@@ -257,7 +262,7 @@ export default function Settings() {
             )}
 
             <Fold key="cai-dat" {...fold('cai-dat-5-buoc')} locked={!compact} icon={<Wand2 size={18} color="var(--primary)" />}
-              title={compact ? 'Cập nhật hoặc cài đặt lại Apps Script (5 bước)' : 'Kết nối Google Drive (5 bước)'} note={compact ? (outdated ? 'Cần làm: có bản mới' : 'Khi có bản mới, đổi Gmail hoặc đổi thư mục') : undefined}>
+              title={compact ? (acc ? 'Nạp thư mục cá nhân Google Drive (5 bước)' : 'Cập nhật hoặc cài đặt lại Apps Script (5 bước)') : 'Kết nối Google Drive (5 bước)'} note={compact ? (outdated ? 'Cần làm: có bản mới' : 'Khi có bản mới, đổi Gmail hoặc đổi thư mục') : undefined}>
               <ScriptInstaller kind="teacher" current={{ scriptUrl: saved.scriptUrl, key: saved.teacherKey, folderUrl: saved.folderUrl }} onDone={installed} />
             </Fold>
 
@@ -316,6 +321,7 @@ export default function Settings() {
           <button className="btn primary" onClick={full.run} disabled={!!full.prog || busy}><Download size={18} /> Tải file sao lưu toàn bộ</button>
           <button className="btn" onClick={restoreTool.open} disabled={!!full.prog || busy}><Upload size={18} /> Khôi phục từ file .json</button>
         </div>
+        <small className="muted"><b>Sao lưu toàn bộ (.json)</b> · dùng cho: giáo viên · bộ đề, ngân hàng câu hỏi, lớp và kết quả các buổi, để khôi phục khi đổi máy hoặc khi Drive gặp sự cố.</small>
         <small className="muted">
           Một tệp <code>.json</code> duy nhất chứa tất cả: lớp, học sinh, bộ câu hỏi, kết quả, ảnh và âm thanh. Sang máy khác hoặc đổi Google Drive, chỉ cần khôi phục từ tệp này là đủ dữ liệu.
           {last && <> Lần tải gần nhất: {last.name} ({formatBytes(last.size)}), {when(last.at)}.</>}

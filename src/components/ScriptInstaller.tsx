@@ -328,6 +328,7 @@ export function ScriptInstaller({ kind, current, onDone }: Props) {
                   <div><dt>Thư mục Google Drive</dt><dd>{link.folder_url ? <a href={link.folder_url} target="_blank" rel="noopener noreferrer">{link.folder_name || link.folder_id || 'Mở thư mục'}</a> : 'chưa khai báo'}</dd></div>
                 </dl>
                 <button type="button" className="btn sm success" onClick={downloadLink}><Download size={16} /> Tải tệp kết nối (.json)</button>
+                <small className="muted"><b>Tệp kết nối (.json)</b> · dùng cho: {teacher ? 'giáo viên' : 'quản trị'} · </small>
                 <small className="muted">Đăng nhập ở máy tính khác: bấm <b>Nạp tệp kết nối (.json)</b> ở đầu Trình cài đặt và chọn tệp này, không phải dán lại link thư mục và link Apps Script.{teacher ? ' Tệp có khóa giáo viên, hãy giữ kín.' : ' Tệp của quản trị không chứa khóa hay mật khẩu.'}</small>
               </div>
             )}

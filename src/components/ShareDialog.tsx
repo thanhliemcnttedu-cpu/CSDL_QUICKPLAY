@@ -109,7 +109,10 @@ export function ShareExportDialog({ items, onClose }: { items: QuizSummary[]; on
 
   return (
     <Modal title="Chia sẻ bộ đề hoặc câu hỏi" onClose={onClose} wide footer={
-      <button className="btn primary" onClick={exportNow} disabled={!picked.size || !!busy}><Download size={18} /> {busy ?? `Xuất tệp chia sẻ (${picked.size} bài)`}</button>
+      <div className="row" style={{ alignItems: 'center', gap: 12 }}>
+        <small className="muted" style={{ flex: 1 }}><b>Tệp chia sẻ (.json)</b> · dùng cho: giáo viên · gửi bài cho giáo viên khác, họ nhập bằng nút "Nhập bộ đề chia sẻ".</small>
+        <button className="btn primary" onClick={exportNow} disabled={!picked.size || !!busy}><Download size={18} /> {busy ?? `Xuất tệp chia sẻ (${picked.size} bài)`}</button>
+      </div>
     }>
       <div className="stack">
         <p className="muted" style={{ margin: 0 }}>Bước 1: chọn nguồn. Bước 2: lọc theo lớp và môn. Bước 3: tích các bài muốn chia sẻ, bấm <b>Chọn câu</b> để tích riêng từng câu.</p>

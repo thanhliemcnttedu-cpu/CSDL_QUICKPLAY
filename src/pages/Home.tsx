@@ -17,6 +17,8 @@ const FEATURES = [
 
 export function Home() {
   const nav = useNavigate();
+  // Bản cài Windows (Electron) có cầu nối quizziDesktop trong preload
+  const desktop = !!(window as unknown as { quizziDesktop?: { isDesktop?: boolean } }).quizziDesktop?.isDesktop;
   const [pin, setPin] = useState('');
   // Bấm "Vào phòng" luôn sang trang dành cho học sinh; đã gõ đủ 6 số thì mang mã theo để em không phải nhập lại
   const go = () => nav(/^\d{6}$/.test(pin) ? `/join?pin=${pin}` : '/join');
@@ -77,6 +79,18 @@ export function Home() {
             <JoinShare />
           </form>
         </section>
+        {desktop && (
+          <section className="card stack" aria-label="Nạp dữ liệu" style={{ maxWidth: 760, margin: '0 auto 24px' }}>
+            <h2 style={{ margin: 0 }}>Nạp dữ liệu</h2>
+            <p className="muted small" style={{ margin: 0 }}>
+              Bản cài đặt này nối với máy chủ tài khoản do quản trị cấp. Quản trị nạp để quản lý tài khoản; giáo viên nạp để đăng nhập và làm việc với dữ liệu của mình.
+            </p>
+            <div className="row">
+              <Link to="/login?role=admin" className="btn ghost lg">Nạp dữ liệu quản trị</Link>
+              <Link to="/login?role=teacher" className="btn primary lg">Nạp dữ liệu giáo viên (máy chủ quản trị)</Link>
+            </div>
+          </section>
+        )}
         <section className="feature-list" aria-label="Tính năng">
           {FEATURES.map(({ ic: Ic, t, d }) => (
             <div key={t} className="feature card tight">

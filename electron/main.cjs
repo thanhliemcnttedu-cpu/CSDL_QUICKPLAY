@@ -126,6 +126,15 @@ function configureSession(ses) {
     return DEV_ORIGIN ? origin === DEV_ORIGIN : origin.startsWith('file://') || origin === 'null';
   });
 
+  // Tải tệp (sao lưu, tệp kết nối, tệp chia sẻ .json): hỏi nơi lưu bằng hộp thoại Windows, tiếng Việt
+  ses.on('will-download', (_event, item) => {
+    item.setSaveDialogOptions({
+      title: 'Lưu tệp Quickplay',
+      defaultPath: item.getFilename(),
+      filters: [{ name: 'Tệp JSON', extensions: ['json'] }, { name: 'Tất cả tệp', extensions: ['*'] }],
+    });
+  });
+
   // Không bao giờ cho phép thiết bị USB/HID/Serial.
   ses.setDevicePermissionHandler(() => false);
 
