@@ -9,6 +9,7 @@ import { loadSettings, scriptUrlFromLink } from './settings';
 import * as logic from './sessionLogic';
 import { randomPin, uid } from './util';
 import { kvGet, kvSet, kvDel, kvKeys } from './idb';
+import * as sync from './offlineSync';
 
 export class ApiError extends Error {
   /** Lỗi tạm thời (mất mạng, máy chủ bận): gửi lại sau vài giây là được */
@@ -269,12 +270,72 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
   return r as T;
 }
 
+// ---------------- Chế độ Drive có kho dự phòng trên máy (dùng được khi mất mạng) ----------------
+/** Thao tác ghi của giáo viên: ghi vào kho trên máy trước, rồi đẩy lên Drive trong nền. */
+const TEACHER_WRITES = new Set(['saveQuiz', 'deleteQuiz', 'saveCatalog', 'saveClass', 'deleteClass']);
+/** Thao tác đọc: khi mất mạng thì dùng bản trên máy. */
+const OFFLINE_READS = new Set(['listQuizzes', 'getQuiz', 'getCatalog', 'listClasses', 'uploadMedia']);
+
+const syncTransport: sync.SyncTransport = {
+  drive: <T,>(action: string, params: Record<string, unknown> = {}) => callDrive<T>(action, params),
+  isRetryable: (e) => e instanceof ApiError && e.retryable,
+};
+
+async function teacherWrite<T>(action: string, params: Record<string, any>): Promise<T> {
+  const r = await sync.locked(async () => {
+    const local = await callLocal<any>(action, params);
+    const key = action === 'saveCatalog' ? 'catalog'
+      : action === 'saveQuiz' || action === 'deleteQuiz' ? 'quiz:' + local.id
+      : 'class:' + local.id;
+    const op = action.startsWith('delete') ? 'del' : 'put';
+    await sync.queueWriteRaw(key, op);
+    return local;
+  });
+  void sync.flushAll(syncTransport); // đẩy trong nền; lỗi và số mục chờ hiện ở thanh trạng thái
+  return r as T;
+}
+
+async function driveRead<T>(action: string, params: Record<string, unknown>): Promise<T> {
+  const offline = () => callLocal<T>(action, params as Record<string, any>);
+  if (typeof navigator !== 'undefined' && navigator.onLine === false && OFFLINE_READS.has(action)) return offline();
+  try {
+    const r = await callDrive<T>(action, params);
+    if (action === 'getQuiz' || action === 'getCatalog') {
+      // Bản trên Drive chỉ ghi vào kho khi máy không còn thay đổi nào chờ đẩy (tránh ghi đè bản đang sửa)
+      const key = action === 'getCatalog' ? 'catalog' : 'quiz:' + (params.id as string);
+      const pending = await sync.locked(() => sync.hasPendingRaw(key));
+      if (pending) return offline();
+      await sync.locked(async () => {
+        if (!(await sync.hasPendingRaw(key))) await kvSet(key, r);
+      });
+    }
+    return r;
+  } catch (e) {
+    if (OFFLINE_READS.has(action) && e instanceof ApiError && e.retryable) return offline();
+    throw e;
+  }
+}
+
 export function call<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const s = loadSettings();
   const linked = scriptUrlFromLink();
-  return s.backend === 'drive' ? callDrive<T>(action, params)
-    : linked ? callDrive<T>(action, params, linked) // học sinh mở link tham gia có kèm URL Apps Script
-    : callLocal<T>(action, params as Record<string, any>);
+  if (linked) return callDrive<T>(action, params, linked); // học sinh mở link tham gia có kèm URL Apps Script
+  if (s.backend !== 'drive') return callLocal<T>(action, params as Record<string, any>);
+  if (TEACHER_WRITES.has(action)) return teacherWrite<T>(action, params as Record<string, any>);
+  if (OFFLINE_READS.has(action)) return driveRead<T>(action, params);
+  return callDrive<T>(action, params);
+}
+
+let syncStarted = false;
+/** Bật đồng bộ nền (một lần khi mở phần mềm): đẩy hàng đợi khi có mạng, kéo về khi mở và khi có mạng lại. */
+export function startSync() {
+  if (syncStarted || typeof window === 'undefined') return;
+  syncStarted = true;
+  const active = () => loadSettings().backend === 'drive' && !scriptUrlFromLink() && navigator.onLine !== false;
+  const pullNow = () => { if (active()) void sync.runSync(syncTransport, { pull: true }); };
+  window.addEventListener('online', pullNow);
+  window.setInterval(() => { if (active()) void sync.runSync(syncTransport, { pull: false }); }, 60_000);
+  pullNow();
 }
 
 export const testConnection = (url: string) => callDrive<{ name: string; version: string }>('verifyTeacher', {}, url);

@@ -10,7 +10,9 @@
     "build": "tsc -b && vite build && node scripts/publish-apps-script.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "electron:dev": "vite build --base=./ && electron .",
+    "dist:win": "vite build --base=./ && electron-builder --win nsis --config electron-builder.yml"
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "^5.3.0",
@@ -34,6 +36,9 @@
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "~5.6.3",
     "vite": "^5.4.11",
-    "vitest": "^2.1.5"
-  }
+    "vitest": "^2.1.5",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "main": "electron/main.cjs"
 }

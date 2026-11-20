@@ -5,6 +5,8 @@ import { BookOpen, BarChart3, Settings as SettingsIcon, Cloud, HardDrive, ScanLi
 import { LightboxProvider, Spinner, ToastProvider, askConfirm, useToast } from './components/ui';
 import { loadSettings } from './lib/settings';
 import { DriveFullBanner } from './components/BackupTools';
+import { SyncBadge } from './components/SyncBadge';
+import { startSync } from './lib/api';
 import { ScriptUpdateNotice, ServerVersionInfo } from './components/ScriptUpdate';
 import { TopbarClock } from './components/TopbarClock';
 import { MusicButton } from './components/MusicButton';
@@ -117,6 +119,7 @@ function TeacherShell({ children }: { children: ReactNode }) {
         <span className={`badge ${s.backend === 'drive' ? 'green' : 'amber'}`} title={s.backend === 'drive' ? 'Dữ liệu lưu trên Google Drive' : 'Dữ liệu chỉ lưu trong trình duyệt này'}>
           {s.backend === 'drive' ? <Cloud size={14} /> : <HardDrive size={14} />} {s.backend === 'drive' ? 'Google Drive' : 'Máy này'}
         </span>
+        <SyncBadge />
         <ServerVersionInfo />
         <TopbarClock />
         <nav className="topnav" aria-label="Điều hướng giáo viên">
@@ -135,6 +138,8 @@ function TeacherShell({ children }: { children: ReactNode }) {
 }
 
 export function App() {
+  // Đồng bộ nền với Google Drive (chỉ hoạt động khi lưu trên Drive): đẩy thay đổi chờ, kéo bản mới về
+  useEffect(() => { startSync(); }, []);
   return (
     <ToastProvider>
       <LightboxProvider>
