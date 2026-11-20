@@ -15,6 +15,7 @@ import type { AnswerRecord } from '../lib/types';
 import { computeBonus, computeScore, gradeRatio, type Answer } from '../lib/grading';
 import { totalOf } from '../lib/report';
 import { Leaderboard } from '../components/Leaderboard';
+import { celebrate } from '../components/Fireworks';
 import { answerKey } from '../lib/sessionLogic';
 import { hashString, shuffle } from '../lib/util';
 import { onSoundChange, setSound, sfx, soundOn } from '../lib/sound';
@@ -520,6 +521,13 @@ export default function Play() {
   useEffect(() => {
     if (doneNow) sfx.fanfare(); // hoàn thành bài
   }, [doneNow]);
+  // Pháo hoa chúc mừng 5 giây: khi em nộp xong bài, và khi thầy cô bấm kết thúc tổng kết (một lần cho mỗi việc trong phiên trình duyệt)
+  useEffect(() => {
+    if (selfDone) celebrate(`self-${pin}`);
+  }, [selfDone, pin]);
+  useEffect(() => {
+    if (poll?.state === 'COMPLETED') celebrate(`end-${pin}`);
+  }, [poll?.state, pin]);
   // Khi đang trả lời câu hỏi mà chưa ở toàn màn hình: lần chạm / bấm phím kế tiếp sẽ tự phóng to toàn màn hình
   // (trình duyệt chỉ cho phóng to ngay sau một thao tác của người dùng). iPhone không hỗ trợ nên bỏ qua.
   useEffect(() => {

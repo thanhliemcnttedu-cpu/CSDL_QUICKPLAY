@@ -2,9 +2,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
-import { ArrowRight, BellRing, ChartColumn, Download, Home, PartyPopper, QrCode, Square } from 'lucide-react';
+import { ArrowRight, BellRing, ChartColumn, Check, Download, Home, PartyPopper, QrCode, Square } from 'lucide-react';
 import { MusicButton } from '../components/MusicButton';
-import { Confetti } from '../components/Confetti';
+import { celebrate, launchFireworks } from '../components/Fireworks';
 import type { Quiz, Session } from '../lib/types';
 import { api } from '../lib/api';
 import { cardOf, type PaperOp } from '../lib/paper';
@@ -63,8 +63,10 @@ export default function PaperHost() {
     if (prev && !(prev.q === now.q && prev.on) && now.on) {
       const right = s.answers.filter((a) => a.q_index === s.current_index && a.correct).map((a) => a.player_id);
       const names = s.players.filter((p) => right.includes(p.player_id)).map((p) => p.name);
-      if (names.length) sfx.applause();
-      else sfx.whoosh();
+      if (names.length) {
+        sfx.applause();
+        launchFireworks(5000); // mỗi lần hiện kết quả có bạn đúng: pháo hoa 5 giây
+      } else sfx.whoosh();
       setParty({ burst: Date.now(), names, none: !names.length });
       clearTimeout(partyTimer.current);
       partyTimer.current = window.setTimeout(() => setParty(null), 6000);
@@ -72,6 +74,11 @@ export default function PaperHost() {
     if (!now.on) setParty(null);
   }, [s]);
   useEffect(() => () => clearTimeout(partyTimer.current), []);
+
+  // Lần đầu vào bục vinh danh (sau khi bấm Kết thúc): pháo hoa 5 giây, một lần cho mỗi buổi
+  useEffect(() => {
+    if (s?.state === 'COMPLETED') celebrate(`podium-${pin}`);
+  }, [s?.state, pin]);
 
   const refresh = useCallback(async () => {
     try {
@@ -241,7 +248,7 @@ export default function PaperHost() {
   const isFresh = (pid: string, at: number) => known.current.size > 0 && known.current.get(pid) !== at;
 
   return (
-    <div className="pp-stage">
+    <div className="pp-stage pp-screen">
       {head}
       <div className="pp-bar">
         <span className="pp-count">Câu {s.current_index + 1}/{s.question_count}</span>
@@ -277,7 +284,7 @@ export default function PaperHost() {
           </div>
         </section>
 
-        <section className="card stack">
+        <section className="card stack pp-side">
           {s.paper.remind && waiting.length > 0 && (
             <div className="alert warn" role="status"><div><b>Các em chưa giơ thẻ:</b> {waiting.map((p) => `${cardOf(p.player_id)}. ${p.name}`).join(' · ')}</div></div>
           )}
@@ -293,13 +300,13 @@ export default function PaperHost() {
                   <b>{cardOf(p.player_id)}</b>
                   <span>{p.name}</span>
                   {a && showMark && <em>{OPTION_LABELS[choiceOf(a)]}</em>}
+                  {a && !showMark && <i className="pp-check" aria-hidden><Check size={22} strokeWidth={3} /></i>}
                 </div>
               );
             })}
           </div>
         </section>
       </div>
-      {party && !party.none && <Confetti burst={party.burst} />}
       {party && (
         <div className={`pp-party ${party.none ? 'none' : ''}`} role="status" onClick={() => setParty(null)}>
           {party.none ? (
@@ -308,8 +315,8 @@ export default function PaperHost() {
             <>
               <b><PartyPopper size={30} /> Chúc mừng {party.names.length} bạn trả lời đúng!</b>
               <span className="pp-party-names">
-                {party.names.slice(0, 14).map((n) => <i key={n}>{n}</i>)}
-                {party.names.length > 14 && <i>và {party.names.length - 14} bạn nữa</i>}
+                {party.names.slice(0, 24).map((n) => <i key={n}>{n}</i>)}
+                {party.names.length > 24 && <i>và {party.names.length - 24} bạn nữa</i>}
               </span>
             </>
           )}

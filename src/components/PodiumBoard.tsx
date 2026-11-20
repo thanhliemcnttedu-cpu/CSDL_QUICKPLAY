@@ -20,7 +20,7 @@ export function PodiumBoard({ entries, size, onSize }: { entries: PodiumEntry[];
   return (
     <section className="card stack" aria-label={`Vinh danh top ${size}`}>
       <div className="row between" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Trophy size={22} color="#f59e0b" /> Vinh danh top {size}</h2>
+        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Trophy size={22} color="#f59e0b" /> VINH DANH TOP {size}</h2>
         <div className="row" style={{ gap: 6 }}>
           <button type="button" className={`btn sm ${size === 3 ? 'primary' : 'ghost'}`} aria-pressed={size === 3} onClick={() => onSize(3)}>Top 3</button>
           <button type="button" className={`btn sm ${size === 5 ? 'primary' : 'ghost'}`} aria-pressed={size === 5} onClick={() => onSize(5)}>Top 5</button>
