@@ -213,39 +213,33 @@ export default function Paper() {
 
   if (!classes) return <Spinner />;
   return (
-    <div className="stack" style={{ gap: 22 }}>
-      <section className="pp-hero card">
+    <div className="stack" style={{ gap: 14 }}>
+      <section className="pp-head card">
         <div className="grow">
           <span className="badge blue">Dạy học trên lớp</span>
-          <h1 style={{ marginTop: 8 }}>Thẻ trả lời</h1>
-          <p className="muted" style={{ maxWidth: 560 }}>
-            Cả lớp cùng trả lời mà không em nào cần điện thoại. Chỉ cần thẻ giấy và chiếc điện thoại của thầy cô: không cài ứng dụng, mở camera, quét là dùng ngay.
-          </p>
-          <ul className="ticks">
-            <li>Mỗi em một tấm thẻ, giữa thẻ là ô mã đen của riêng em</li>
-            <li>Chọn đáp án nào, xoay cạnh ghi chữ đó lên trên rồi giơ cao</li>
-            <li>In một lần, một bộ thẻ dùng cho mọi lớp cả năm học</li>
-          </ul>
+          <h1 style={{ margin: '6px 0 0', fontSize: '1.6rem' }}>Thẻ trả lời</h1>
+          <p className="muted small" style={{ margin: '4px 0 0' }}>Cả lớp trả lời bằng thẻ giấy, không cần điện thoại của học sinh. Chỉ cần thẻ và điện thoại của thầy cô để quét.</p>
         </div>
-        <CardPreview card={1} size={190} />
+        <CardPreview card={1} size={96} />
       </section>
       {error && <div className="alert error"><div>{error}</div></div>}
 
-      <section className="card stack">
+      <div className="pp-dash">
+      <section className="card stack pp-panel">
         <div className="step-pill"><b>1</b> In thẻ</div>
-        <div className="pp-cols">
-          <div className="stack">
+        <div className="stack" style={{ gap: 10 }}>
+          <div className="stack" style={{ gap: 10 }}>
             <div className="field">
               <span>Chọn kiểu in</span>
               <div className="pp-choice" role="radiogroup" aria-label="Kiểu in thẻ">
                 <button type="button" role="radio" aria-checked={!!printFor} aria-label="In cho lớp đã có danh sách, mỗi thẻ có tên học sinh" className={printFor ? 'on' : ''} disabled={!classes.length}
                   onClick={() => setPrintFor(printFor || classes[0]?.id || '')}>
                   <b>1. In cho lớp đã có danh sách</b>
-                  <small>Mỗi thẻ in sẵn tên và số thứ tự của từng em, phát thẻ cho đúng bạn rất nhanh.</small>
+                  <small>In sẵn tên và số thẻ của từng em.</small>
                 </button>
                 <button type="button" role="radio" aria-checked={!printFor} aria-label="In bộ thẻ dùng chung đánh số 1 đến 100" className={!printFor ? 'on' : ''} onClick={() => setPrintFor('')}>
                   <b>2. In bộ thẻ dùng chung</b>
-                  <small>Đánh số 1 đến {CARD_COUNT}, không in tên. Dùng cho mọi lớp: em số mấy trong danh sách cầm thẻ số đó.</small>
+                  <small>Số 1 đến {CARD_COUNT}, không tên. Dùng cho mọi lớp.</small>
                 </button>
               </div>
             </div>
@@ -271,25 +265,27 @@ export default function Paper() {
             </div>
             <p className="muted small" style={{ margin: 0 }}>{count} thẻ = {sheets} tờ A4.</p>
           </div>
-          <ul className="pp-tips">
-            <li>Giấy A4 trắng, in đen trắng, tỷ lệ 100% (không chọn “vừa trang giấy”).</li>
-            <li>Mặt sau in chữ A, B, C, D thật to kèm mũi tên: em xoay thẻ cho <b>mũi tên chữ mình chọn chỉ lên trên</b>.</li>
-            <li>In mặt sau bằng chế độ <b>in hai mặt, lật theo cạnh dài</b> để chữ ở mặt sau khớp đúng cạnh của mặt trước (vì vậy khi nhìn mặt sau, B nằm bên trái, D nằm bên phải).</li>
-            <li>Cầm ở phần giấy trắng, đừng che ô đen.</li>
-            <li>Giấy mỏng dễ cong thì dán lên bìa cứng.</li>
-          </ul>
+          <details className="pp-more">
+            <summary>Lưu ý khi in thẻ</summary>
+            <ul className="pp-tips">
+              <li>Giấy A4 trắng, in đen trắng, tỷ lệ 100% (không chọn “vừa trang giấy”).</li>
+              <li>Mặt sau in chữ A, B, C, D kèm mũi tên: em xoay thẻ cho <b>mũi tên chữ mình chọn chỉ lên trên</b>.</li>
+              <li>In mặt sau bằng <b>in hai mặt, lật theo cạnh dài</b> để chữ khớp đúng cạnh mặt trước.</li>
+              <li>Cầm ở phần giấy trắng, đừng che ô đen. Giấy mỏng thì dán lên bìa cứng.</li>
+            </ul>
+          </details>
         </div>
       </section>
 
-      <section className="card stack">
+      <section className="card stack pp-panel">
         <div className="row between">
           <div className="step-pill"><b>2</b> Lớp học</div>
-          <button className="btn primary" onClick={() => setEdit({ name: '', text: '' })}><Plus size={18} /> Thêm lớp</button>
+          <button className="btn primary sm" onClick={() => setEdit({ name: '', text: '' })}><Plus size={16} /> Thêm lớp</button>
         </div>
         {classes.length === 0 ? (
-          <p className="muted" style={{ margin: 0 }}>Chưa có lớp nào. Bấm “Thêm lớp” rồi dán danh sách học sinh, mỗi dòng một tên.</p>
+          <p className="muted small" style={{ margin: 0 }}>Chưa có lớp nào. Bấm “Thêm lớp” rồi dán danh sách học sinh, mỗi dòng một tên.</p>
         ) : (
-          <div className="grid">
+          <div className="grid pp-list">
             {classes.map((c) => (
               <div key={c.id} className="pp-class">
                 <div className="grow">
@@ -306,9 +302,9 @@ export default function Paper() {
         )}
       </section>
 
-      <section className="card stack">
+      <section className="card stack pp-panel">
         <div className="step-pill"><b>3</b> Hôm nay lớp học gì?</div>
-        <div className="pp-cols">
+        <div>
           <Field label="Lớp">
             <select className="input" value={classId} onChange={(e) => setClassId(e.target.value)} disabled={!classes.length}>
               {!classes.length && <option value="">Chưa có lớp</option>}
@@ -323,9 +319,10 @@ export default function Paper() {
         </div>
         <div className="row">
           <button className="btn success lg" onClick={start} disabled={busy || !cls || !quizId || !usable?.ok}><ScanLine size={20} /> {busy ? 'Đang tạo…' : 'Tạo buổi học'}</button>
-          <span className="muted small">Máy chiếu sẽ hiện một mã QR. Thầy cô mở camera điện thoại quét mã đó là vào thẳng máy quét thẻ.</span>
+          <span className="muted small">Máy chiếu hiện mã QR để quét bằng điện thoại.</span>
         </div>
       </section>
+      </div>
 
       {pick && <PaperPickDialog quiz={pick} onClose={() => setPick(null)} onConfirm={(ids) => launch(ids)} />}
       {codesFor && <StudentCodesDialog cls={codesFor} onClose={() => setCodesFor(null)} onSaved={(c) => { setCodesFor(c); load(); }} />}

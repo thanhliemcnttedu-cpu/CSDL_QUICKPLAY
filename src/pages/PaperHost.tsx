@@ -91,7 +91,7 @@ export default function PaperHost() {
   useEffect(() => {
     api.getSessionQuiz(pin).then((r) => setQuiz(r.quiz)).catch((e) => setErr((e as Error).message));
     refresh();
-    const id = window.setInterval(refresh, 1000); // cập nhật nhanh để học sinh thấy ngay mình vừa được quét
+    const id = window.setInterval(refresh, 400); // cập nhật rất nhanh: thẻ vừa quét hiện tên ngay trên màn chiếu
     return () => clearInterval(id);
   }, [pin, refresh]);
 

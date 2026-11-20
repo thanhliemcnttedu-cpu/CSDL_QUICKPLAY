@@ -56,6 +56,7 @@ export default function PaperScan() {
   const sent = useRef(new Map<number, number>()); // đã ghi nhận ở câu hiện tại: thẻ -> phương án
   const shown = useRef(new Map<number, Shown>());
   const queue = useRef<PaperHit[]>([]);
+  const flushRef = useRef<(() => void) | null>(null); // gửi ngay khi đọc được thẻ
   const viewRef = useRef<PaperView | null>(null);
   viewRef.current = view;
   const q = quiz && view ? quiz.questions[view.current_index] : undefined;
@@ -100,26 +101,31 @@ export default function PaperScan() {
     })();
   }, [pin, key, account?.username, apply]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Gửi thẻ mới đọc được và đồng bộ trạng thái với màn chiếu
+  // Gửi thẻ mới đọc được NGAY (không chờ nhịp), và đồng bộ trạng thái với màn chiếu mỗi nửa giây.
+  // Đang gửi dở mà có thẻ mới thì gửi tiếp ngay khi xong, không bỏ sót.
   useEffect(() => {
     if (!quiz) return;
     let stop = false;
     let sending = false;
-    const tick = async () => {
+    const send = async () => {
       if (sending || stop) return;
       sending = true;
       try {
-        const v = viewRef.current;
-        const hits = queue.current.splice(0);
-        const res = hits.length && v ? await api.paperAction(pin, key, 'scan', v.current_index, hits) : await api.paperAction(pin, key, 'state');
-        if (!stop) apply(res);
+        do {
+          const v = viewRef.current;
+          const hits = queue.current.splice(0);
+          const res = hits.length && v ? await api.paperAction(pin, key, 'scan', v.current_index, hits) : await api.paperAction(pin, key, 'state');
+          if (!stop) apply(res);
+        } while (!stop && queue.current.length);
       } catch { /* mạng chập chờn: thử lại ở nhịp sau */ }
       sending = false;
     };
-    const id = window.setInterval(tick, 700);
+    flushRef.current = send;
+    const id = window.setInterval(send, 500);
     return () => {
       stop = true;
       clearInterval(id);
+      flushRef.current = null;
     };
   }, [quiz, pin, key, apply]);
 
@@ -237,6 +243,7 @@ export default function PaperScan() {
           if (valid && n >= CONFIRM && sent.current.get(hit.card) !== hit.side) {
             sent.current.set(hit.card, hit.side);
             queue.current = queue.current.filter((x) => x.card !== hit.card).concat({ card: hit.card, choice: hit.side });
+            flushRef.current?.();
             sfx.pop();
             const item = { card: hit.card, choice: hit.side, right: !!qq?.options[hit.side]?.is_correct };
             setRecent((r) => [item, ...r.filter((x) => x.card !== hit.card)].slice(0, 6));
