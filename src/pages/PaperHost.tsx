@@ -17,6 +17,7 @@ import { AppFooter } from '../components/AppFooter';
 import { Spinner, useToast, askConfirm } from '../components/ui';
 import { sfx } from '../lib/sound';
 import { LiveReport } from '../components/LiveReport';
+import { PodiumBoard } from '../components/PodiumBoard';
 import '../paper.css';
 
 function scanUrl(pin: string, key: string): string {
@@ -34,6 +35,7 @@ export default function PaperHost() {
   const toast = useToast();
   const [s, setS] = useState<Session | null>(null);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [podSize, setPodSize] = useState<3 | 5>(3); // vinh danh top 3 hoặc top 5
   const [err, setErr] = useState('');
   const [qr, setQr] = useState('');
   const [showQr, setShowQr] = useState(false);
@@ -164,6 +166,13 @@ export default function PaperHost() {
             <Link className="btn primary" to="/teacher"><Home size={18} /> Về trang giáo viên</Link>
           </div>
         </div>
+        <PodiumBoard
+          size={podSize}
+          onSize={setPodSize}
+          entries={[...s.players]
+            .sort((a, b) => b.score - a.score || b.correct - a.correct || a.name.localeCompare(b.name, 'vi'))
+            .map((p) => ({ name: p.name, detail: `Thẻ ${cardOf(p.player_id)} · ${p.correct}/${qs.length} câu đúng`, score: p.score }))}
+        />
         {hard.length > 0 && (
           <section className="card stack">
             <h2 style={{ margin: 0 }}>Câu nhiều em sai, nên giảng lại</h2>

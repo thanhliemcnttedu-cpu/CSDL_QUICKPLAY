@@ -239,8 +239,8 @@ async function callLocal<T>(action: string, p: Record<string, any>): Promise<T> 
       case 'createPaperSession': {
         const full = await kvGet<Quiz>('quiz:' + p.quiz_id);
         if (!full) throw new ApiError('Không tìm thấy bộ câu hỏi.');
-        const quiz = paper.paperQuiz(full);
-        if (!quiz.questions.length) throw new ApiError('Bộ câu hỏi này chưa có câu nào dùng được với thẻ giấy (cần câu một đáp án, 2–4 phương án).');
+        const quiz = paper.paperQuiz(full, Array.isArray(p.question_ids) ? p.question_ids : undefined);
+        if (!quiz.questions.length) throw new ApiError('Chưa có câu nào được chọn để dùng với thẻ giấy (cần câu một đáp án, 2–4 phương án).');
         if (!p.students?.length) throw new ApiError('Lớp chưa có học sinh nào.');
         let pin = randomPin();
         while (localStorage.getItem(SESS(pin))) pin = randomPin();
@@ -318,8 +318,9 @@ export const api = {
   listClasses: () => call<ClassRoom[]>('listClasses'),
   saveClass: (cls: Partial<ClassRoom> & { name: string; students: string[] }) => call<ClassRoom>('saveClass', { cls: cls.codes ? cls : { ...cls, codes: undefined } }),
   deleteClass: (id: string) => call<{ id: string }>('deleteClass', { id }),
-  createPaperSession: (quiz_id: string, class_name: string, students: string[]) =>
-    call<{ pin: string; session_id: string }>('createPaperSession', { quiz_id, class_name, students }),
+  /** question_ids: các câu được chọn cho thẻ giấy (bỏ trống = mọi câu dùng được). */
+  createPaperSession: (quiz_id: string, class_name: string, students: string[], question_ids?: string[]) =>
+    call<{ pin: string; session_id: string }>('createPaperSession', { quiz_id, class_name, students, question_ids }),
   paperAction: (pin: string, key: string, op: paper.PaperOp, q_index?: number, hits?: paper.PaperHit[]) =>
     call<PaperView>('paperAction', { pin, key, op, q_index, hits }),
   importGoogleForm: (url: string) => call<import('./googleForm').FormData>('importGoogleForm', { url }),

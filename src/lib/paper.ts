@@ -6,10 +6,20 @@ import { CARD_COUNT } from './paperCard';
 export interface PaperHit { card: number; choice: number }
 export type PaperOp = 'state' | 'hello' | 'scan' | 'next' | 'remind' | 'reveal' | 'end';
 
-/** Câu dùng được với thẻ giấy: một đáp án đúng, 2–4 phương án. */
-export const isPaperQuestion = (q: Question) =>
-  (q.type === 'single_choice' || q.type === 'true_false') && q.options.length >= 2 && q.options.length <= 4 && q.options.some((o) => o.is_correct);
-export const paperQuiz = (quiz: Quiz): Quiz => ({ ...quiz, questions: quiz.questions.filter(isPaperQuestion) });
+/** Lý do một câu KHÔNG dùng được với thẻ giấy (null = dùng được). Thẻ chỉ có A–D: một đáp án đúng, 2–4 phương án. */
+export function paperReason(q: Question): string | null {
+  if (q.type !== 'single_choice' && q.type !== 'true_false') return 'Thẻ giấy chỉ chọn một đáp án A–D, dạng câu này không dùng được';
+  if (q.options.length < 2) return 'Câu có ít hơn 2 phương án';
+  if (q.options.length > 4) return `Câu có ${q.options.length} phương án, thẻ chỉ có A–D`;
+  if (!q.options.some((o) => o.is_correct)) return 'Chưa đánh dấu đáp án đúng';
+  return null;
+}
+export const isPaperQuestion = (q: Question) => paperReason(q) === null;
+/** Đề cho chế độ giấy: chỉ các câu dùng được, và nếu có `ids` thì chỉ các câu được chọn. */
+export const paperQuiz = (quiz: Quiz, ids?: string[]): Quiz => ({
+  ...quiz,
+  questions: quiz.questions.filter((q) => isPaperQuestion(q) && (!ids || ids.includes(q.id))),
+});
 
 /** Mỗi dòng một tên; bỏ số thứ tự đầu dòng nếu giáo viên dán kèm ("1. An", "2) Bình"). */
 export function parseStudents(text: string): string[] {

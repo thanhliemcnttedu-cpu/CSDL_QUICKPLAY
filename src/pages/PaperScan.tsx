@@ -273,7 +273,8 @@ export default function PaperScan() {
         const cx = hit.corners.reduce((a, p) => a + p.x, 0) / 4;
         const top = Math.min(...hit.corners.map((p) => p.y));
         const name = (namesRef.current[card - 1] || `Thẻ ${card}`).slice(0, 18);
-        const letter = valid ? OPTION_LABELS[hit.side] : '?';
+        // Luôn hiện chữ cái thẻ đang hướng lên; câu này không có đáp án đó thì chữ màu xám (không phải "?")
+        const letter = OPTION_LABELS[hit.side];
         const pad = fs * 0.35, box = fs * 1.35;
         const nw = g.measureText(name).width;
         const tw = box + pad + nw + pad * 2;

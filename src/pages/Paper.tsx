@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, KeyRound, Pencil, Plus, Printer, ScanLine, Trash2, Users } from 'lucide-react';
 import { StudentCodesDialog } from '../components/StudentCodesDialog';
-import type { Catalog, ClassRoom, QuizSummary } from '../lib/types';
+import type { Catalog, ClassRoom, Quiz, QuizSummary } from '../lib/types';
+import { PaperPickDialog } from '../components/PaperPickDialog';
 import { api } from '../lib/api';
 import { QuizPicker } from '../components/QuizPicker';
 import { emptyCatalog, ensurePath, pathOf } from '../lib/catalog';
@@ -80,6 +81,7 @@ export default function Paper() {
   useEffect(() => { try { if (quizId) localStorage.setItem('quickplay.paperQuiz', quizId); } catch { /* bỏ qua */ } }, [quizId]);
   const [usable, setUsable] = useState<{ ok: number; all: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pick, setPick] = useState<Quiz | null>(null); // bộ đề đang chờ giáo viên chọn câu dùng cho thẻ
   const [perPage, setPerPage] = useState<1 | 2>(2);
   const [printFor, setPrintFor] = useState(''); // '' = bộ thẻ chung 1–100, hoặc id lớp (in sẵn tên)
   const [codesFor, setCodesFor] = useState<ClassRoom | null>(null); // lớp đang mở hộp đặt mã số học sinh
@@ -159,8 +161,22 @@ export default function Paper() {
     toast('Đã xóa lớp.', 'ok');
     load();
   };
+  // Bấm Bắt đầu: mở hộp thoại cho giáo viên xem câu nào phù hợp với thẻ, rồi mới tạo phiên
   const start = async () => {
     if (!cls || !quizId) return;
+    setBusy(true);
+    try {
+      const b0 = BUILTIN_QUIZZES.find((x) => x.id === quizId);
+      setPick(b0 ? ({ ...b0.make(), id: quizId } as Quiz) : await api.getQuiz(quizId));
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const launch = async (questionIds: string[]) => {
+    if (!cls || !quizId) return;
+    setPick(null);
     setBusy(true);
     try {
       let id = quizId;
@@ -178,7 +194,7 @@ export default function Paper() {
           toast(`Đã chép "${b.title}" vào kho đề của thầy cô (${where}).`, 'ok');
         }
       }
-      const { pin } = await api.createPaperSession(id, cls.name, cls.students);
+      const { pin } = await api.createPaperSession(id, cls.name, cls.students, questionIds);
       nav(`/teacher/paper/${pin}`);
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -302,6 +318,7 @@ export default function Paper() {
         </div>
       </section>
 
+      {pick && <PaperPickDialog quiz={pick} onClose={() => setPick(null)} onConfirm={(ids) => launch(ids)} />}
       {codesFor && <StudentCodesDialog cls={codesFor} onClose={() => setCodesFor(null)} onSaved={(c) => { setCodesFor(c); load(); }} />}
       {edit && (
         <Modal title={edit.id ? 'Sửa lớp' : 'Thêm lớp'} onClose={() => setEdit(null)} footer={<button className="btn primary" onClick={saveClass}>Lưu lớp</button>}>
