@@ -134,6 +134,17 @@ async function findQuiz(id: string, t: SyncTransport): Promise<Quiz | undefined>
   }
 }
 
+/** Xóa trên Drive. Nếu Drive không còn mục đó (đã xóa từ trước) thì coi là xong, không giữ trong hàng đợi. */
+async function deleteRemote(action: 'deleteQuiz' | 'deleteClass', id: string, t: SyncTransport) {
+  try {
+    await t.drive(action, { id });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!t.isRetryable(e) && /không tìm thấy/i.test(msg)) return;
+    throw e;
+  }
+}
+
 async function flushOne(key: string, entry: OutboxEntry, t: SyncTransport): Promise<'pushed' | 'conflict'> {
   const done = async (conflict = false) => {
     await clearEntry(key);
@@ -159,7 +170,7 @@ async function flushOne(key: string, entry: OutboxEntry, t: SyncTransport): Prom
   if (key.startsWith('quiz:')) {
     const id = key.slice('quiz:'.length);
     if (entry.op === 'del') {
-      await t.drive('deleteQuiz', { id });
+      await deleteRemote('deleteQuiz', id, t);
       await dropBase(key);
       return done();
     }
@@ -195,7 +206,7 @@ async function flushOne(key: string, entry: OutboxEntry, t: SyncTransport): Prom
   // lớp học
   const id = key.slice('class:'.length);
   if (entry.op === 'del') {
-    await t.drive('deleteClass', { id });
+    await deleteRemote('deleteClass', id, t);
     await dropBase(key);
     return done();
   }

@@ -41,6 +41,7 @@ const transport: SyncTransport = {
         return JSON.parse(JSON.stringify(q)) as T;
       }
       case 'deleteQuiz':
+        if (!server.has(params.id as string)) throw new Error('Không tìm thấy bộ đề cần xóa (mã ' + params.id + ').');
         server.delete(params.id as string);
         return { id: params.id } as T;
       case 'listQuizzes':
@@ -150,5 +151,13 @@ describe('đồng bộ ngoại tuyến', () => {
     online = true;
     await pullAll(transport); // trước khi đẩy: không được chép đè bản đang chờ
     expect(mem.get('quiz:q1')).toMatchObject({ title: 'Toán đang sửa dở' });
+  });
+
+  it('xóa một bộ đề đã không còn trên Drive: coi là xong, không kẹt trong hàng đợi', async () => {
+    mem.set('quiz:ma-cu', quiz('ma-cu', 'Đã xóa từ trước', stamp()));
+    await queueWriteRaw('quiz:ma-cu', 'del');
+    const r = await runSync(transport, { pull: false });
+    expect(r.pending).toBe(0);
+    expect(r.error).toBeUndefined();
   });
 });
