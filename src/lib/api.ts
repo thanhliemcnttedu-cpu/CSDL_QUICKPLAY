@@ -282,22 +282,32 @@ const syncTransport: sync.SyncTransport = {
 };
 
 async function teacherWrite<T>(action: string, params: Record<string, any>): Promise<T> {
-  const r = await sync.locked(async () => {
+  const { local, key } = await sync.locked(async () => {
     const local = await callLocal<any>(action, params);
     const key = action === 'saveCatalog' ? 'catalog'
       : action === 'saveQuiz' || action === 'deleteQuiz' ? 'quiz:' + local.id
       : 'class:' + local.id;
     const op = action.startsWith('delete') ? 'del' : 'put';
     await sync.queueWriteRaw(key, op);
-    return local;
+    return { local, key };
   });
-  void sync.flushAll(syncTransport); // đẩy trong nền; lỗi và số mục chờ hiện ở thanh trạng thái
-  return r as T;
+  // Có mạng: đẩy ngay để Drive có bộ đề trước khi trình soạn đọc lại (tránh "không tìm thấy bộ đề")
+  const res = await sync.flushAll(syncTransport);
+  if (!res.offline) {
+    const err = await sync.locked(() => sync.entryErrorRaw(key));
+    if (err) throw new ApiError(err); // máy chủ từ chối: báo ngay, bản trên máy vẫn giữ để thử lại
+  }
+  return local as T;
 }
 
 async function driveRead<T>(action: string, params: Record<string, unknown>): Promise<T> {
   const offline = () => callLocal<T>(action, params as Record<string, any>);
   if (typeof navigator !== 'undefined' && navigator.onLine === false && OFFLINE_READS.has(action)) return offline();
+  // Mục vừa lưu trên máy mà chưa đẩy được lên Drive: đọc bản trên máy, không hỏi Drive
+  if (action === 'getQuiz' || action === 'getCatalog') {
+    const key = action === 'getCatalog' ? 'catalog' : 'quiz:' + (params.id as string);
+    if (await sync.locked(() => sync.hasPendingRaw(key))) return offline();
+  }
   try {
     const r = await callDrive<T>(action, params);
     if (action === 'getQuiz' || action === 'getCatalog') {

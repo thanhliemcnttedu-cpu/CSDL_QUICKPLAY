@@ -95,6 +95,11 @@ export async function queueWriteRaw(key: string, op: OutboxOp) {
   notify();
 }
 
+/** Lỗi máy chủ của một mục đang chờ đẩy (nếu có). */
+export async function entryErrorRaw(key: string): Promise<string | undefined> {
+  return (await readOutbox())[key]?.error;
+}
+
 /** Mục này còn chờ đẩy lên Drive không (gọi trong locked). */
 export async function hasPendingRaw(key: string): Promise<boolean> {
   return !!(await readOutbox())[key];
