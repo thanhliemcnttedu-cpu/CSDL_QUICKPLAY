@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.6.3';
+var APP_VERSION = '1.6.4';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -2203,8 +2203,16 @@ function actImportGoogleForm_(req) {
             if (!ans || !ans.length) return;
             byTitle[String(it.title || '').trim()] = ans.map(function (a) { return String(a.value || '').trim(); }).filter(Boolean);
           });
+          var fbByTitle = {};
+          (fdata.items || []).forEach(function (it) {
+            var qi2 = it.questionItem && it.questionItem.question;
+            var fb = qi2 && qi2.grading && qi2.grading.generalFeedback && qi2.grading.generalFeedback.text;
+            if (fb) fbByTitle[String(it.title || '').trim()] = String(fb);
+          });
           items.forEach(function (it) {
-            if ((it.kind === 'text' || it.kind === 'paragraph') && byTitle[it.title]) it.answers = byTitle[it.title];
+            if (it.kind !== 'text' && it.kind !== 'paragraph') return;
+            if (byTitle[it.title]) it.answers = byTitle[it.title];
+            else if (fbByTitle[it.title]) it.feedback = fbByTitle[it.title]; // đáp án ghi trong phản hồi của câu
           });
         }
       } catch (e6) { /* không đọc được đáp án câu chữ: vẫn nhập các câu khác */ }

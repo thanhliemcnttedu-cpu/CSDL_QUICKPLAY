@@ -60,3 +60,20 @@ describe('Google Form: câu điền chỗ trống / kéo thả có kho từ', ()
     expect(q.stem.text).not.toContain('Ngân hàng');
   });
 });
+
+import { answersFromFeedback } from './googleForm';
+describe('đáp án ghi trong phản hồi của câu Google Form', () => {
+  it('đọc đáp án đúng trong dấu ngoặc kép và bỏ phần từ nhiễu', () => {
+    expect(answersFromFeedback('Đáp án đúng: "bảo mật" (từ nhiễu: công khai, ngẫu nhiên, ồn ào).')).toEqual(['bảo mật']);
+  });
+  it('đọc đáp án gợi ý không có ngoặc kép', () => {
+    expect(answersFromFeedback('Đáp án gợi ý: lần. Khối lệnh lặp giúp chương trình ngắn gọn.')).toEqual(['lần']);
+    expect(answersFromFeedback('Đáp án gợi ý: aw. Trong kiểu gõ Telex: aw -> ă.')).toEqual(['aw']);
+  });
+  it('đáp án có phần trong ngoặc là cách viết khác', () => {
+    expect(answersFromFeedback('Đáp án đúng: "kết quả (thông tin ra)" (từ nhiễu: mật mã).')).toEqual(['kết quả', 'thông tin ra']);
+  });
+  it('không có đáp án thì trả về rỗng', () => {
+    expect(answersFromFeedback('Hãy suy nghĩ kỹ.')).toEqual([]);
+  });
+});

@@ -10,6 +10,7 @@ export interface FormItem {
   help?: string;
   options?: { text: string; correct?: boolean }[];
   answers?: string[]; // đáp án chữ (nếu có)
+  feedback?: string; // phản hồi chung của câu (có thể ghi "Đáp án đúng: …")
   points?: number;
 }
 /** Dữ liệu Apps Script trả về: `items` khi đọc bằng FormApp, `raw` (chuỗi FB_PUBLIC_LOAD_DATA_) khi đọc trang công khai. */
@@ -56,6 +57,18 @@ export function parsePublicForm(raw: string): { title: string; items: FormItem[]
   return { title, items };
 }
 
+
+/** Đáp án ghi trong phản hồi của câu: "Đáp án đúng: "bảo mật" (từ nhiễu…)" hoặc "Đáp án gợi ý: lần." */
+export function answersFromFeedback(fb: string): string[] {
+  const m = fb.match(/đáp án(?: đúng| gợi ý)?\s*:\s*([^\n]+)/i);
+  if (!m) return [];
+  const rest = m[1].trim();
+  const quoted = rest.match(/["“]([^"”]+)["”]/);
+  const main = quoted ? quoted[1] : rest.split(/[.;]/)[0];
+  const [before, inside = ''] = main.split(/[()]/).map((x) => x.trim());
+  return [before, inside].filter((x) => x && !/^từ nhiễu/i.test(x));
+}
+
 export function formToQuestions(form: FormData): { title: string; questions: Question[]; warnings: string[] } {
   const parsed = form.items ? { title: form.title, items: form.items } : parsePublicForm(form.raw ?? '');
   const warnings: string[] = [];
@@ -83,7 +96,7 @@ export function formToQuestions(form: FormData): { title: string; questions: Que
         warnings.push(`Câu ${n}: chưa có đáp án đúng.`);
       }
     } else {
-      const answers = (it.answers ?? []).map((a) => a.trim()).filter(Boolean);
+      const answers = ((it.answers?.length ? it.answers : answersFromFeedback(it.feedback ?? '')) ?? []).map((a) => a.trim()).filter(Boolean);
       const blankTag = /\[(điền chỗ trống|kéo thả[^\]]*|điền từ[^\]]*)\]/i.test(it.title);
       if (answers.length && blankTag) {
         // Câu kéo thả / điền chỗ trống theo nhãn trong tiêu đề: "[Ngân hàng từ: a | b | c]" là kho từ
