@@ -11,7 +11,12 @@
  */
 
 var ADMIN_APP = 'QUICKPLAY-ACCOUNTS';
-var ADMIN_VERSION = '1.6.0';
+var ADMIN_VERSION = '1.7.0';
+/** Client ID (loại Web application) của dự án Google Cloud, dùng để kiểm tra token đăng nhập Gmail. Có thể đặt trong Script Properties (GOOGLE_CLIENT_ID). */
+var GOOGLE_CLIENT_ID = '';
+/** Giới hạn khi chưa mở đầy đủ: số bộ đề và số câu mỗi bộ. */
+var TRIAL_QUIZZES = 2;
+var TRIAL_QUESTIONS = 20;
 
 // Trình cài đặt trong phần mềm điền sẵn khóa quản trị vào đây khi bấm "Sao chép mã" (không phải chạy setup()).
 var PRESET_ADMIN_KEY = '';
@@ -21,7 +26,8 @@ var PRESET_FOLDER_ID = '';
 var SNAPSHOT_FILE = 'quickplay-tai-khoan.json';
 // Các hành động làm thay đổi tài khoản → ghi lại tệp sao lưu (đăng nhập, kiểm tra phiên thì không ghi để không chậm)
 var MIRRORED = { adminInit: 1, adminChangePassword: 1, adminSetEmail: 1, adminForgotFinish: 1, adminCreate: 1, adminSetLocked: 1,
-  adminResetPassword: 1, adminDelete: 1, adminImport: 1, saveVault: 1, changePassword: 1, setRecoveryEmail: 1, forgotFinish: 1 };
+  adminResetPassword: 1, adminDelete: 1, adminImport: 1, saveVault: 1, changePassword: 1, setRecoveryEmail: 1, forgotFinish: 1,
+  googleLogin: 1, adminSetPlan: 1 };
 var HASH_ROUNDS = 1500;
 var MAX_VAULT = 6000;          // ký tự – một thuộc tính Script Properties chứa tối đa ~9 KB
 var MAX_FAILS = 8;             // sai mật khẩu quá số lần này thì tạm khóa đăng nhập
@@ -65,6 +71,9 @@ function doPost(e) {
       adminDelete: admin_(actAdminDelete_),
       adminViewPassword: admin_(actAdminViewPassword_),
       adminExport: admin_(actAdminExport_),
+      googleLogin: actGoogleLogin_,
+      planInfo: actPlanInfo_,
+      adminSetPlan: admin_(actAdminSetPlan_),
       adminImport: admin_(actAdminImport_)
     };
     var fn = Object.prototype.hasOwnProperty.call(routes, req.action) ? routes[req.action] : null;
@@ -95,6 +104,7 @@ function actLogin_(req) {
   var password = String(req.password || '');
   return lock_(function () {
     var acc = load_(username);
+    if (acc && acc.google) acc = null; // tài khoản Gmail không có mật khẩu
     // Thông báo chung cho cả "không có tài khoản" và "sai mật khẩu" để không lộ tên tài khoản nào tồn tại
     var bad = err_('Tên tài khoản hoặc mật khẩu không đúng.');
     if (!acc) throw bad;
@@ -129,7 +139,68 @@ function session_(req) {
 
 function actCheck_(req) {
   var acc = session_(req);
-  return { username: acc.username, name: acc.name, recovery_email: acc.email || '' };
+  return { username: acc.username, name: acc.name, recovery_email: acc.email || '', plan: planOf_(acc), limits: limitsOf_(acc) };
+}
+
+// ---------------------------------------------------------------- đăng nhập Gmail (không cần mật khẩu)
+/** Gói của tài khoản: Gmail mới vào là dùng thử; tài khoản do quản trị tạo mặc định là đầy đủ. */
+function planOf_(acc) {
+  return acc.plan || (acc.google ? 'trial' : 'full');
+}
+function limitsOf_(acc) {
+  return planOf_(acc) === 'trial' ? { quizzes: TRIAL_QUIZZES, questions: TRIAL_QUESTIONS } : null;
+}
+
+/** Kiểm tra token của Google (tokeninfo): đúng ứng dụng, email đã xác minh, chưa hết hạn. */
+function verifyGoogle_(idToken) {
+  var cid = PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_ID') || GOOGLE_CLIENT_ID;
+  if (!cid) throw err_('Máy chủ chưa cấu hình GOOGLE_CLIENT_ID. Quản trị cần đặt mã này trong Script Properties.');
+  var res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(String(idToken || '')), { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw err_('Không xác thực được tài khoản Google. Hãy đăng nhập lại.');
+  var t = JSON.parse(res.getContentText());
+  if (String(t.aud || '') !== String(cid)) throw err_('Phiên Google này không dành cho phần mềm Quickplay.');
+  if (String(t.email_verified) !== 'true') throw err_('Email Google này chưa được xác minh.');
+  if (Number(t.exp || 0) * 1000 < Date.now()) throw err_('Phiên đăng nhập Google đã hết hạn. Hãy thử lại.');
+  return { email: String(t.email || '').trim().toLowerCase(), name: String(t.name || t.email || '').replace(/\s+/g, ' ').trim().slice(0, 60) };
+}
+
+/** Đăng nhập bằng Gmail: lần đầu thì tự tạo tài khoản dùng thử. */
+function actGoogleLogin_(req) {
+  var g = verifyGoogle_(req.id_token);
+  var username = normUser_(g.email);
+  return lock_(function () {
+    var acc = load_(username);
+    if (acc && !acc.google) throw err_('Email này đã dùng cho tài khoản có mật khẩu. Hãy đăng nhập bằng tên đăng nhập và mật khẩu.');
+    if (!acc) {
+      if (actAdminList_().length >= MAX_ACCOUNTS) throw err_('Máy chủ đã đạt số tài khoản tối đa. Hãy liên hệ tác giả.');
+      acc = { username: username, email: g.email, name: g.name || username, google: true, plan: 'trial', created_at: Date.now(), locked: false };
+    }
+    if (acc.locked) throw err_('Tài khoản này đang bị khóa. Hãy liên hệ quản trị (Zalo: 0888358363).');
+    if (g.name && !acc.name) acc.name = g.name;
+    var token = randomKey_(40);
+    acc.token_hash = sha_(token);
+    acc.last_login = Date.now();
+    save_(acc);
+    return { username: acc.username, name: acc.name, token: token, email: acc.email, plan: planOf_(acc), limits: limitsOf_(acc) };
+  });
+}
+
+/** Gói hiện tại của giáo viên (để máy khách biết có bị giới hạn không). */
+function actPlanInfo_(req) {
+  var acc = session_(req);
+  return { plan: planOf_(acc), limits: limitsOf_(acc) };
+}
+
+/** Quản trị đổi gói: 'full' (mở đầy đủ) hoặc 'trial' (về dùng thử). */
+function actAdminSetPlan_(req) {
+  var plan = String(req.plan || '');
+  if (plan !== 'full' && plan !== 'trial') throw err_('Gói không hợp lệ.');
+  return lock_(function () {
+    var acc = need_(req.username);
+    acc.plan = plan;
+    save_(acc);
+    return view_(acc);
+  });
 }
 
 function actSaveVault_(req) {
@@ -364,7 +435,7 @@ function restoreIfEmpty_() {
     var d = JSON.parse(f.getBlob().getDataAsString());
     if (!d || d.app !== ADMIN_APP) return false;
     (d.accounts || []).forEach(function (a) {
-      if (a && USER_RE.test(String(a.username)) && a.salt && a.hash) props.setProperty('U_' + a.username, JSON.stringify(a));
+      if (a && USER_RE.test(String(a.username)) && ((a.salt && a.hash) || a.google)) props.setProperty('U_' + a.username, JSON.stringify(a));
     });
     if (d.admin && d.admin.salt && d.admin.hash) props.setProperty('ADMIN_ACC', JSON.stringify(d.admin));
     return true;
@@ -425,7 +496,7 @@ function actAdminImport_(req) {
     var count = Object.keys(all).filter(function (k) { return k.indexOf('U_') === 0; }).length;
     var r = { added: 0, updated: 0, kept: 0, invalid: 0 };
     d.accounts.forEach(function (a) {
-      if (!a || !USER_RE.test(String(a.username || '')) || !a.salt || !a.hash) { r.invalid++; return; }
+      if (!a || !USER_RE.test(String(a.username || '')) || (!a.google && (!a.salt || !a.hash))) { r.invalid++; return; }
       var key = 'U_' + a.username;
       var exists = !!all[key];
       if (exists && !overwrite) { r.kept++; return; }
@@ -598,7 +669,8 @@ function view_(acc) {
   return {
     username: acc.username, name: acc.name, locked: !!acc.locked, created_at: acc.created_at,
     last_login: acc.last_login || 0, configured: !!acc.vault, has_email: !!acc.email, email: acc.email || '',
-    has_pw: !!acc.pw, pw_at: acc.pw_at || 0, pw_by: acc.pw_by || ''
+    has_pw: !!acc.pw, pw_at: acc.pw_at || 0, pw_by: acc.pw_by || '',
+    google: !!acc.google, email: acc.email || '', plan: planOf_(acc)
   };
 }
 
@@ -672,7 +744,7 @@ function actAdminDelete_(req) {
 // ---------------------------------------------------------------- tiện ích
 // Tên tài khoản: 3–32 ký tự gồm chữ không dấu, số (được phép toàn số, ví dụ số căn cước) và các ký tự . _ - @ + ! # $ % & * = ? ~ ^
 // Không phân biệt chữ hoa, chữ thường. Không dùng dấu cách, dấu nháy, dấu gạch chéo, dấu < >.
-var USER_RE = /^[a-z0-9._\-@+!#$%&*=?~^]{3,32}$/;
+var USER_RE = /^[a-z0-9._\-@+!#$%&*=?~^]{3,64}$/;
 function normUser_(u) {
   var s = String(u || '').trim().toLowerCase();
   if (!USER_RE.test(s)) throw err_('Tên tài khoản gồm 3–32 ký tự: chữ không dấu, số và các ký tự . _ - @ + ! # $ % & * = ? ~ ^ (không có dấu cách).');

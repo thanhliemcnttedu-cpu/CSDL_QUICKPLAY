@@ -2,9 +2,9 @@
 // Máy chủ chỉ kiểm tra tên/mật khẩu và cất "két cấu hình" đã mã hóa; bộ câu hỏi vẫn nằm trong Drive riêng của giáo viên.
 import { loadSettings, saveSettings } from './settings';
 
-export interface Account { username: string; name: string; token: string; key: string; email?: string } // key: khóa AES (base64) suy ra từ mật khẩu
+export interface Account { username: string; name: string; token: string; key: string; email?: string; google?: boolean; plan?: 'trial' | 'full'; limits?: { quizzes: number; questions: number } | null } // key: khóa AES (base64) suy ra từ mật khẩu; tài khoản Gmail không có mật khẩu nên key rỗng
 export interface Vault { scriptUrl: string; teacherKey: string; folderUrl: string }
-export interface AccountRow { username: string; name: string; locked: boolean; created_at: number; last_login: number; configured: boolean; has_email?: boolean; email?: string; has_pw?: boolean; pw_at?: number; pw_by?: string }
+export interface AccountRow { username: string; name: string; locked: boolean; created_at: number; last_login: number; configured: boolean; has_email?: boolean; email?: string; has_pw?: boolean; pw_at?: number; pw_by?: string; google?: boolean; plan?: 'trial' | 'full' }
 
 const ACC = 'quizzi.account';
 const URL_KEY = 'quizzi.adminUrl';
@@ -113,7 +113,9 @@ export async function checkSession(): Promise<boolean> {
   const a = currentAccount();
   if (!a) return false;
   try {
-    await call('check', { username: a.username, token: a.token });
+    const r = await call<{ plan?: 'trial' | 'full'; limits?: { quizzes: number; questions: number } | null }>('check', { username: a.username, token: a.token });
+    // Gói có thể đổi khi quản trị mở khóa: cập nhật ngay trên máy này
+    if (r && r.plan) localStorage.setItem(ACC, JSON.stringify({ ...a, plan: r.plan, limits: r.limits ?? null }));
     return true;
   } catch (e) {
     // Chỉ đăng xuất khi máy chủ nói rõ: phiên đã hết hạn hoặc tài khoản bị khóa.
@@ -126,7 +128,7 @@ export async function checkSession(): Promise<boolean> {
 /** Lưu link thư mục + link Apps Script + khóa giáo viên vào tài khoản (đã mã hóa) để lần sau đăng nhập ở máy nào cũng nhớ. */
 export async function saveVault(v: Vault): Promise<void> {
   const a = currentAccount();
-  if (!a) return;
+  if (!a || !a.key) return; // tài khoản Gmail: cấu hình chỉ lưu trên máy này
   await call('saveVault', { username: a.username, token: a.token, vault: await encryptVault(a.key, v) });
 }
 
@@ -246,7 +248,16 @@ export const adminAuth = {
     bootPassword = '';
   },
 };
+/** Đăng nhập bằng Gmail: đổi token của Google lấy phiên làm việc của Quickplay. */
+export async function loginWithGoogle(idToken: string): Promise<Account> {
+  const r = await call<{ username: string; name: string; token: string; email: string; plan: 'trial' | 'full'; limits: { quizzes: number; questions: number } | null }>('googleLogin', { id_token: idToken });
+  const account: Account = { username: r.username, name: r.name, token: r.token, key: '', email: r.email, google: true, plan: r.plan, limits: r.limits };
+  localStorage.setItem(ACC, JSON.stringify(account));
+  return account;
+}
+
 export const adminApi = {
+  setPlan: (username: string, plan: 'trial' | 'full') => adminCall<AccountRow>('adminSetPlan', { username, plan }),
   list: () => adminCall<AccountRow[]>('adminList'),
   /** Nơi lưu trữ của máy chủ tài khoản trên Google Drive */
   storage: () => adminCall<{ folder_id: string; folder_name: string; folder_url: string; file_url: string; saved_at: string; error: string; used?: number; limit?: number; full?: boolean }>('adminStorage'),

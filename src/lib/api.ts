@@ -10,6 +10,7 @@ import * as logic from './sessionLogic';
 import { randomPin, uid } from './util';
 import { kvGet, kvSet, kvDel, kvKeys } from './idb';
 import * as sync from './offlineSync';
+import { currentAccount } from './account';
 
 export class ApiError extends Error {
   /** Lỗi tạm thời (mất mạng, máy chủ bận): gửi lại sau vài giây là được */
@@ -326,7 +327,30 @@ async function driveRead<T>(action: string, params: Record<string, unknown>): Pr
   }
 }
 
+/** Tài khoản Gmail đang dùng thử: tối đa 2 bộ đề, mỗi bộ tối đa 20 câu (giới hạn do máy chủ quản trị đặt). */
+async function checkTrial(params: Record<string, unknown>): Promise<void> {
+  const a = currentAccount();
+  if (!a || a.plan !== 'trial' || !a.limits) return;
+  const q = params.quiz as Quiz;
+  const n = q?.questions?.length ?? 0;
+  if (n > a.limits.questions) {
+    throw new ApiError(`Tài khoản dùng thử: mỗi bộ đề tối đa ${a.limits.questions} câu (bộ này có ${n} câu). Muốn dùng đầy đủ, hãy liên hệ tác giả để mở khóa.`);
+  }
+  const list = await call<QuizSummary[]>('listQuizzes');
+  const isNew = !list.some((s) => s.id === q.id);
+  if (isNew && list.length >= a.limits.quizzes) {
+    throw new ApiError(`Tài khoản dùng thử chỉ tạo tối đa ${a.limits.quizzes} bộ đề. Muốn tạo thêm, hãy liên hệ tác giả để mở khóa đầy đủ.`);
+  }
+}
+
 export function call<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
+  if (action === 'saveQuiz' && currentAccount()?.plan === 'trial') {
+    return checkTrial(params).then(() => callInner<T>(action, params));
+  }
+  return callInner<T>(action, params);
+}
+
+function callInner<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const s = loadSettings();
   const linked = scriptUrlFromLink();
   if (linked) return callDrive<T>(action, params, linked); // học sinh mở link tham gia có kèm URL Apps Script

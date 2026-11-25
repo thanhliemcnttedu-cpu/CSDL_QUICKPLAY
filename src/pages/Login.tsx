@@ -8,6 +8,7 @@ import {
 import { parseLinkFile, pingScript, saveLink } from '../lib/installer';
 import { pickFile } from '../components/MediaTools';
 import { Wordmark } from '../components/Logo';
+import { GoogleSignIn } from '../components/GoogleSignIn';
 import { AppFooter } from '../components/AppFooter';
 import { Modal, useToast } from '../components/ui';
 import '../login.css';
@@ -182,9 +183,17 @@ export default function Login({ role: fixed }: { role?: Role }) {
             </div>
           )}
 
+          {role === 'teacher' && !teacherOpen && !(window as unknown as { quizziDesktop?: { isDesktop?: boolean } }).quizziDesktop?.isDesktop && (
+            <>
+              <b>Cách 1: đăng nhập bằng Gmail của thầy cô (tự tạo tài khoản dùng thử lần đầu)</b>
+              <GoogleSignIn onDone={() => nav(next ?? '/teacher', { replace: true })} onError={(m) => setErr(m)} />
+              {err && <div className="alert error" role="alert"><div>{err}</div></div>}
+              <small className="muted center">— hoặc —</small>
+            </>
+          )}
           {role && !teacherOpen && (
             <>
-              <b>2. Nhập tên đăng nhập và mật khẩu {role === 'admin' ? 'quản trị' : 'giáo viên'}</b>
+              <b>{role === 'teacher' ? 'Cách 2: nhập tên đăng nhập và mật khẩu giáo viên' : '2. Nhập tên đăng nhập và mật khẩu quản trị'}</b>
               <label className="field">
                 <span>Tên đăng nhập</span>
                 <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus={role === 'teacher'} />

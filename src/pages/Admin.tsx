@@ -523,7 +523,10 @@ export default function Admin() {
                       {r.pw_by === 'teacher' && <small className="muted adm-note">giáo viên tự đổi{r.pw_at ? ` ${new Date(r.pw_at).toLocaleDateString('vi-VN')}` : ''}</small>}
                     </td>
                     <td style={{ overflowWrap: 'anywhere' }} data-label="Email">{r.email || (r.has_email ? 'Đã khai báo' : <span className="muted">Chưa</span>)}</td>
-                    <td data-label="Trạng thái">{r.locked ? <span className="badge red">Đang khóa</span> : <span className="badge green">Hoạt động</span>}</td>
+                    <td data-label="Trạng thái">{r.locked ? <span className="badge red">Đang khóa</span> : <span className="badge green">Hoạt động</span>}
+                      {r.google && <small className="muted adm-note"> · Gmail</small>}
+                      {' '}<span className={`badge ${(r.plan ?? (r.google ? 'trial' : 'full')) === 'trial' ? 'amber' : 'blue'}`}>{(r.plan ?? (r.google ? 'trial' : 'full')) === 'trial' ? 'Dùng thử' : 'Đầy đủ'}</span>
+                    </td>
                     <td data-label="Kho riêng">{r.configured ? 'Rồi' : 'Chưa'}</td>
                     <td data-label="Đăng nhập gần nhất">{r.last_login ? new Date(r.last_login).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : <span className="muted">Chưa đăng nhập</span>}</td>
                     <td data-label="Thao tác">
@@ -531,6 +534,10 @@ export default function Admin() {
                         <button className="btn icon sm" onClick={() => run(() => adminApi.setLocked(r.username, !r.locked), r.locked ? 'Đã mở khóa.' : 'Đã khóa tài khoản.')}
                           aria-label={`${r.locked ? 'Mở khóa' : 'Khóa'} tài khoản ${r.username}`} title={r.locked ? 'Mở khóa' : 'Khóa tài khoản'}>
                           {r.locked ? <LockOpen size={16} /> : <Lock size={16} />}
+                        </button>
+                        <button className="btn sm" onClick={() => run(() => adminApi.setPlan(r.username, (r.plan ?? (r.google ? 'trial' : 'full')) === 'trial' ? 'full' : 'trial'), (r.plan ?? (r.google ? 'trial' : 'full')) === 'trial' ? 'Đã mở đầy đủ cho tài khoản.' : 'Đã chuyển về dùng thử.')}
+                          title={(r.plan ?? (r.google ? 'trial' : 'full')) === 'trial' ? 'Mở đầy đủ: không giới hạn bộ đề và số câu' : 'Về dùng thử: tối đa 2 bộ đề, 20 câu mỗi bộ'}>
+                          {(r.plan ?? (r.google ? 'trial' : 'full')) === 'trial' ? 'Mở đầy đủ' : 'Về dùng thử'}
                         </button>
                         <button className="btn icon sm" onClick={() => reset(r)} aria-label={`Đặt lại mật khẩu cho ${r.username}`} title="Đặt lại mật khẩu"><KeyRound size={16} /></button>
                         <button className="btn icon sm danger" aria-label={`Xóa tài khoản ${r.username}`} onClick={async () => (await askConfirm(`Xóa tài khoản "${r.username}"? Dữ liệu trên Drive của giáo viên không bị xóa.`)) && run(() => adminApi.remove(r.username), 'Đã xóa tài khoản.')}><Trash2 size={16} /></button>
