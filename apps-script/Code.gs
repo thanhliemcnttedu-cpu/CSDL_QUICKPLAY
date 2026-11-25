@@ -18,7 +18,7 @@
 // HẰNG SỐ CẤU HÌNH
 // ============================================================================
 var APP_NAME = 'Quickplay';
-var APP_VERSION = '1.6.2';
+var APP_VERSION = '1.6.3';
 // Nơi phát hành mã mới để Apps Script TỰ CẬP NHẬT (xem phần TỰ CẬP NHẬT ở cuối tệp).
 // Chỉ đổi được bằng Thuộc tính tập lệnh UPDATE_BASE trong trình soạn thảo (chủ dự án), không đổi được từ bên ngoài.
 var UPDATE_BASE_DEFAULT = 'https://quickplay-delta.vercel.app/apps-script/';
@@ -2188,6 +2188,27 @@ function actImportGoogleForm_(req) {
       if (isQuiz) { try { out.points = Number(q.getPoints()) || 0; } catch (e4) { /* không có điểm */ } }
       items.push(out);
     });
+    // Đáp án của câu trả lời ngắn (FormApp không đọc được): lấy qua Forms API bằng quyền form đã có
+    if (isQuiz) {
+      try {
+        var fres = UrlFetchApp.fetch('https://forms.googleapis.com/v1/forms/' + form.getId(), {
+          headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true,
+        });
+        if (fres.getResponseCode() === 200) {
+          var fdata = JSON.parse(fres.getContentText());
+          var byTitle = {};
+          (fdata.items || []).forEach(function (it) {
+            var qi = it.questionItem && it.questionItem.question;
+            var ans = qi && qi.grading && qi.grading.correctAnswers && qi.grading.correctAnswers.answers;
+            if (!ans || !ans.length) return;
+            byTitle[String(it.title || '').trim()] = ans.map(function (a) { return String(a.value || '').trim(); }).filter(Boolean);
+          });
+          items.forEach(function (it) {
+            if ((it.kind === 'text' || it.kind === 'paragraph') && byTitle[it.title]) it.answers = byTitle[it.title];
+          });
+        }
+      } catch (e6) { /* không đọc được đáp án câu chữ: vẫn nhập các câu khác */ }
+    }
     if (!items.length) throw userError_('Form này không có câu hỏi dạng trắc nghiệm, hộp kiểm hoặc trả lời ngắn nào để nhập.');
     return { title: String(form.getTitle() || ''), source: 'editor', is_quiz: isQuiz, items: items };
   }

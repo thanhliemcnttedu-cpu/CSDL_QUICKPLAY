@@ -84,6 +84,27 @@ export function formToQuestions(form: FormData): { title: string; questions: Que
       }
     } else {
       const answers = (it.answers ?? []).map((a) => a.trim()).filter(Boolean);
+      const blankTag = /\[(điền chỗ trống|kéo thả[^\]]*|điền từ[^\]]*)\]/i.test(it.title);
+      if (answers.length && blankTag) {
+        // Câu kéo thả / điền chỗ trống theo nhãn trong tiêu đề: "[Ngân hàng từ: a | b | c]" là kho từ
+        const bankRaw = it.title.match(/\[ngân hàng từ:\s*([^\]]+)\]/i)?.[1] ?? '';
+        const bank = bankRaw.split('|').map((x) => x.trim()).filter(Boolean);
+        const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').trim();
+        const ansSet = new Set(answers.map(norm));
+        const distractors = bank.filter((w) => !ansSet.has(norm(w)));
+        let body = it.title.replace(/\[ngân hàng từ:[^\]]*\]/i, '').replace(/\[[^\]]*\]\s*:?\s*/g, '').trim();
+        body = /_{3,}/.test(body) ? body.replace(/_{3,}/, '[blank_1]') : `${body} [blank_1]`;
+        const bodyStem = escapeHtml(body).replace(/\[blank_1\]/g, '[blank_1]') + (it.help ? `<br>${escapeHtml(it.help)}` : '');
+        q = newQuestion('fill_blank');
+        q.stem.text = bodyStem;
+        q.blanks = [{ blank_id: 'blank_1', accepted: answers, match_rule: 'ignore_case' }];
+        if (distractors.length) {
+          q.distractors = distractors;
+          q.fill_mode = 'bank';
+        }
+        questions.push(withPoints(q, it.points, maxPts));
+        return;
+      }
       if (answers.length) {
         q = newQuestion('fill_blank');
         q.stem.text = `${stem} [blank_1]`;
@@ -91,6 +112,7 @@ export function formToQuestions(form: FormData): { title: string; questions: Que
         questions.push(withPoints(q, it.points, maxPts));
         return;
       }
+      if (blankTag) warnings.push(`Câu ${n}: có nhãn dạng điền/kéo thả nhưng không đọc được đáp án. Hãy kiểm tra đáp án trong Google Form hoặc chỉnh lại dạng câu.`);
       q = newQuestion('oral'); // trả lời ngắn / đoạn văn không có đáp án → giáo viên chấm
     }
     q.stem.text = stem;

@@ -39,3 +39,24 @@ describe('link Google Form', () => {
     expect(isPublishedFormUrl('https://docs.google.com/forms/d/1Eu66vFdWchGuf/edit')).toBe(false);
   });
 });
+
+import { formToQuestions } from './googleForm';
+describe('Google Form: câu điền chỗ trống / kéo thả có kho từ', () => {
+  it('chuyển nhãn [Kéo thả] + [Ngân hàng từ] thành câu điền chỗ trống có từ nhiễu', () => {
+    const r = formToQuestions({
+      title: 'Thử',
+      source: 'editor',
+      items: [{
+        kind: 'text',
+        title: 'Câu 18 [Kéo thả vào chỗ trống]: Mật khẩu mạnh nên có cả chữ hoa, chữ thường để tăng tính _______. [Ngân hàng từ: bảo mật | công khai | ngẫu nhiên | ồn ào]',
+        answers: ['bảo mật'],
+      }],
+    });
+    const q = r.questions[0];
+    expect(q.type).toBe('fill_blank');
+    expect(q.blanks?.[0].accepted).toEqual(['bảo mật']);
+    expect(q.distractors).toEqual(['công khai', 'ngẫu nhiên', 'ồn ào']);
+    expect(q.stem.text).toContain('[blank_1]');
+    expect(q.stem.text).not.toContain('Ngân hàng');
+  });
+});
