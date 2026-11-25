@@ -23,6 +23,9 @@ export interface FormData {
 
 export const isGoogleFormUrl = (url: string) => /^https:\/\/(docs\.google\.com\/forms\/|forms\.gle\/)\S+$/i.test(url.trim());
 
+/** Link làm bài (…/forms/d/e/…/viewform hoặc forms.gle): không chứa đáp án đúng, phải dùng link chỉnh sửa (…/forms/d/…/edit). */
+export const isPublishedFormUrl = (url: string) => /docs\.google\.com\/forms\/d\/e\//i.test(url.trim()) || /forms\.gle\//i.test(url.trim());
+
 /** Phân tích biến FB_PUBLIC_LOAD_DATA_ của trang form công khai (không có đáp án đúng). */
 export function parsePublicForm(raw: string): { title: string; items: FormItem[] } {
   let data: unknown;

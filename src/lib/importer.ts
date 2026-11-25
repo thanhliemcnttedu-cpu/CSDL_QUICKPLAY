@@ -39,6 +39,11 @@ export async function extractText(file: File): Promise<string> {
     throw new Error('Không đọc được tệp "' + file.name + '": tệp có thể bị hỏng. Hãy mở tệp, Lưu thành một tệp mới rồi thử lại. (Chi tiết: ' + msg.slice(0, 120) + ')');
   }
   if (ext === 'csv' || ext === 'txt' || ext === 'md') return file.text();
+  if (ext === 'html' || ext === 'htm') {
+    // Trang đã lưu từ Wayground/Quizizz: đọc đáp án đúng theo dấu tích; trang khác: đọc chữ thường
+    const html = await file.text();
+    return /font-semibold"><div><p>/.test(html) ? waygroundHtmlToText(html) : htmlToMarkedText(html);
+  }
   throw new Error('Định dạng chưa hỗ trợ. Hãy dùng .docx, .pdf, .pptx, .xlsx, .csv hoặc .txt.');
 }
 
@@ -103,6 +108,52 @@ export async function resolveImportedImages(questions: Question[], upload: (blob
 }
 export const hasImportedImages = (qs: Question[]) =>
   qs.some((q) => q.stem.image_url?.startsWith(IMG_PREFIX) || q.options.some((o) => o.image_url?.startsWith(IMG_PREFIX)));
+
+const decodeHtml = (s: string) => s
+  .replace(/<br\s*\/?>/gi, ' ')
+  .replace(/<[^>]*>/g, '')
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&amp;/g, '&')
+  .replace(/&lt;/g, '<')
+  .replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"')
+  .replace(/&#39;/g, "'")
+  .replace(/\s+/g, ' ')
+  .trim();
+
+/**
+ * Trang đã lưu của bộ câu hỏi Wayground (Quizizz): mỗi câu có đề và các phương án;
+ * phương án đúng có biểu tượng dấu tích xanh (icon-solid-circle-check).
+ * Đổi sang dạng văn bản "Câu N. đề" + "A. …" (đáp án đúng có dấu *) để bộ nhập đọc như mọi tệp khác.
+ */
+export function waygroundHtmlToText(html: string): string {
+  // Mỗi câu có một dòng tiêu đề "• N giây"; đề nằm sau tiêu đề, các phương án nằm sau đề
+  // Nhãn "20 giây" là một nút chữ riêng trong HTML (có thẻ chen giữa dấu "•"): khớp theo chữ của nút
+  const headRe = />\s*\d+\s*giây\s*</g;
+  const heads: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = headRe.exec(html))) heads.push(m.index);
+  const ROW = '<div class="flex items-center gap-0.5 overflow-auto cursor-pointer">';
+  const skip = /^(chỉnh sửa|•|\d+|\d+\s*giây|\d+\s*điểm|multiple choice|multiple select)$/i;
+  const out: string[] = [];
+  heads.forEach((at, i) => {
+    const block = html.slice(at, i + 1 < heads.length ? heads[i + 1] : html.length);
+    const [pre, ...rows] = block.split(ROW);
+    // Đề: đoạn chữ dài nhất trước phương án đầu tiên (bỏ nhãn và nút)
+    const texts = [...pre.matchAll(/>([^<>]+)</g)].map((x) => decodeHtml(x[1])).filter((t) => t && !skip.test(t));
+    const stem = texts.sort((a, b) => b.length - a.length)[0] ?? '';
+    out.push(`Câu ${i + 1}. ${stem}`);
+    rows.forEach((row, j) => {
+      const txt = row.match(/<p>([\s\S]*?)<\/p>/);
+      if (!txt) return;
+      const text = decodeHtml(txt[1]).replace(/^[A-Fa-f]\.\s*/, '');
+      const mark = /icon-solid-circle-check/.test(row) ? '*' : '';
+      out.push(`${mark}${'ABCDEF'[j] ?? String(j + 1)}. ${text}`);
+    });
+    out.push('');
+  });
+  return out.join('\n');
+}
 
 /** HTML từ Word -> văn bản, chữ đậm/gạch chân/tô màu được bọc ** ** để nhận diện đáp án đúng. */
 export function htmlToMarkedText(html: string): string {

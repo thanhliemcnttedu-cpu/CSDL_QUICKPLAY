@@ -3,7 +3,7 @@ import { FileUp, Sparkles, Wand2, AlertTriangle, Trash2, ClipboardPaste, FileChe
 import type { Question, QuestionType, Quiz } from '../lib/types';
 import { extractText, hasImportedImages, parseQuestions, resolveImportedImages } from '../lib/importer';
 import { buildWordTemplate, TEMPLATE_FILES, type TemplateKind } from '../lib/wordTemplate';
-import { formToQuestions, isGoogleFormUrl } from '../lib/googleForm';
+import { formToQuestions, isGoogleFormUrl, isPublishedFormUrl } from '../lib/googleForm';
 import { compressImage, uploadFile } from '../lib/media';
 import { loadSettings, scriptUrlFromLink } from '../lib/settings';
 import { downloadBlob } from '../lib/xlsx';
@@ -15,7 +15,7 @@ import { htmlToText } from '../lib/util';
 import { Modal, useToast } from './ui';
 import { pickFile } from './MediaTools';
 
-const ACCEPT = '.docx,.pdf,.pptx,.xlsx,.csv,.txt,.doc,.xls,.ppt'; // .doc/.xls/.ppt: nhận để báo cách đổi sang kiểu mới, không âm thầm chặn
+const ACCEPT = '.docx,.pdf,.pptx,.xlsx,.csv,.txt,.doc,.xls,.ppt,.html,.htm'; // .doc/.xls/.ppt: nhận để báo cách đổi sang kiểu mới, không âm thầm chặn
 const TYPE_ICON: Record<string, typeof CircleDot> = {
   single_choice: CircleDot, multiple_select: ListChecks, true_false: Eye, fill_blank: TextCursorInput,
   reorder: ListOrdered, matching: Link2, oral: MessageSquareText,
@@ -93,6 +93,7 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
   const loadForm = async () => {
     const url = formUrl.trim();
     if (!isGoogleFormUrl(url)) return toast('Link Google Form không hợp lệ. Link có dạng https://docs.google.com/forms/d/…/edit hoặc https://forms.gle/…', 'error');
+    if (isPublishedFormUrl(url)) return toast('Đây là link làm bài của form nên không có đáp án đúng. Hãy mở form trong Google Form (chế độ chỉnh sửa) rồi copy link có đuôi /edit, ví dụ https://docs.google.com/forms/d/…/edit.', 'error');
     setBusy('Đang đọc Google Form…');
     try {
       const r = formToQuestions(await api.importGoogleForm(url));
@@ -250,7 +251,7 @@ export function ImportDialog({ mode, onClose, onDone, onQuestions, defaults, pla
           ) : (
           <>
           <div className="row">
-            <button className="btn primary upload-doc" onClick={loadFile} disabled={!!busy}><FileUp size={18} /> <span>Tải tài liệu lên <span className="nowrap">(.docx, .pdf, .pptx, .xlsx, .csv)</span></span></button>
+            <button className="btn primary upload-doc" onClick={loadFile} disabled={!!busy}><FileUp size={18} /> <span>Tải tài liệu lên <span className="nowrap">(.docx, .pdf, .pptx, .xlsx, .csv, .html)</span></span></button>
             {fileName && <span className="badge green">{fileName}</span>}
           </div>
           <label className="field">
